@@ -1,0 +1,188 @@
+# Gene type definitions for GenBank sequence classification.
+# Each key is a gene type identifier; each value is a list of synonym
+# phrases that, when found in a Definition field, indicate that gene type.
+# All matching is case-insensitive.
+#
+# Gene types are grouped as:
+#   Mitochondrial (default): coi, 16s, 12s, cob, mtgenome, cox3, cox2
+#   Nuclear (default): 18-28s, its1-its2, ef-1, 28s, 18s, h3
+
+gene_types:
+  coi:
+    synonyms:
+      - cytochrome oxidase I
+      - cytochrome oxidase subunit 1 gene
+      - cytochrome c oxidase subunit I
+      - cytochrome oxidase subunit I
+      - cytochrome c oxidase subunit I
+      - cytochrome oxidase subunit 1
+      - mitochondrial COI
+      - cytochrome c oxidase I
+      - cytochrome c oxidase subunit 1
+      - cytochrome c oxidase gene
+      - cox1
+      - cytochrome oxidase subunit I-like
+      - COI
+      - CO1
+      - COXI
+      - COX1
+
+  16s:
+    synonyms:
+      - 16S ribosomal RNA
+      - 16S ribosomal RNA gene, partial sequence; mitochondrial
+      - large subunit ribosomal RNA gene, partial sequence; mitochondrial
+      - mitochondrial gene for 16S rRNA, partial sequence
+      - 16S ribosomal RNA, partial sequence
+      - large subunit ribosomal RNA
+      - 16S rRNA gene
+      - 16S ribosomal RNA gene
+      - 16S-rRNA
+      - 16S ribosomal
+      - 16S large subunit rRNA gene
+      - ribosomal RNA large subunit
+      - 16s rRNA
+      - 16S subunit RNA
+
+  12s:
+    synonyms:
+      - 12S ribosomal RNA gene, partial sequence; mitochondrial
+      - mitochondrial gene for 12S ribosomal RNA, patial sequence
+      - small subunit ribosomal RNA gene, partial sequence; mitochondrial
+      - small subunit ribosomal RNA gene
+      - small subunit ribosomal RNA gene, partial sequence; mitochondrial
+      - small subunit ribosomal
+      - 12S rRNA gene
+      - 12S rRNA
+      - 12S small subunit rRNA gene
+      - 12S rRNA, partial sequence
+      - ribosomal RNA small subunit
+      - 12S ribosomal RNA
+
+  cob:
+    synonyms:
+      - cytochrome b
+      - cytb
+      - cytochrome b gene, partial cds; mitochondrial
+      - mitochondrial cytb gene for cytochrome b, partial cds
+      - cytochrome b (Cytb) gene, partial cds; mitochondrial
+      - cytochrome b (CytB) gene, partial cds; mitochondrial
+      # NOTE: "cytochrome oxidase subunit b" is deliberately EXCLUDED.
+      # That refers to cytochrome OXIDASE subunit b (COB complex),
+      # which is NOT the same as cytochrome b (CYTB).
+      - COB
+      - cytochrome b-like
+      - cytB
+
+  mtgenome:
+    synonyms:
+      - "organelle: mitochondrion"
+      - mitochondrion, complete genome
+      - mitochondrion, partial genome
+      - mitochondrion sequence
+      - mitochondrial genome
+      - mitochondrial DNA, nearly complete genome
+      - "chromosome: MIT"
+      - mitochondrial_genome
+      - mt genome
+      - mtDNA
+      - complete sequence
+      - complete genome
+      - mitogenome
+      - mitochondrion, complete sequence
+
+  cox3:
+    synonyms:
+      - cytochrome oxidase subunit III
+      - cytochrome c oxidase subunit 3
+      - cytochrome oxidase 3
+      - cytochrome c oxidase subunit III
+      - cytochrome c oxidase III
+      - cytochrome oxidase subunit 3 mRNA
+      - cytochrome oxidase subunit 3
+      - cytochrome c oxidase subunit III (cox3) gene
+      - COX3
+      - CO3
+      - COXIII
+
+  cox2:
+    synonyms:
+      - cytochrome oxidase subunit II
+      - cytochrome oxidase subunit 2
+      - cytochrome c oxidase subunit II
+      - cytochrome c oxidase subunit 2
+      - COX2
+      - CO2
+      - COXII
+
+  18-28s:
+    synonyms:
+      - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
+      - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
+      - small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
+      - 18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence
+
+  its1-its2:
+    synonyms:
+      - 5.8S rRNA
+      - 5.8S ribosomal RNA
+      - internal transcribed spacer
+      - ITS1
+      - ITS2
+      - internal transcribed spacer 1 intergenic spacer
+      - internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence
+      - ITS
+
+  28s:
+    synonyms:
+      - 28S ribosomal RNA gene
+      - 28S ribosomal RNA gene, partial sequence
+      - large subunit ribosomal RNA gene, partial sequence
+      - 28S rRNA, partial sequence
+      - 28S rRNA
+      - large subunit ribosomal RNA
+      - ribosomal RNA large subunit gene
+      - 28S ribosomal RNA
+
+  ef-1:
+    synonyms:
+      - elongation factor-1 alpha (EF-1 alpha) mRNA
+      - elongation factor-1
+      - elongation factor-1alpha
+      - elongation factor 1-alpha
+      - ef1a
+      - ef-1a
+      - elongation factor 1 alpha
+      - EF1alpha
+
+  18s:
+    synonyms:
+      - small subunit ribosomal RNA gene, partial sequence
+      - 18S ribosomal RNA, partial sequence
+      - 18s rRNA, complete sequence
+      - 18S rRNA, partial sequence
+      - 18S ribosomal RNA gene, partial sequence
+      - 18S ribosomal RNA gene
+      - 18S ribosomal RNA
+      - small subunit RNA
+      - nuclear small subunit ribosomal RNA
+      - small subunit ribosomal RNA
+      - macronuclear small-subunit ribosomal RNA
+      - 18S small subunit ribosomal RNA
+      - 18S rRNA
+      - small subunit ribosomal RNA gen
+      - ribosomal RNA small-subunit
+
+  h3:
+    synonyms:
+      - histone H3
+      - histone 3
+      - histone 3 (H3)
+      - histone 3 (H3) gene, partial cds
+      - histone H3 gene
+      - H3 histone
+      - histone (H3) gene
+      - histone 3 gene

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "g2t"
+version = "1.0.0"
+description = "GenBank to Taxonomy: extract metadata, classify genes, build vouchers, organize by species"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    {name = "g2t contributors"},
+]
+keywords = ["genbank", "taxonomy", "bioinformatics", "gene-classification", "dna-barcoding"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "pandas>=1.5",
+    "biopython>=1.80",
+]
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+dev = ["pytest", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/bioinformatics/g2t"
+Repository = "https://github.com/bioinformatics/g2t"
+"Bug Tracker" = "https://github.com/bioinformatics/g2t/issues"
+
+[project.scripts]
+g2t = "g2t._cli:main_pipeline"
+g2t-extract = "g2t._cli:main_extract"
+g2t-classify = "g2t._cli:main_classify"
+g2t-voucher = "g2t._cli:main_voucher"
+g2t-organize = "g2t._cli:main_organize"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+g2t = ["data/*.yaml"]
