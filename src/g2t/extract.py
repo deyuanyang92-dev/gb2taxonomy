@@ -703,7 +703,8 @@ def extract_assembly_from_record(record: SeqRecord) -> Tuple[Optional[Dict[str, 
 BASE_METADATA_COLUMNS = [
     "LocusID", "ACCESSION", "Version", "Length", "MoleculeType", "Topology",
     "Division", "Date", "Definition", "Keywords", "Organism", "Taxonomy",
-    "organism", "mol_type", "isolate", "host", "db_xref", "country",
+    "organism", "mol_type", "organelle", "isolate", "host", "db_xref", "country",
+    "specimen_voucher", "culture_collection", "clone", "strain",
     "collection_date", "collected_by", "identified_by", "note",
     "TaxonID", "Class", "Order", "Family", "Genus",
 ]
@@ -715,7 +716,7 @@ ASSEMBLY_CSV_COLUMNS = [
 
 
 def get_ordered_fieldnames(row: Dict, base: List[str]) -> List[str]:
-    ordered = [c for c in base if c in row]
+    ordered = list(base)
     extra = [c for c in row if c not in ordered]
     return ordered + extra
 
