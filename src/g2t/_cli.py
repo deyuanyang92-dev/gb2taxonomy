@@ -13,8 +13,60 @@ import argparse
 import sys
 
 
+def check_dependencies():
+    """Check required and optional dependencies, print helpful messages if missing."""
+    missing_required = []
+    missing_optional = []
+
+    # Required dependencies
+    try:
+        import pandas
+    except ImportError:
+        missing_required.append("pandas")
+
+    try:
+        import Bio
+    except ImportError:
+        missing_required.append("biopython")
+
+    # Optional dependencies
+    try:
+        import yaml
+    except ImportError:
+        missing_optional.append("pyyaml (optional, for custom gene dictionaries)")
+
+    try:
+        import ete3
+    except ImportError:
+        missing_optional.append("ete3 (optional, for NCBI taxonomy lookup)")
+
+    if missing_required:
+        print("\n" + "=" * 60, file=sys.stderr)
+        print("ERROR: Missing required dependencies!", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        print(f"\nMissing: {', '.join(missing_required)}\n", file=sys.stderr)
+        print("Please install with one of the following methods:\n", file=sys.stderr)
+        print("  # Method 1: Install g2t (recommended)", file=sys.stderr)
+        print("  pip install -e /path/to/gb2taxonomy\n", file=sys.stderr)
+        print("  # Method 2: Install dependencies directly", file=sys.stderr)
+        print("  pip install pandas biopython\n", file=sys.stderr)
+        print("  # Method 3: Using conda/mamba", file=sys.stderr)
+        print("  mamba create -n g2t python=3.10 pandas biopython -y", file=sys.stderr)
+        print("  mamba activate g2t", file=sys.stderr)
+        print("  pip install -e /path/to/gb2taxonomy\n", file=sys.stderr)
+        print("=" * 60 + "\n", file=sys.stderr)
+        sys.exit(1)
+
+    if missing_optional:
+        import logging
+        logging.warning(f"Optional dependencies not installed: {', '.join(missing_optional)}")
+
+
 def main_pipeline(argv=None):
     """g2t — Run the full GenBank-to-Taxonomy pipeline."""
+    # Check dependencies first
+    check_dependencies()
+
     ap = argparse.ArgumentParser(
         prog="g2t",
         description="GenBank to Taxonomy pipeline: extract -> classify -> voucher -> organize",
@@ -74,23 +126,27 @@ def main_pipeline(argv=None):
 
 def main_extract(argv=None):
     """g2t-extract — Extract metadata from GenBank files."""
+    check_dependencies()
     from g2t.extract import main
     return main(argv)
 
 
 def main_classify(argv=None):
     """g2t-classify — Classify gene types from metadata CSV."""
+    check_dependencies()
     from g2t.classify import main
     return main(argv)
 
 
 def main_voucher(argv=None):
     """g2t-voucher — Build species voucher identifiers."""
+    check_dependencies()
     from g2t.voucher import main
     return main(argv)
 
 
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
+    check_dependencies()
     from g2t.organize import main
     return main(argv)

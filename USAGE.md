@@ -6,22 +6,68 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 
 在分类学和系统发育学研究中，我们通常需要对同一标本测序多个基因标记（如 COI、16S、18S 等）。g2t 可以自动从 GenBank 文件中提取这些信息，识别基因类型，通过标本凭证号关联序列，最终生成物种 × 基因的矩阵表。
 
+## 依赖要求
+
+**核心依赖** (必需):
+- Python ≥ 3.9
+- pandas ≥ 1.5
+- biopython ≥ 1.80
+
+**可选依赖**:
+- pyyaml: 支持自定义基因词典
+- ete3: NCBI 分类学查询
+- pytest: 开发测试
+
 ## 安装
 
+### 方法 1: 使用现有环境 (推荐)
+
+如果你的环境已经有 pandas 和 biopython，可以直接安装：
+
 ```bash
-pip install -e .
-pip install -e ".[dev]"    # 包含测试依赖
-pip install -e ".[yaml]"    # 支持自定义基因词典
+pip install -e /path/to/gb2taxonomy
 ```
 
-**依赖**: Python ≥3.9, pandas, biopython
+### 方法 2: 创建新环境
+
+```bash
+# 使用 mamba (推荐)
+mamba create -n g2t python=3.10 -y
+mamba activate g2t
+pip install -e /path/to/gb2taxonomy
+
+# 或使用 conda
+conda create -n g2t python=3.10 -y
+conda activate g2t
+pip install -e /path/to/gb2taxonomy
+
+# 或使用 pip + venv
+python -m venv g2t_env
+source g2t_env/bin/activate  # Linux/Mac
+# g2t_env\Scripts\activate   # Windows
+pip install -e /path/to/gb2taxonomy
+```
+
+### 方法 3: 仅安装依赖
+
+```bash
+pip install pandas biopython
+```
+
+### 验证安装
+
+```bash
+g2t --help
+```
+
+如果缺少依赖，程序会自动提示安装方法。
 
 ---
 
 ## 快速开始
 
 ```bash
-# 运行完整流程
+# 运行完整流程 (推荐使用 --stream 处理大文件)
 g2t -i /path/to/genbank_files -o /path/to/output --stream
 
 # 使用 --resume 跳过已完成的步骤
@@ -160,6 +206,29 @@ g2t-classify -i input.csv -o output --path_dict custom_dict.yaml
 g2t -i input -o output --skip_extract    # 跳过 Step 1
 g2t -i input -o output --skip_classify   # 跳过 Step 2
 ```
+
+### Q: 提示缺少依赖怎么办？
+
+程序会自动检测并提示安装方法。如果看到错误信息：
+
+```
+ERROR: Missing required dependencies!
+Missing: pandas, biopython
+```
+
+请按照提示安装：
+
+```bash
+pip install pandas biopython
+```
+
+---
+
+## 性能建议
+
+- **大文件处理**: 使用 `--stream` 参数，避免内存溢出
+- **多文件处理**: 使用 `--batch` 参数并行处理
+- **断点续传**: 使用 `--resume` 参数跳过已完成步骤
 
 ---
 
