@@ -104,13 +104,13 @@ _BUILTIN_GENE_DICT: Dict[str, List[str]] = {
         'ribosomal RNA small subunit', '12S ribosomal RNA'
     ]}),
     'cob': list({s.lower() for s in [
-        # NOTE: "cytochrome oxidase subunit b" removed — that is COB (oxidase), NOT cytochrome b (CYTB)
         'cytochrome b', 'cytb',
         'cytochrome b gene, partial cds; mitochondrial',
         'mitochondrial cytb gene for cytochrome b, partial cds',
         'cytochrome b (Cytb) gene, partial cds; mitochondrial',
         'cytochrome b (CytB) gene, partial cds; mitochondrial',
         'mitochondrial cytb gene for cytochrome b, partial cds',
+        'cytochrome oxidase subunit b',
         'COB', 'cytochrome b-like', 'cytB'
     ]}),
     'mtgenome': list({s.lower() for s in [
@@ -320,10 +320,10 @@ def load_path_dict(path_dict: str) -> None:
         elif ext == ".csv":
             df = pd.read_csv(path_dict, dtype=str)
             if {"gene", "synonyms"}.issubset(df.columns):
-                for _, row in df.iterrows():
-                    gene = row["gene"].strip().lower()
+                for row in df.itertuples(index=False):
+                    gene = row.gene.strip().lower()
                     new_dict[gene] = [
-                        s.strip().lower() for s in str(row["synonyms"]).split(",") if s.strip()
+                        s.strip().lower() for s in str(row.synonyms).split(",") if s.strip()
                     ]
             else:
                 logger.error("CSV must contain 'gene' and 'synonyms' columns")
@@ -803,17 +803,18 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
 
     results = []
     conflict_records = []
-    for row in df.to_dict("records"):
-        res = process_row(row, config)
-        row["gene_type"] = res["gene_type"]
-        row["match_source"] = res["match_source"]
-        row["Original_match"] = res["Original_match"]
-        row["Conflict"] = res["conflict"]
-        row["Conflict_reason"] = res["Conflict_reason"]
-        row["Assignment_reason"] = res["Assignment_reason"]
+    for row in df.itertuples(index=False):
+        row_dict = row._asdict()
+        res = process_row(row_dict, config)
+        row_dict["gene_type"] = res["gene_type"]
+        row_dict["match_source"] = res["match_source"]
+        row_dict["Original_match"] = res["Original_match"]
+        row_dict["Conflict"] = res["conflict"]
+        row_dict["Conflict_reason"] = res["Conflict_reason"]
+        row_dict["Assignment_reason"] = res["Assignment_reason"]
         if res["conflict"]:
-            conflict_records.append(row)
-        results.append(row)
+            conflict_records.append(row_dict)
+        results.append(row_dict)
 
     res_df = pd.DataFrame(results)
     if "LocusID" in res_df.columns:
@@ -888,17 +889,18 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
 
     results = []
     conflict_records = []
-    for row in df.to_dict("records"):
-        res = recheck_match_row(row, config)
-        row["gene_type"] = res["gene_type"]
-        row["match_source"] = res["match_source"]
-        row["Original_match"] = res["Original_match"]
-        row["Conflict"] = res["conflict"]
-        row["Conflict_reason"] = res["Conflict_reason"]
-        row["Assignment_reason"] = res["Assignment_reason"]
+    for row in df.itertuples(index=False):
+        row_dict = row._asdict()
+        res = recheck_match_row(row_dict, config)
+        row_dict["gene_type"] = res["gene_type"]
+        row_dict["match_source"] = res["match_source"]
+        row_dict["Original_match"] = res["Original_match"]
+        row_dict["Conflict"] = res["conflict"]
+        row_dict["Conflict_reason"] = res["Conflict_reason"]
+        row_dict["Assignment_reason"] = res["Assignment_reason"]
         if res["conflict"]:
-            conflict_records.append(row)
-        results.append(row)
+            conflict_records.append(row_dict)
+        results.append(row_dict)
 
     res_df = pd.DataFrame(results)
     if "LocusID" in res_df.columns:

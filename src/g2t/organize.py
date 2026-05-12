@@ -98,13 +98,13 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> Di
     gene_order = config.gene_order
     gene_ids: Dict[str, List[str]] = {g: [] for g in gene_order}
 
-    for _, row in group.iterrows():
-        if pd.isna(row.get('gene_type')) or pd.isna(row.get('LocusID')):
+    for row in group.itertuples(index=False):
+        if pd.isna(row.gene_type) or pd.isna(row.LocusID):
             continue
-        locusid = str(row['LocusID']).strip()
+        locusid = str(row.LocusID).strip()
         if not locusid:
             continue
-        raw_genes = [g.strip() for g in str(row['gene_type']).split(',')]
+        raw_genes = [g.strip() for g in str(row.gene_type).split(',')]
         genes = [normalize_gene_name(g) for g in raw_genes]
         for gene in genes:
             if gene in gene_ids:
@@ -204,14 +204,14 @@ def metadata_per_gene(group: pd.DataFrame, gene_order: List[str],
             result[col] = ""
             continue
         gene_vals: Dict[str, Set[str]] = {g: set() for g in gene_order}
-        for _, row in group.iterrows():
-            if pd.isna(row.get('gene_type')):
+        for row in group.itertuples(index=False):
+            if pd.isna(row.gene_type):
                 continue
-            val = row.get(col)
+            val = getattr(row, col, None)
             if pd.isna(val) or not str(val).strip():
                 continue
             val_str = str(val).strip()
-            genes = [normalize_gene_name(g.strip()) for g in str(row['gene_type']).split(',')]
+            genes = [normalize_gene_name(g.strip()) for g in str(row.gene_type).split(',')]
             for gene in genes:
                 if gene in gene_vals:
                     gene_vals[gene].add(val_str)
@@ -223,18 +223,19 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
                       columns: List[str]) -> Dict[str, str]:
     result = {}
     col_locusid_val: Dict[str, Dict[str, str]] = {col: {} for col in columns}
-    for _, row in group.iterrows():
-        locusid = str(row.get('LocusID', '')).strip() if pd.notna(row.get('LocusID')) else ""
+    for row in group.itertuples(index=False):
+        locusid = str(row.LocusID).strip() if pd.notna(row.LocusID) else ""
         if not locusid:
             continue
         for col in columns:
-            if col not in row or pd.isna(row[col]) or not str(row[col]).strip():
+            val = getattr(row, col, None)
+            if pd.isna(val) or not str(val).strip():
                 continue
-            val = str(row[col]).strip()
+            val_str = str(val).strip()
             if locusid not in col_locusid_val[col]:
-                col_locusid_val[col][locusid] = val
-            elif val not in col_locusid_val[col][locusid]:
-                col_locusid_val[col][locusid] += f";{val}"
+                col_locusid_val[col][locusid] = val_str
+            elif val_str not in col_locusid_val[col][locusid]:
+                col_locusid_val[col][locusid] += f";{val_str}"
 
     for col in columns:
         this_col_data = col_locusid_val.get(col, {})

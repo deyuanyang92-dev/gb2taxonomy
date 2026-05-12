@@ -67,9 +67,7 @@ gene_types:
       - mitochondrial cytb gene for cytochrome b, partial cds
       - cytochrome b (Cytb) gene, partial cds; mitochondrial
       - cytochrome b (CytB) gene, partial cds; mitochondrial
-      # NOTE: "cytochrome oxidase subunit b" is deliberately EXCLUDED.
-      # That refers to cytochrome OXIDASE subunit b (COB complex),
-      # which is NOT the same as cytochrome b (CYTB).
+      - cytochrome oxidase subunit b
       - COB
       - cytochrome b-like
       - cytB

@@ -766,26 +766,27 @@ def _process_record_loop(
     """Shared record processing loop for a single GB file.
 
     callback receives (metadata, assembly_data, assembly_source, has_asm, track, result) for each record.
+
+    Optimized: Single-pass file reading (no pre-validation).
     """
     result = FileResult(file_path=file_path)
     start = time.time()
 
-    # P1-11: Combined validate + count in single read
-    valid, err_msg, record_count = validate_and_estimate_records(file_path)
-    if not valid:
+    # Quick file existence check
+    if not os.path.exists(file_path):
         result.status = FileStatus.INVALID
-        result.error_message = err_msg
+        result.error_message = "File does not exist"
         result.elapsed_time = time.time() - start
         return result
 
-    result.total_records = record_count
-    logger.info(f"  Size: {format_size(os.path.getsize(file_path))}, Records: {record_count}")
-
-    if record_count == 0:
+    sz = os.path.getsize(file_path)
+    if sz == 0:
         result.status = FileStatus.EMPTY
-        result.error_message = "No complete records"
+        result.error_message = "Empty file (0 bytes)"
         result.elapsed_time = time.time() - start
         return result
+
+    logger.info(f"  Size: {format_size(sz)}")
 
     record_idx = 0
     try:
@@ -839,11 +840,14 @@ def _process_record_loop(
                     mem = get_memory_mb()
                     mem_s = f", mem:{mem:.0f}MB" if mem else ""
                     logger.info(
-                        f"  Progress: {done}/{record_count} ({speed:.0f}/s{mem_s})")
+                        f"  Progress: {done} ({speed:.0f}/s{mem_s})")
 
     except Exception as e:
         result.error_message = f"Biopython parse error: {e}"
         logger.error(f"  File-level error: {e}")
+
+    # Set total records after processing
+    result.total_records = record_idx
 
     # Status determination
     if do_metadata:
