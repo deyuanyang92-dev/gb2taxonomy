@@ -4,6 +4,28 @@
 
 ---
 
+## 未匹配序列分析 (2026-05-12)
+
+**功能**: g2t 现在会自动生成未匹配序列报告，帮助用户了解哪些序列未被分类。
+
+**报告位置**: `labeled_genes/unmatched_report.txt`
+
+**常见未匹配类型**:
+
+| 类别 | 说明 | 处理建议 |
+|------|------|----------|
+| mRNA/cDNA | cDNA 克隆序列 | 正常忽略，非标准基因标记 |
+| TPA_assembly | 第三方注释组装数据 | 正常忽略 |
+| whole_genome_shotgun | 基因组鸟枪法测序 | 正常忽略 |
+| genome_assembly | 基因组组装数据 | 正常忽略 |
+| creatine_kinase | 肌酸激酶基因 | 可添加到 gene_dict.yaml |
+| ATP_synthase | ATP 合酶基因 | 可添加到 gene_dict.yaml |
+
+**如何添加新基因类型**:
+编辑 `src/g2t/data/gene_dict.yaml`，添加新的基因类型和同义词。
+
+---
+
 ## 2026-05-12: Exit code 1 但处理成功
 
 **问题描述**:

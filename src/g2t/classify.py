@@ -975,6 +975,104 @@ def _save_csv(df: pd.DataFrame, output_dir: str, filename: str, label: str) -> N
         logger.error(f"Failed to save {label}: {e}")
 
 
+def categorize_unmatched_definition(def_text: str) -> str:
+    """Categorize unmatched sequence by its Definition field."""
+    def_lower = str(def_text).lower()
+
+    # Genome/assembly data
+    if 'whole genome shotgun' in def_lower:
+        return 'whole_genome_shotgun'
+    elif 'genome assembly' in def_lower:
+        return 'genome_assembly'
+    elif 'tpa_asm' in def_lower or 'tpa:' in def_lower:
+        return 'TPA_assembly'
+    elif 'chromosome:' in def_lower:
+        return 'chromosome_data'
+    elif 'scaffold' in def_lower:
+        return 'scaffold'
+    elif 'contig' in def_lower:
+        return 'contig'
+
+    # RNA types
+    elif 'mrna sequence' in def_lower or 'cdna clone' in def_lower:
+        return 'mRNA/cDNA'
+    elif 'trna' in def_lower:
+        return 'tRNA'
+    elif 'rrna' in def_lower and 'mitochondrial' not in def_lower:
+        return 'nuclear_rRNA'
+
+    # Other genes not in standard list
+    elif 'nad' in def_lower or 'nadh' in def_lower:
+        return 'NADH_dehydrogenase'
+    elif 'atp synthase' in def_lower or 'atpase' in def_lower:
+        return 'ATP_synthase'
+    elif 'creatine kinase' in def_lower:
+        return 'creatine_kinase'
+    elif 'cytochrome b' in def_lower or 'cytb' in def_lower:
+        return 'cytochrome_b_variant'
+    elif 'nadh' in def_lower:
+        return 'NADH_dehydrogenase'
+    else:
+        return 'other'
+
+
+def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> str:
+    """Generate a summary report of unmatched sequences by category."""
+    if unmatched_df.empty:
+        return ""
+
+    # Categorize each unmatched sequence
+    unmatched_df = unmatched_df.copy()
+    unmatched_df['category'] = unmatched_df['Definition'].apply(categorize_unmatched_definition)
+
+    # Generate summary
+    summary_lines = []
+    summary_lines.append("=" * 60)
+    summary_lines.append("UNMATCHED SEQUENCES REPORT")
+    summary_lines.append("=" * 60)
+    summary_lines.append(f"Total unmatched: {len(unmatched_df)}")
+    summary_lines.append("")
+
+    category_counts = unmatched_df['category'].value_counts()
+    summary_lines.append("Category breakdown:")
+    summary_lines.append("-" * 40)
+
+    for cat, count in category_counts.items():
+        pct = count / len(unmatched_df) * 100
+        summary_lines.append(f"  {cat}: {count} ({pct:.1f}%)")
+
+    summary_lines.append("")
+    summary_lines.append("Sample definitions per category:")
+    summary_lines.append("-" * 40)
+
+    for cat in category_counts.index[:5]:  # Top 5 categories
+        samples = unmatched_df[unmatched_df['category'] == cat]['Definition'].head(3).tolist()
+        summary_lines.append(f"\n[{cat}]")
+        for s in samples:
+            summary_lines.append(f"  - {str(s)[:100]}...")
+
+    summary_lines.append("")
+    summary_lines.append("=" * 60)
+
+    # Save report
+    report_path = os.path.join(output_dir, "unmatched_report.txt")
+    report_content = "\n".join(summary_lines)
+    with open(report_path, 'w', encoding='utf-8') as f:
+        f.write(report_content)
+
+    # Also save categorized CSV
+    categorized_path = os.path.join(output_dir, "unmatched_categorized.csv")
+    unmatched_df.to_csv(categorized_path, index=False)
+
+    logger.info(f"Unmatched report saved: {report_path}")
+    logger.info(f"Categorized unmatched: {categorized_path}")
+
+    # Print summary to console
+    print("\n" + report_content)
+
+    return report_path
+
+
 # =========================
 # Main
 # =========================
@@ -1130,6 +1228,16 @@ def classify(
 
         if extract_gene_types:
             extract_genes(prematch_df, extract_gene_types, output_dir)
+
+        # Generate unmatched report
+        unmatched_file = os.path.join(output_dir, unmatched_output)
+        if os.path.exists(unmatched_file):
+            try:
+                unmatched_df = pd.read_csv(unmatched_file, dtype=str)
+                if not unmatched_df.empty:
+                    generate_unmatched_report(unmatched_df, output_dir)
+            except Exception as e:
+                logger.warning(f"Failed to generate unmatched report: {e}")
 
         all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
         if os.path.exists(all_file):
