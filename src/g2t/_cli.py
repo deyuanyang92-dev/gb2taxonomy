@@ -9,8 +9,19 @@ Installed as console scripts:
   g2t-organize    → main_organize
 """
 
+from __future__ import annotations
+
 import argparse
+import logging
 import sys
+
+
+def _configure_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
 
 def check_dependencies():
@@ -127,6 +138,7 @@ def main_pipeline(argv=None):
 def main_extract(argv=None):
     """g2t-extract — Extract metadata from GenBank files."""
     check_dependencies()
+    _configure_logging()
     from g2t.extract import main
     return main(argv)
 
@@ -134,6 +146,7 @@ def main_extract(argv=None):
 def main_classify(argv=None):
     """g2t-classify — Classify gene types from metadata CSV."""
     check_dependencies()
+    _configure_logging()
     from g2t.classify import main
     return main(argv)
 
@@ -141,6 +154,7 @@ def main_classify(argv=None):
 def main_voucher(argv=None):
     """g2t-voucher — Build species voucher identifiers."""
     check_dependencies()
+    _configure_logging()
     from g2t.voucher import main
     return main(argv)
 
@@ -148,5 +162,6 @@ def main_voucher(argv=None):
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
     check_dependencies()
+    _configure_logging()
     from g2t.organize import main
     return main(argv)

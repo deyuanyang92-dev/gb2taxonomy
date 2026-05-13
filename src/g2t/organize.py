@@ -11,6 +11,8 @@ Improvements:
   - Raises exceptions instead of sys.exit() for testability
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import sys
@@ -23,7 +25,6 @@ import time
 
 from g2t.utils import read_table, write_csv, StepResult
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -38,13 +39,16 @@ class OrganizeConfig:
         "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"
     ])
 
-    metadata_mode: str = "casual"
+    metadata_mode: str = "first_nonempty"
 
     meta_columns: List[str] = field(default_factory=lambda: [
         "Conflict", "match_source", "Original_match", "Conflict_reason",
         "Assignment_reason", "Class", "Order", "Family", "Genus",
         "PCR_primers", "geo_loc_name", "lat_lon", "collected_by",
-        "identified_by", "altitude"
+        "identified_by", "altitude",
+        "country", "collection_date", "isolate", "specimen_voucher",
+        "host", "habitat", "isolation_source", "culture_collection",
+        "clone", "strain", "note",
     ])
 
     extra_columns: List[str] = field(default_factory=list)
@@ -399,7 +403,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig = None) -
     return StepResult(success=True, output_file=output_file, rows=len(out_df), elapsed=elapsed)
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         description="Species-Gene Organizer: group gene assignments by species",
         formatter_class=argparse.RawDescriptionHelpFormatter

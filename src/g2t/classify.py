@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import pandas as pd
 import argparse
@@ -8,7 +10,8 @@ import warnings
 import importlib.util
 from dataclasses import dataclass, field
 from typing import Tuple, Optional, Dict, Any, List, Set
-from g2t.utils import StepResult, parse_interval, length_in_range
+from g2t.utils import StepResult, parse_interval, length_in_range, UnsupportedFormatError
+from g2t.utils import read_table as utils_read_table
 
 # =========================
 # Logging configuration
@@ -32,14 +35,13 @@ def setup_logging(log_file: str = 'extract_methods.log') -> None:
     logger.addHandler(console_handler)
 
 
-setup_logging()
 logger = logging.getLogger(__name__)
 
 
 # =========================
 # GENE_DICT: load from YAML or use built-in fallback
 # =========================
-def _load_gene_dict_yaml(yaml_path=None):
+def _load_gene_dict_yaml(yaml_path: Optional[str] = None) -> Optional[Dict[str, List[str]]]:
     """Load gene dictionary from YAML file. Returns None if unavailable."""
     if yaml_path is None:
         try:
@@ -235,6 +237,12 @@ def _precompile_patterns():
 _precompile_patterns()
 
 
+def _reset_patterns():
+    """Clear and recompile patterns — for test isolation."""
+    _COMPILED_PATTERNS.clear()
+    _precompile_patterns()
+
+
 def init_gene_groups(mtgenes_list: List[str], ntgenes_list: List[str]) -> Tuple[Set[str], Set[str]]:
     """Initialize mitochondrial/nuclear gene sets. Returns (mito_genes, nuclear_genes)."""
     mito_genes = {g.strip().lower() for g in mtgenes_list}
@@ -264,9 +272,9 @@ def init_gene_groups(mtgenes_list: List[str], ntgenes_list: List[str]) -> Tuple[
 class MatchConfig:
     if_remove_matched: str = "no"
 
-    length2_mtgenes: str = "200:50000"
-    length2_ntgenes: str = "200:50000"
-    global_length_range: str = "200:50000"
+    length2_mtgenes: str = "150:50000"
+    length2_ntgenes: str = "150:50000"
+    global_length_range: str = "150:50000"
 
     gene_length_ranges: Dict[str, str] = field(default_factory=lambda: {
         "mtgenome": "3000:500000",
@@ -776,16 +784,10 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     os.makedirs(output_dir, exist_ok=True)
 
     ext = os.path.splitext(input_file)[1].lower()
-    read_funcs = {
-        ".csv": lambda f: pd.read_csv(f, dtype=str),
-        ".tsv": lambda f: pd.read_csv(f, sep="\t", dtype=str),
-        ".xls": lambda f: pd.read_excel(f, dtype=str),
-        ".xlsx": lambda f: pd.read_excel(f, dtype=str),
-    }
-    if ext not in read_funcs:
+    if ext not in (".csv", ".tsv", ".xls", ".xlsx", ".txt"):
         logger.error(f"Unsupported format: {ext}")
-        sys.exit(1)
-    df = read_funcs[ext](input_file)
+        raise UnsupportedFormatError(f"Unsupported format: {ext}")
+    df = utils_read_table(input_file)
     df.columns = df.columns.str.strip()
 
     df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True)
@@ -856,16 +858,10 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
     os.makedirs(output_dir, exist_ok=True)
 
     ext = os.path.splitext(input_file)[1].lower()
-    read_funcs = {
-        ".csv": lambda f: pd.read_csv(f, dtype=str),
-        ".tsv": lambda f: pd.read_csv(f, sep="\t", dtype=str),
-        ".xls": lambda f: pd.read_excel(f, dtype=str),
-        ".xlsx": lambda f: pd.read_excel(f, dtype=str),
-    }
-    if ext not in read_funcs:
+    if ext not in (".csv", ".tsv", ".xls", ".xlsx", ".txt"):
         logger.error(f"Unsupported format: {ext}")
-        sys.exit(1)
-    df = read_funcs[ext](input_file)
+        raise UnsupportedFormatError(f"Unsupported format: {ext}")
+    df = utils_read_table(input_file)
     df.columns = df.columns.str.strip()
 
     if df.empty:
@@ -1010,8 +1006,6 @@ def categorize_unmatched_definition(def_text: str) -> str:
         return 'creatine_kinase'
     elif 'cytochrome b' in def_lower or 'cytb' in def_lower:
         return 'cytochrome_b_variant'
-    elif 'nadh' in def_lower:
-        return 'NADH_dehydrogenase'
     else:
         return 'other'
 
@@ -1077,6 +1071,7 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
 # Main
 # =========================
 def _run_cli(args: argparse.Namespace) -> None:
+    setup_logging()
     logger.info("=" * 60)
     logger.info("Gene Type Classifier (refactored)")
     logger.info("=" * 60)
@@ -1168,7 +1163,7 @@ def _run_cli(args: argparse.Namespace) -> None:
                     all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
                     merged.to_csv(all_file, index=False)
                     logger.info(f"Merged results: {all_file} ({len(merged)} records)")
-                except Exception as e:
+                except (OSError, pd.errors.EmptyDataError) as e:
                     logger.error(f"Merge failed: {e}")
         else:
             logger.warning(f"Unmatched file not found: {unmatched_file}, skipping round 2")
@@ -1236,7 +1231,7 @@ def classify(
                 unmatched_df = pd.read_csv(unmatched_file, dtype=str)
                 if not unmatched_df.empty:
                     generate_unmatched_report(unmatched_df, output_dir)
-            except Exception as e:
+            except (OSError, pd.errors.EmptyDataError) as e:
                 logger.warning(f"Failed to generate unmatched report: {e}")
 
         all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
@@ -1256,7 +1251,7 @@ def classify(
         return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         description="Gene Type Classifier: GenBank metadata -> gene_type labels",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -1286,9 +1281,9 @@ def main(argv=None):
     parser.add_argument('--gene_length_range', nargs='*', default=None,
                         help='Per-gene length ranges: gene=lower:upper')
 
-    parser.add_argument('--length2_mtgenes', default='200:50000')
-    parser.add_argument('--length2_ntgenes', default='200:50000')
-    parser.add_argument('--length_range2_all', default='200:50000')
+    parser.add_argument('--length2_mtgenes', default='150:50000')
+    parser.add_argument('--length2_ntgenes', default='150:50000')
+    parser.add_argument('--length_range2_all', default='150:50000')
     parser.add_argument('--length', default='all')
     parser.add_argument('--organelle', default='all')
     parser.add_argument('--moleculetype', default='all')

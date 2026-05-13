@@ -1,11 +1,12 @@
-"""
-Pipeline orchestrator — calls step functions directly (no subprocess).
-"""
+"""Pipeline orchestrator — calls step functions directly (no subprocess)."""
 
+from __future__ import annotations
+
+import importlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from g2t.utils import is_valid_output
 
@@ -18,6 +19,52 @@ class PipelineResult:
     final_output: str = ""
     elapsed: float = 0.0
     log: List[str] = field(default_factory=list)
+
+
+def _run_step(
+    *,
+    step_num: int,
+    skip: bool,
+    resume: bool,
+    output_path: Path,
+    module_path: str,
+    func_name: str,
+    kwargs: dict,
+    quiet: bool,
+    log_lines: List[str],
+    fallback_dir: Optional[Path] = None,
+    fallback_glob: Optional[str] = None,
+) -> Optional[str]:
+    """Run a single pipeline step.
+
+    Returns an error message string on failure, None on success.
+    Raises FileNotFoundError if fallback check fails.
+    """
+    if skip:
+        if fallback_dir and fallback_glob and not is_valid_output(output_path):
+            _find_fallback(fallback_dir, fallback_glob, output_path, f"Step {step_num}")
+        return None
+
+    if resume and is_valid_output(output_path):
+        msg = f"Step {step_num} skipped (resume): {output_path}"
+        log_lines.append(msg)
+        if not quiet:
+            print(msg)
+    else:
+        mod = importlib.import_module(module_path)
+        step_func = getattr(mod, func_name)
+        result = step_func(**kwargs)
+        if not result.success:
+            detail = getattr(result, "output_file", "")
+            return f"Step {step_num} failed" + (f": {detail}" if detail else "")
+        msg = f"Step {step_num} done: {output_path} ({result.rows} rows, {result.elapsed:.1f}s)"
+        log_lines.append(msg)
+        if not quiet:
+            print(msg)
+
+    if fallback_dir and fallback_glob and not is_valid_output(output_path):
+        _find_fallback(fallback_dir, fallback_glob, output_path, f"Step {step_num}")
+    return None
 
 
 def run(
@@ -62,149 +109,89 @@ def run(
     out_updated_voucher = voucher_dir / "updated_species_voucher.csv"
     out_organized = organize_dir / "organized_species_voucher.csv"
 
+    def _fail(msg: str) -> PipelineResult:
+        return PipelineResult(
+            success=False, output_dir=str(out_root),
+            steps_completed=steps_completed, elapsed=time.time() - start_time,
+            log=log_lines + [msg],
+        )
+
     # --- Step 1: Extract ---
+    step1_kwargs = dict(
+        input_files=input_files,
+        output_dir=str(extract_dir),
+        stream=stream,
+        batch=batch,
+        max_tasks=max_tasks,
+        final_name="final.csv",
+    )
+    if extract_extra:
+        step1_kwargs.update(extract_extra)
+    err = _run_step(
+        step_num=1, skip=skip_extract, resume=resume,
+        output_path=out_final_csv, module_path="g2t.extract", func_name="extract",
+        kwargs=step1_kwargs, quiet=quiet, log_lines=log_lines,
+        fallback_dir=extract_dir, fallback_glob="*final*.csv",
+    )
+    if err:
+        return _fail(err)
     if not skip_extract:
-        if resume and is_valid_output(out_final_csv):
-            msg = f"Step 1 skipped (resume): {out_final_csv}"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-        else:
-            from g2t.extract import extract as step_extract
-
-            step_kwargs = dict(
-                input_files=input_files,
-                output_dir=str(extract_dir),
-                stream=stream,
-                batch=batch,
-                max_tasks=max_tasks,
-                final_name="final.csv",
-            )
-            if extract_extra:
-                step_kwargs.update(extract_extra)
-
-            result = step_extract(**step_kwargs)
-            if not result.success:
-                return PipelineResult(
-                    success=False, output_dir=str(out_root),
-                    steps_completed=steps_completed, elapsed=time.time() - start_time,
-                    log=log_lines + [f"Step 1 failed: {result.output_file}"],
-                )
-            msg = f"Step 1 done: {out_final_csv} ({result.rows} rows, {result.elapsed:.1f}s)"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-
-        if not is_valid_output(out_final_csv):
-            _find_fallback(extract_dir, "*final*.csv", out_final_csv, "Step 1")
         steps_completed += 1
-    else:
-        if not is_valid_output(out_final_csv):
-            _find_fallback(extract_dir, "*final*.csv", out_final_csv, "Step 1")
 
     # --- Step 2: Classify ---
+    step2_kwargs = dict(
+        input_file=str(out_final_csv),
+        output_dir=str(classify_dir),
+    )
+    if classify_extra:
+        step2_kwargs.update(classify_extra)
+    err = _run_step(
+        step_num=2, skip=skip_classify, resume=resume,
+        output_path=out_assigned_all, module_path="g2t.classify", func_name="classify",
+        kwargs=step2_kwargs, quiet=quiet, log_lines=log_lines,
+        fallback_dir=classify_dir, fallback_glob="*assigned*all*.csv",
+    )
+    if err:
+        return _fail(err)
     if not skip_classify:
-        if resume and is_valid_output(out_assigned_all):
-            msg = f"Step 2 skipped (resume): {out_assigned_all}"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-        else:
-            from g2t.classify import classify as step_classify
-
-            step_kwargs = dict(
-                input_file=str(out_final_csv),
-                output_dir=str(classify_dir),
-            )
-            if classify_extra:
-                step_kwargs.update(classify_extra)
-
-            result = step_classify(**step_kwargs)
-            if not result.success:
-                return PipelineResult(
-                    success=False, output_dir=str(out_root),
-                    steps_completed=steps_completed, elapsed=time.time() - start_time,
-                    log=log_lines + [f"Step 2 failed"],
-                )
-            msg = f"Step 2 done: {out_assigned_all} ({result.rows} rows, {result.elapsed:.1f}s)"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-
-        if not is_valid_output(out_assigned_all):
-            _find_fallback(classify_dir, "*assigned*all*.csv", out_assigned_all, "Step 2")
         steps_completed += 1
-    else:
-        if not is_valid_output(out_assigned_all):
-            _find_fallback(classify_dir, "*assigned*all*.csv", out_assigned_all, "Step 2")
 
     # --- Step 3: Voucher ---
+    step3_kwargs = dict(
+        file_path=str(out_assigned_all),
+        output_dir=str(voucher_dir),
+    )
+    if normalize_columns:
+        step3_kwargs["normalize_column_names"] = True
+    if voucher_extra:
+        step3_kwargs.update(voucher_extra)
+    err = _run_step(
+        step_num=3, skip=skip_voucher, resume=resume,
+        output_path=out_updated_voucher, module_path="g2t.voucher",
+        func_name="build_species_vouchers",
+        kwargs=step3_kwargs, quiet=quiet, log_lines=log_lines,
+        fallback_dir=voucher_dir, fallback_glob="updated_species_voucher*.csv",
+    )
+    if err:
+        return _fail(err)
     if not skip_voucher:
-        if resume and is_valid_output(out_updated_voucher):
-            msg = f"Step 3 skipped (resume): {out_updated_voucher}"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-        else:
-            from g2t.voucher import build_species_vouchers as step_voucher
-
-            step_kwargs = dict(
-                file_path=str(out_assigned_all),
-                output_dir=str(voucher_dir),
-            )
-            if normalize_columns:
-                step_kwargs["normalize_column_names"] = True
-            if voucher_extra:
-                step_kwargs.update(voucher_extra)
-
-            result = step_voucher(**step_kwargs)
-            if not result.success:
-                return PipelineResult(
-                    success=False, output_dir=str(out_root),
-                    steps_completed=steps_completed, elapsed=time.time() - start_time,
-                    log=log_lines + [f"Step 3 failed"],
-                )
-            msg = f"Step 3 done: {out_updated_voucher} ({result.rows} rows, {result.elapsed:.1f}s)"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-
-        if not is_valid_output(out_updated_voucher):
-            _find_fallback(voucher_dir, "updated_species_voucher*.csv", out_updated_voucher, "Step 3")
         steps_completed += 1
-    else:
-        if not is_valid_output(out_updated_voucher):
-            _find_fallback(voucher_dir, "updated_species_voucher*.csv", out_updated_voucher, "Step 3")
 
     # --- Step 4: Organize ---
+    step4_kwargs = dict(
+        input_file=str(out_updated_voucher),
+        output_file=str(out_organized),
+    )
+    if organize_extra:
+        step4_kwargs.update(organize_extra)
+    err = _run_step(
+        step_num=4, skip=skip_organize, resume=resume,
+        output_path=out_organized, module_path="g2t.organize", func_name="organize",
+        kwargs=step4_kwargs, quiet=quiet, log_lines=log_lines,
+    )
+    if err:
+        return _fail(err)
     if not skip_organize:
-        if resume and is_valid_output(out_organized):
-            msg = f"Step 4 skipped (resume): {out_organized}"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-        else:
-            from g2t.organize import organize as step_organize
-
-            step_kwargs = dict(
-                input_file=str(out_updated_voucher),
-                output_file=str(out_organized),
-            )
-            if organize_extra:
-                step_kwargs.update(organize_extra)
-
-            result = step_organize(**step_kwargs)
-            if not result.success:
-                return PipelineResult(
-                    success=False, output_dir=str(out_root),
-                    steps_completed=steps_completed, elapsed=time.time() - start_time,
-                    log=log_lines + [f"Step 4 failed"],
-                )
-            msg = f"Step 4 done: {out_organized} ({result.rows} rows, {result.elapsed:.1f}s)"
-            log_lines.append(msg)
-            if not quiet:
-                print(msg)
-
         steps_completed += 1
 
     elapsed = time.time() - start_time

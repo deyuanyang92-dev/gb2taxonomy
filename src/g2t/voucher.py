@@ -13,6 +13,8 @@ Improvements:
   - Shared utility functions imported from g2t.utils
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import re
@@ -33,7 +35,7 @@ def now_ts() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
-def log(msg: str, quiet: bool, log_file_path: Optional[str] = None):
+def log(msg: str, quiet: bool, log_file_path: Optional[str] = None) -> None:
     line = f"[{now_ts()}] {msg}"
     if not quiet:
         print(line)
@@ -45,7 +47,7 @@ def log(msg: str, quiet: bool, log_file_path: Optional[str] = None):
             pass
 
 
-def normalize_columns_inplace(df: pd.DataFrame):
+def normalize_columns_inplace(df: pd.DataFrame) -> None:
     """Normalize column names in-place: strip whitespace, replace spaces with underscores, deduplicate."""
     new_cols = [col_key(c) for c in df.columns]
     seen: Dict[str, int] = {}

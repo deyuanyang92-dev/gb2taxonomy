@@ -1,6 +1,6 @@
-"""
-Shared utilities for the g2t pipeline.
-"""
+"""Shared utilities for the g2t pipeline."""
+
+from __future__ import annotations
 
 import argparse
 import os
@@ -8,7 +8,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -22,7 +22,22 @@ class StepResult:
     elapsed: float = 0.0
 
 
-def str2bool(x) -> bool:
+class G2TError(Exception):
+    """Base exception for g2t pipeline."""
+    pass
+
+
+class UnsupportedFormatError(G2TError):
+    """Raised when input file format is not supported."""
+    pass
+
+
+class PipelineStepError(G2TError):
+    """Raised when a pipeline step encounters an unrecoverable error."""
+    pass
+
+
+def str2bool(x: Any) -> bool:
     if isinstance(x, bool):
         return x
     s = str(x).strip().lower()
@@ -33,7 +48,7 @@ def str2bool(x) -> bool:
     raise argparse.ArgumentTypeError(f"Boolean value expected, got: {x!r}")
 
 
-def sanitize_string(s) -> str:
+def sanitize_string(s: Any) -> str:
     if s is None:
         return ""
     try:
@@ -47,7 +62,6 @@ def sanitize_string(s) -> str:
     s = unicodedata.normalize("NFKC", s)
     s = s.replace("'", "").replace('"', "")
     s = s.replace("(", "").replace(")", "")
-    s = s.replace(" ", " ")
     s = s.replace("　", " ")
     s = s.replace(" ", "_")
     s = re.sub(r"[<>:./\\|?*]+", "_", s)
@@ -55,7 +69,7 @@ def sanitize_string(s) -> str:
     return s
 
 
-def safe_concat(a, b) -> str:
+def safe_concat(a: Any, b: Any) -> str:
     sa = sanitize_string(a)
     sb = sanitize_string(b)
     if sa and sb:
@@ -88,7 +102,7 @@ def parse_interval(interval_str: str) -> Tuple[Optional[int], Optional[int]]:
     return lo, hi
 
 
-def length_in_range(length_val, range_str: str) -> bool:
+def length_in_range(length_val: Any, range_str: str) -> bool:
     if not range_str or range_str.lower() == "none":
         return True
     lo, hi = parse_interval(range_str)

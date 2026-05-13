@@ -11,6 +11,8 @@ Refactored from gb_baseinformation_extractv16.7.py with:
   - Removed unused _ACCESSION_RE
 """
 
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -22,7 +24,7 @@ import traceback
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Callable
-from g2t.utils import StepResult
+from g2t.utils import StepResult, PipelineStepError
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
@@ -36,24 +38,95 @@ from enum import Enum
 # ===============================
 # Logging
 # ===============================
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    encoding='utf-8'
-)
 logger = logging.getLogger(__name__)
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 # ===============================
-# Global state
+# Global state (encapsulated in TaxonomyService)
 # ===============================
-ete3_available = False
-NCBITaxa = None
-TAXONOMY_CACHE: Dict[str, Dict[str, str]] = {}
-TAXONOMY_ERROR_REPORTED: set = set()
+class TaxonomyService:
+    """Encapsulates NCBI taxonomy lookup state."""
+
+    def __init__(self):
+        self.ete3_available: bool = False
+        self.ncbi_taxa_cls = None
+        self.cache: Dict[str, Dict[str, str]] = {}
+        self.errors_reported: set = set()
+
+    def update_database(self) -> bool:
+        if not self.ete3_available:
+            logger.warning("ete3 not installed")
+            return False
+        try:
+            if self.ncbi_taxa_cls is None:
+                from ete3 import NCBITaxa as C
+                self.ncbi_taxa_cls = C
+            ncbi = self.ncbi_taxa_cls()
+            logger.info("Updating NCBI taxonomy database...")
+            ncbi.update_taxonomy_database()
+            logger.info("Update complete")
+            return True
+        except Exception as e:
+            logger.error(f"Update error: {e}")
+            return False
+
+    def initialize(self, interactive: bool = True) -> bool:
+        self.ete3_available = importlib.util.find_spec("ete3") is not None
+        if self.ete3_available:
+            try:
+                from ete3 import NCBITaxa
+                self.ncbi_taxa_cls = NCBITaxa
+                logger.info("ete3 module loaded")
+                return True
+            except Exception as e:
+                logger.warning(f"ete3 init error: {e}")
+                self.ete3_available = False
+        else:
+            logger.warning("ete3 not detected, taxonomy unavailable")
+            logger.info("Install: pip install ete3")
+            if interactive and not sys.flags.interactive:
+                try:
+                    if input("Continue without taxonomy? (y/n, default y): ").strip().lower()[:1] == 'n':
+                        raise PipelineStepError("User declined to continue without taxonomy")
+                except (EOFError, IndexError):
+                    pass
+        return False
+
+    def get_lineage(self, tax_id_str: str) -> Dict[str, str]:
+        if tax_id_str in self.cache:
+            return self.cache[tax_id_str]
+        if not self.ete3_available or not self.ncbi_taxa_cls:
+            return {}
+        try:
+            tax_id = int(tax_id_str)
+        except ValueError:
+            self.cache[tax_id_str] = {}
+            return {}
+        try:
+            ncbi = self.ncbi_taxa_cls()
+            lineage = ncbi.get_lineage(tax_id)
+            if not lineage:
+                self.cache[tax_id_str] = {}
+                return {}
+            rank_dict = ncbi.get_rank(lineage)
+            names = ncbi.get_taxid_translator(lineage)
+            result = {
+                rank_dict[tid].capitalize(): names[tid]
+                for tid in lineage
+                if rank_dict.get(tid) in ("class", "order", "family", "genus")
+            }
+        except Exception as e:
+            if tax_id_str not in self.errors_reported:
+                logger.warning(f"TaxonID '{tax_id_str}' query error: {e}")
+                self.errors_reported.add(tax_id_str)
+            result = {}
+        self.cache[tax_id_str] = result
+        return result
+
+
+_taxonomy = TaxonomyService()
 
 try:
     import psutil
@@ -423,7 +496,7 @@ def copy_failed_files(failed_files: List[str], output_dir: str):
                     c += 1
             shutil.copy2(fp, dest)
             copied += 1
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to copy {fp}: {e}")
     logger.info(f"Archived {copied}/{len(failed_files)} failed files -> {failed_dir}")
 
@@ -441,78 +514,15 @@ def get_memory_mb() -> Optional[float]:
 # NCBI taxonomy
 # ===============================
 def update_ncbi_taxonomy_database():
-    global ete3_available, NCBITaxa
-    if not ete3_available:
-        logger.warning("ete3 not installed")
-        return False
-    try:
-        if NCBITaxa is None:
-            from ete3 import NCBITaxa as C
-            NCBITaxa = C
-        ncbi = NCBITaxa()
-        logger.info("Updating NCBI taxonomy database...")
-        ncbi.update_taxonomy_database()
-        logger.info("Update complete")
-        return True
-    except Exception as e:
-        logger.error(f"Update error: {e}")
-        return False
+    return _taxonomy.update_database()
 
 
 def initialize_ncbi_taxa(interactive: bool = True) -> bool:
-    global ete3_available, NCBITaxa
-    ete3_available = importlib.util.find_spec("ete3") is not None
-    if ete3_available:
-        try:
-            from ete3 import NCBITaxa
-            logger.info("ete3 module loaded")
-            return True
-        except Exception as e:
-            logger.warning(f"ete3 init error: {e}")
-            ete3_available = False
-    else:
-        logger.warning("ete3 not detected, taxonomy unavailable")
-        logger.info("Install: pip install ete3")
-        if interactive and not sys.flags.interactive:
-            try:
-                if input("Continue without taxonomy? (y/n, default y): ").strip().lower()[:1] == 'n':
-                    sys.exit(0)
-            except (EOFError, IndexError):
-                pass
-    return False
+    return _taxonomy.initialize(interactive)
 
 
 def get_taxonomy_lineage(tax_id_str: str) -> Dict[str, str]:
-    global TAXONOMY_CACHE, ete3_available, NCBITaxa, TAXONOMY_ERROR_REPORTED
-    if tax_id_str in TAXONOMY_CACHE:
-        return TAXONOMY_CACHE[tax_id_str]
-    if not ete3_available or not NCBITaxa:
-        return {}
-    try:
-        tax_id = int(tax_id_str)
-    except ValueError:
-        TAXONOMY_CACHE[tax_id_str] = {}
-        return {}
-    try:
-        ncbi = NCBITaxa()
-        lineage = ncbi.get_lineage(tax_id)
-        if not lineage:
-            TAXONOMY_CACHE[tax_id_str] = {}
-            return {}
-        rank_dict = ncbi.get_rank(lineage)
-        names = ncbi.get_taxid_translator(lineage)
-        result = {
-            rank_dict[tid].capitalize(): names[tid]
-            for tid in lineage
-            if rank_dict.get(tid) in ("class", "order", "family", "genus")
-        }
-    except Exception as e:
-        if tax_id_str not in TAXONOMY_ERROR_REPORTED:
-            logger.warning(f"TaxonID '{tax_id_str}' query error: {e}")
-            TAXONOMY_ERROR_REPORTED.add(tax_id_str)
-        result = {}
-    TAXONOMY_CACHE[tax_id_str] = result
-    return result
+    return _taxonomy.get_lineage(tax_id_str)
 
 
 # ===============================
@@ -721,6 +731,37 @@ def get_ordered_fieldnames(row: Dict, base: List[str]) -> List[str]:
     return ordered + extra
 
 
+def prescan_fieldnames(gb_files: List[str]) -> List[str]:
+    """Pre-scan all GB files to collect every unique source qualifier key."""
+    from Bio import SeqIO
+    all_keys = set()
+    for fp in gb_files:
+        try:
+            for record in SeqIO.parse(fp, "genbank"):
+                for feat in record.features:
+                    if feat.type == "source":
+                        for q in feat.qualifiers:
+                            if q == "db_xref":
+                                all_keys.add("TaxonID")
+                            else:
+                                all_keys.add(q)
+                        break
+                # References keys
+                refs = record.annotations.get("references", [])
+                for i in range(1, len(refs) + 1):
+                    p = f"Ref{i}"
+                    for suffix in ("Authors", "Title", "Journal", "PubMed", "Remark"):
+                        all_keys.add(f"{p}{suffix}")
+        except Exception:
+            pass
+    # Build ordered list: BASE first, then discovered extras
+    ordered = list(BASE_METADATA_COLUMNS)
+    for k in sorted(all_keys):
+        if k not in ordered:
+            ordered.append(k)
+    return ordered
+
+
 # ===============================
 # Unified record processing
 # ===============================
@@ -898,14 +939,16 @@ def stream_process_single_file(
             )
             assembly_writer.writeheader()
 
+        # Pre-scan to discover all source qualifier keys
+        all_fieldnames = prescan_fieldnames([file_path]) if do_extract_metadata else None
+
         def stream_callback(metadata, assembly_data, assembly_source, has_asm, track, result):
             nonlocal metadata_header_written, metadata_writer
             # Write metadata
             if do_extract_metadata and metadata is not None and metadata_fh:
                 if not metadata_header_written:
-                    fns = get_ordered_fieldnames(metadata, BASE_METADATA_COLUMNS)
                     metadata_writer = csv.DictWriter(
-                        metadata_fh, fieldnames=fns,
+                        metadata_fh, fieldnames=all_fieldnames,
                         delimiter=metadata_delimiter, extrasaction='ignore'
                     )
                     metadata_writer.writeheader()
@@ -1039,6 +1082,9 @@ def process_all_files(
                 )
                 assembly_writer.writeheader()
 
+            # Pre-scan all files to discover every source qualifier key
+            all_fieldnames = prescan_fieldnames(gb_files) if do_metadata else None
+
             for i, fp in enumerate(gb_files, 1):
                 logger.info(f"[{i}/{len(gb_files)}] {os.path.basename(fp)} ({format_size(os.path.getsize(fp))})")
 
@@ -1046,9 +1092,8 @@ def process_all_files(
                     nonlocal metadata_header_written, metadata_writer
                     if do_metadata and metadata and metadata_fh:
                         if not metadata_header_written:
-                            fns = get_ordered_fieldnames(metadata, BASE_METADATA_COLUMNS)
                             metadata_writer = csv.DictWriter(
-                                metadata_fh, fieldnames=fns,
+                                metadata_fh, fieldnames=all_fieldnames,
                                 delimiter=metadata_delimiter, extrasaction='ignore')
                             metadata_writer.writeheader()
                             metadata_header_written = True
@@ -1135,9 +1180,8 @@ def process_all_files(
 # Batch mode
 # ===============================
 def _init_worker(cache_dict):
-    """P1-10: Worker initializer for shared taxonomy cache."""
-    global TAXONOMY_CACHE
-    TAXONOMY_CACHE = cache_dict
+    """Worker initializer for shared taxonomy cache."""
+    _taxonomy.cache = dict(cache_dict)
 
 
 def process_batch_mode(
@@ -1199,7 +1243,7 @@ def process_batch_mode(
     manager = multiprocessing.Manager()
     shared_cache = manager.dict()
     # Pre-populate with current cache
-    shared_cache.update(TAXONOMY_CACHE)
+    shared_cache.update(_taxonomy.cache)
 
     logger.info(f"Batch mode: {len(gb_files)} files, concurrency {max_tasks}, "
                 f"stream={'yes' if stream_mode else 'no'}")
@@ -1227,7 +1271,7 @@ def process_batch_mode(
                 logger.error(f"[{done}/{len(gb_files)}] X {os.path.basename(f)}: {e}")
 
     # Sync cache back
-    TAXONOMY_CACHE.update(shared_cache)
+    _taxonomy.cache.update(shared_cache)
 
     summary.total_elapsed_time = time.time() - t0
     return summary
@@ -1297,6 +1341,12 @@ def extract(
 # Main function
 # ===============================
 def main(argv=None):
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        encoding='utf-8'
+    )
     parser = argparse.ArgumentParser(
         description="GenBank Metadata Extractor (refactored): 3-strategy Assembly + record tracking",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
