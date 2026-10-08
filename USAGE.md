@@ -67,8 +67,13 @@ g2t --help
 ## 快速开始
 
 ```bash
-# 运行完整流程 (推荐使用 --stream 处理大文件)
-g2t -i /path/to/genbank_files -o /path/to/output --stream
+# 0. 先看 NCBI 中该类群有哪些记录, 再下载标记基因记录
+g2t-download -t Priapulidae -o gb --dry-run
+g2t-download -t Priapulidae -o gb                      # -> gb/markers/batch_0001.gb ...
+
+# 1–4. 运行完整流程 (推荐使用 --stream 处理大文件)
+g2t -i gb/markers -o out --stream
+# 最终矩阵: out/organized_genes/organized_species_voucher.csv
 
 # 使用 --resume 跳过已完成的步骤
 g2t -i /path/to/files -o /path/to/output --resume
@@ -208,7 +213,8 @@ output/
 ├── gb_metadata/
 │   └── final.csv                    # Step 1 输出：所有序列的元数据
 ├── labeled_genes/
-│   └── assigned_genes_types_all.csv # Step 2 输出：带基因类型标签
+│   ├── assigned_genes_types_all.csv # Step 2 输出：带基因类型标签
+│   └── unmatched_sequences.csv      # Step 2：未识别出基因类型的记录
 ├── updated_species_vouchers/
 │   ├── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
 │   ├── reconciled_species_voucher.csv # Step 3b 输出：凭证号核对后
@@ -275,17 +281,39 @@ pip install pandas biopython
 
 ---
 
+## 不足与已知限制
+
+1. **基因类型按 DEFINITION 整条判定。** 一条记录只得到一个类型。跨区段的 rRNA 记录（如"5.8S … ITS2 … 28S""18S … ITS1"）被归为 `its1-its2`，其中的 18S 或 28S 部分不会出现在 18s/28s 列（Priapulidae：175 条 rRNA 记录中 9 条，如 AY210840 含约 3.7 kb 28S）。详见 [BUGS.md](BUGS.md)。
+2. **不切分序列。** 线粒体基因组（`mtgenome`）或 18S–ITS–28S 记录（`18-28s`）的登录号会被复制到它覆盖的各基因列，但不会切出各基因的序列；比对前需另行提取。
+3. **长度过滤。** 默认长度 150–50,000 bp 以外的记录在分类前被去掉，且**不会**出现在 `unmatched_sequences.csv`。要列出它们：`g2t-classify … --length_range2_all 1:1000000`。
+4. **只识别 13 类基因。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非在 `gene_dict.yaml` 中添加。
+5. **凭证号。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）。
+6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样。
+7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
+8. **代码状态。** v0.01 为早期版本，在 Python 3.13 上以 232 项单元测试验证；早期模块仍有 `ruff` 代码风格警告。
+
+---
+
 ## 引用
 
-如果在研究中使用 g2t，请引用：
+g2t 目前没有发表论文，请引用软件本身及所用版本：
+
+> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.01) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
 
 ```bibtex
-@article{g2t2026,
-  title = {g2t: a Python pipeline for GenBank-to-Taxonomy gene type classification and species voucher organization},
-  journal = {Bioinformatics},
-  year = {2026},
+@software{yang_g2t_2026,
+  author  = {Yang, Deyuan},
+  title   = {g2t: GenBank to Taxonomy},
+  version = {v0.01},
+  year    = {2026},
+  url     = {https://github.com/deyuanyang92-dev/gb2taxonomy}
 }
 ```
+
+GitHub 页面右侧的 "Cite this repository" 读取 [CITATION.cff](CITATION.cff)。另请引用：
+
+- **序列数据**：所用 GenBank 记录的原始文献（输出中的 `Ref1Authors`、`Ref1Title`、`Ref1Journal` 列）以及 NCBI GenBank。
+- **Biopython**（用于下载和解析记录）：Cock, P. J. A., Antao, T., Chang, J. T., Chapman, B. A., Cox, C. J., Dalke, A., Friedberg, I., Hamelryck, T., Kauff, F., Wilczynski, B., & de Hoon, M. J. L. (2009). Biopython: freely available Python tools for computational molecular biology and bioinformatics. *Bioinformatics*, 25(11), 1422–1423. https://doi.org/10.1093/bioinformatics/btp163
 
 ---
 

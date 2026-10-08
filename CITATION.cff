@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: "If you use g2t, please cite the software and the version you used, together with the original publications of the GenBank records you analysed."
+title: "g2t: GenBank to Taxonomy"
+abstract: "Downloads the GenBank records of a taxon from NCBI and turns them into a specimen × gene matrix: metadata extraction, gene-type classification, voucher linking with evidence-based reconciliation of voucher variants."
+type: software
+authors:
+  - family-names: Yang
+    given-names: Deyuan
+version: v0.01
+date-released: 2026-10-08
+license: MIT
+repository-code: "https://github.com/deyuanyang92-dev/gb2taxonomy"
+keywords:
+  - GenBank
+  - NCBI
+  - taxonomy
+  - DNA barcoding
+  - multi-locus matrix
+  - specimen voucher
+references:
+  - type: article
+    title: "Biopython: freely available Python tools for computational molecular biology and bioinformatics"
+    authors:
+      - family-names: Cock
+        given-names: Peter J. A.
+      - family-names: Antao
+        given-names: Tiago
+      - family-names: Chang
+        given-names: Jeffrey T.
+      - family-names: Chapman
+        given-names: Brad A.
+      - family-names: Cox
+        given-names: Cymon J.
+      - family-names: Dalke
+        given-names: Andrew
+      - family-names: Friedberg
+        given-names: Iddo
+      - family-names: Hamelryck
+        given-names: Thomas
+      - family-names: Kauff
+        given-names: Frank
+      - family-names: Wilczynski
+        given-names: Bartek
+      - family-names: de Hoon
+        given-names: Michiel J. L.
+    journal: Bioinformatics
+    volume: 25
+    issue: 11
+    start: 1422
+    end: 1423
+    year: 2009
+    doi: 10.1093/bioinformatics/btp163
