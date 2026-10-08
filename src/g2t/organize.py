@@ -18,6 +18,7 @@ import os
 import sys
 import warnings
 import pandas as pd
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Optional, Any
 import logging
@@ -26,6 +27,16 @@ import time
 from g2t.utils import read_table, write_csv, StepResult
 
 logger = logging.getLogger(__name__)
+
+# Default parent -> children propagation map (single source of truth for API and CLI).
+_DEFAULT_GENE_INCLUDES: Dict[str, List[str]] = {
+    "18-28s": ["18s", "28s", "its1-its2"],
+    "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
+}
+
+
+def _default_gene_includes() -> Dict[str, List[str]]:
+    return {k: list(v) for k, v in _DEFAULT_GENE_INCLUDES.items()}
 
 
 @dataclass
@@ -57,10 +68,7 @@ class OrganizeConfig:
     organize_18_28s: bool = True
     organize_mtgenome: bool = True
 
-    gene_includes: Dict[str, List[str]] = field(default_factory=lambda: {
-        "18-28s": ["18s", "28s", "its1-its2"],
-        "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
-    })
+    gene_includes: Dict[str, List[str]] = field(default_factory=_default_gene_includes)
 
     tail_columns: List[str] = field(default_factory=lambda: [
         "TaxonID", "geo_loc_name", "lat_lon",
@@ -126,10 +134,22 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> Di
     if config.organize_18_28s:
         _propagate_locusids(gene_ids, "18-28s", config.gene_includes.get("18-28s", []))
     if config.organize_mtgenome:
-        mito_children = config.get_mito_genes()
-        _propagate_locusids(gene_ids, "mtgenome", mito_children)
+        _propagate_locusids(gene_ids, "mtgenome", _mtgenome_children(config))
 
     return {gene: ";".join(ids) for gene, ids in gene_ids.items()}
+
+
+def _mtgenome_children(config: OrganizeConfig) -> List[str]:
+    """Columns that receive mtgenome LocusIDs.
+
+    A user-supplied ``gene_includes["mtgenome"]`` (e.g. ``--mtgenome_includes coi``) is honoured.
+    When it is absent or still the stock default, the historical behaviour is kept: every
+    mitochondrial gene present in ``gene_order`` (``config.get_mito_genes()``).
+    """
+    given = config.gene_includes.get("mtgenome")
+    if given is None or list(given) == _DEFAULT_GENE_INCLUDES["mtgenome"]:
+        return config.get_mito_genes()
+    return list(given)
 
 
 def _propagate_locusids(gene_ids: Dict[str, List[str]], parent: str,
@@ -179,9 +199,61 @@ def _format_gene_values(gene_vals: Dict[str, Set[str]]) -> str:
     return ";".join(parts)
 
 
+# Columns whose per-record value must not be reduced to "first non-empty record".
+_ANY_TRUE_COLUMNS = ("Conflict",)
+_LABELED_JOIN_COLUMNS = ("Conflict_reason", "Original_match", "Assignment_reason")
+_TRUE_TOKENS = {"true", "t", "1", "yes", "y"}
+
+
+def _any_true(series: pd.Series) -> str:
+    """'True' if any record is truthy, 'False' if records exist but none is, '' if all empty."""
+    seen = False
+    for v in series:
+        if pd.isna(v):
+            continue
+        text = str(v).strip()
+        if not text:
+            continue
+        seen = True
+        if text.lower() in _TRUE_TOKENS:
+            return "True"
+    return "False" if seen else ""
+
+
+def _join_with_locusid(group: pd.DataFrame, col: str, sep: str = " | ") -> str:
+    """Join the distinct non-empty values of *col*, each prefixed by the LocusID(s) carrying it.
+
+    Example: ``"A1.1: coi | A2.1;A3.1: 16s,cox2"``. Without a LocusID column the bare values are joined.
+    """
+    lids = group["LocusID"] if "LocusID" in group.columns else None
+    by_value: Dict[str, List[str]] = {}
+    for pos, v in enumerate(group[col]):
+        if pd.isna(v):
+            continue
+        val = str(v).strip()
+        if not val:
+            continue
+        ids = by_value.setdefault(val, [])
+        if lids is not None:
+            lid = lids.iloc[pos]
+            lid = str(lid).strip() if pd.notna(lid) else ""
+            if lid and lid not in ids:
+                ids.append(lid)
+    return sep.join(f"{';'.join(ids)}: {val}" if ids else val for val, ids in by_value.items())
+
+
 def metadata_first_nonempty(group: pd.DataFrame, columns: List[str]) -> Dict[str, str]:
-    return {col: get_first_nonempty(group[col]) if col in group.columns else ""
-            for col in columns}
+    result: Dict[str, str] = {}
+    for col in columns:
+        if col not in group.columns:
+            result[col] = ""
+        elif col in _ANY_TRUE_COLUMNS:
+            result[col] = _any_true(group[col])
+        elif col in _LABELED_JOIN_COLUMNS:
+            result[col] = _join_with_locusid(group, col)
+        else:
+            result[col] = get_first_nonempty(group[col])
+    return result
 
 
 def metadata_all(group: pd.DataFrame, columns: List[str]) -> Dict[str, str]:
@@ -349,6 +421,19 @@ def build_header(config: OrganizeConfig, sample_row: Dict[str, Any]) -> List[str
     return list(dict.fromkeys(header))
 
 
+def _count_unlisted_genes(df: pd.DataFrame, gene_order: List[str]) -> Dict[str, int]:
+    """Count records (rows) per gene type that is not a column of *gene_order* (and so would be dropped)."""
+    known = set(gene_order)
+    counts: Counter = Counter()
+    for gene_type, locusid in zip(df["gene_type"].tolist(), df["LocusID"].tolist()):
+        if pd.isna(gene_type) or pd.isna(locusid) or not str(locusid).strip():
+            continue
+        genes = {normalize_gene_name(g.strip()) for g in str(gene_type).split(",")}
+        genes.discard("")
+        counts.update(g for g in genes if g not in known)
+    return dict(counts)
+
+
 def organize(input_file: str, output_file: str, config: OrganizeConfig = None) -> StepResult:
     """Run Step 4: organize genes by species."""
     if config is None:
@@ -368,10 +453,24 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig = None) -
     if not check_columns(df, mandatory, optional):
         return StepResult(success=False, output_file=output_file, elapsed=time.time() - start_time)
 
-    nan_count = df[config.group_column].isna().sum()
-    if nan_count > 0:
-        logger.warning(f"Group column '{config.group_column}' has {nan_count} NaN rows -> 'UNKNOWN'")
-        df[config.group_column] = df[config.group_column].fillna("UNKNOWN")
+    unlisted = _count_unlisted_genes(df, config.gene_order)
+    if unlisted:
+        detail = ", ".join(f"{g}={n}" for g, n in sorted(unlisted.items()))
+        logger.warning(
+            f"Gene types not in gene_order were dropped from the gene columns (records per gene type): {detail}. "
+            f"Add them to gene_order (--gene_order) to keep them.")
+
+    keys = df[config.group_column].tolist()
+    lids = df["LocusID"].tolist()
+    empty_positions = [i for i, k in enumerate(keys) if pd.isna(k) or not str(k).strip()]
+    if empty_positions:
+        logger.warning(
+            f"Group column '{config.group_column}' has {len(empty_positions)} empty rows -> "
+            f"each gets its own 'UNKNOWN_<LocusID>' row")
+        for i in empty_positions:
+            lid = "" if pd.isna(lids[i]) else str(lids[i]).strip()
+            keys[i] = f"UNKNOWN_{lid}" if lid else f"UNKNOWN_row{i + 1}"
+        df[config.group_column] = keys
 
     groups = df.groupby(config.group_column, sort=True)
     logger.info(f"Total groups: {groups.ngroups}")
@@ -426,8 +525,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     parser.add_argument("--gene_order", "--rank_genes_order_in_rows",
                         nargs="+",
-                        default=["mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3",
-                                 "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"],
+                        default=OrganizeConfig().gene_order,
                         help="Gene types to include as columns, in order")
 
     parser.add_argument("--metadata_mode", "--write_metadata_mode",
@@ -445,12 +543,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     parser.add_argument("--metadata_columns", "--mustbe_meta_data_list",
                         nargs="+",
-                        default=["Conflict", "match_source", "Original_match",
-                                 "Conflict_reason", "Assignment_reason",
-                                 "Class", "Order", "Family", "Genus",
-                                 "PCR_primers", "geo_loc_name", "lat_lon",
-                                 "collected_by", "identified_by", "altitude"],
-                        help="Metadata columns to include in output")
+                        default=OrganizeConfig().meta_columns,
+                        help="Metadata columns to include in output (default: OrganizeConfig.meta_columns)")
     parser.add_argument("--extra_columns", "--extra_information_write_in",
                         nargs="*", default=[],
                         help="Additional columns to append to output")
@@ -498,10 +592,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     else:
         metadata_mode = "first_nonempty"
 
-    gene_includes = {
-        "18-28s": ["18s", "28s", "its1-its2"],
-        "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
-    }
+    gene_includes = _default_gene_includes()
     if args.mtgenome_includes:
         gene_includes["mtgenome"] = [g.strip().lower() for g in args.mtgenome_includes]
 

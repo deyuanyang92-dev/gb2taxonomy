@@ -31,8 +31,10 @@ with an API key NCBI allows 10 requests/s instead of 3).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 import warnings
@@ -132,6 +134,8 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
         q.append("NOT srcdb_refseq_model[PROP]")
         if not o.include_refseq:
             q.append("NOT refseq[filter]")
+        tag += [f"incl-{x}" for x, on in (("wgs", o.include_wgs), ("mrna", o.include_mrna),
+                                          ("refseq", o.include_refseq)) if on]
     if o.mitogenome:
         q.append('AND mitochondrion[filter] AND (complete genome[Title] OR "complete mitochondrial genome"[Title] '
                  'OR mitogenome[Title]) AND 10000:30000[SLEN]')
@@ -148,8 +152,10 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
         tag.append(f"len{o.minlen or 1}-{o.maxlen or 'max'}")
     if o.query:
         q.append(f"AND ({o.query})")
-        tag.append("custom")
-    t = o.tag or ("all" if o.all and not tag else "-".join(tag) or "markers")
+        tag.append("custom-" + hashlib.sha1(o.query.encode("utf-8")).hexdigest()[:6])
+    if o.all:
+        tag.insert(0, "all")
+    t = o.tag or "-".join(tag) or "markers"
     return " ".join(q), t
 
 
@@ -160,6 +166,19 @@ def count(term: str) -> int:
 
 def _n_records(text: str) -> int:
     return text.count("\nLOCUS ") + text.startswith("LOCUS")
+
+
+_VERSION = re.compile(r"^VERSION\s+(\S+)", re.M)
+
+
+def _batch_complete(text: str, ids: list[str]) -> bool:
+    """A batch file is complete only if it holds exactly the requested accession.versions, each record closed by //."""
+    found = _VERSION.findall(text)
+    ends = len(re.findall(r"^//\s*$", text, re.M))
+    want = {i.strip() for i in ids}
+    if all("." in i for i in want):
+        return sorted(found) == sorted(want) and ends == len(ids)
+    return {f.split(".")[0] for f in found} == {i.split(".")[0] for i in want} and ends == len(ids)
 
 
 def download(taxon: str, out_root: str, options: DownloadOptions | None = None, dry_run: bool = False,
@@ -183,41 +202,42 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
             per_gene[g] = n
         time.sleep(delay)
     out = Path(out_root) / tag
-    out.mkdir(parents=True, exist_ok=True)
     res = DownloadResult(taxid=tid, name=name, rank=rank, tag=tag, query=term, count=total, out_dir=str(out),
                          composition=comp, per_gene=per_gene)
-    manifest = dict(taxon=taxon, ncbi_taxid=tid, ncbi_name=name, ncbi_rank=rank, ncbi_lineage=lineage,
-                    query=term, tag=tag, date=date.today().isoformat(), count=total,
-                    taxon_composition=comp, per_gene=per_gene, options=asdict(o))
-    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    if dry_run or total == 0:
+    if dry_run or total == 0:          # nothing is written for a dry run
         return res
-    accf = out / "accessions.tsv"
-    accs = accf.read_text().split()[1:] if accf.exists() else []
-    if len(accs) != total:
-        r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
-        accs = []
-        for start in range(0, total, 5000):
-            txt = _call(Entrez.efetch, False, db="nuccore", rettype="acc", retmode="text", retstart=start,
-                        retmax=5000, webenv=r["WebEnv"], query_key=r["QueryKey"])
-            accs += [x.strip() for x in txt.split() if x.strip()]
-            time.sleep(delay)
-        accs = list(dict.fromkeys(accs))
-        accf.write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
+    mfile = out / "manifest.json"
+    if mfile.exists():
+        old_q = json.loads(mfile.read_text(encoding="utf-8")).get("query")
+        if old_q and old_q != term:
+            raise ValueError(f"{out} holds records of a different query:\n  {old_q}\n"
+                             f"current query:\n  {term}\nUse another --tag or output directory.")
+    out.mkdir(parents=True, exist_ok=True)
+    # the accession list is always refreshed: NCBI adds and removes records between runs
+    r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
+    accs = []
+    for start in range(0, total, 5000):
+        txt = _call(Entrez.efetch, False, db="nuccore", rettype="acc", retmode="text", retstart=start,
+                    retmax=5000, webenv=r["WebEnv"], query_key=r["QueryKey"])
+        accs += [x.strip() for x in txt.split() if x.strip()]
+        time.sleep(delay)
+    accs = list(dict.fromkeys(accs))
+    res.count = len(accs)
+    (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
     nb = (len(accs) + o.batch - 1) // o.batch
     res.batches = nb
     t0 = time.time()
     for b in range(nb):
         ids = accs[b * o.batch:(b + 1) * o.batch]
         f = out / f"batch_{b + 1:04d}.gb"
-        if f.exists() and _n_records(f.read_text(errors="ignore")) == len(ids):
+        if f.exists() and _batch_complete(f.read_text(errors="ignore"), ids):
             res.skipped += 1
             continue
         ok = False
         for attempt in range(4):
             try:
                 txt = _call(Entrez.efetch, False, db="nuccore", id=",".join(ids), rettype="gbwithparts", retmode="text")
-                if _n_records(txt) == len(ids):
+                if _batch_complete(txt, ids):
                     f.write_text(txt, encoding="utf-8")
                     ok = True
                     break
@@ -230,6 +250,17 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
         if progress:
             print(f"   [{b + 1}/{nb}] {'OK' if ok else 'FAILED'}  {time.time() - t0:.0f}s", flush=True)
         time.sleep(delay)
+    # batch files beyond the current list (smaller list or larger batch size) would duplicate records downstream
+    for f in sorted(out.glob("batch_*.gb")):
+        m = re.fullmatch(r"batch_(\d+)\.gb", f.name)
+        if m and int(m.group(1)) > nb:
+            f.unlink()
+    manifest = dict(taxon=taxon, ncbi_taxid=tid, ncbi_name=name, ncbi_rank=rank, ncbi_lineage=lineage,
+                    query=term, tag=tag, date=date.today().isoformat(), count=len(accs),
+                    accessions_sha1=hashlib.sha1("\n".join(accs).encode()).hexdigest(),
+                    complete=res.failed == 0, failed_batches=res.failed,
+                    taxon_composition=comp, per_gene=per_gene, options=asdict(o))
+    mfile.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return res
 
 

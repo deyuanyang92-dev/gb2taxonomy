@@ -93,17 +93,25 @@ def write_csv(df: pd.DataFrame, path: str) -> None:
 
 
 def parse_interval(interval_str: str) -> Tuple[Optional[int], Optional[int]]:
-    if not interval_str:
+    """'150:50000' -> (150, 50000); '150:' / ':500' open-ended; '', 'none', 'all' -> (None, None).
+    Raises ValueError for non-numeric bounds or lo > hi."""
+    if interval_str is None or str(interval_str).strip().lower() in ("", "none", "all"):
         return None, None
+    interval_str = str(interval_str)
     sep = ":" if ":" in interval_str else ","
     parts = interval_str.split(sep, 1)
-    lo = int(parts[0]) if parts[0].strip() else None
-    hi = int(parts[1]) if len(parts) > 1 and parts[1].strip() else None
+    try:
+        lo = int(parts[0]) if parts[0].strip() else None
+        hi = int(parts[1]) if len(parts) > 1 and parts[1].strip() else None
+    except ValueError:
+        raise ValueError(f"invalid length range '{interval_str}' (expected e.g. 150:50000)") from None
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError(f"invalid length range '{interval_str}': lower bound > upper bound")
     return lo, hi
 
 
 def length_in_range(length_val: Any, range_str: str) -> bool:
-    if not range_str or range_str.lower() == "none":
+    if not range_str or range_str.lower() in ("none", "all"):
         return True
     lo, hi = parse_interval(range_str)
     try:

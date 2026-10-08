@@ -229,7 +229,7 @@ def _precompile_patterns():
             if key in _COMPILED_PATTERNS:
                 continue
             escaped = re.escape(key)
-            left = r'\b' if re.match(r'\w', key) else r'(?<=\s|^)'
+            left = r'\b' if re.match(r'\w', key) else r'(?:(?<=\s)|^)'
             right = r'\b' if (key and re.match(r'\w', key[-1])) else r'(?=\s|$)'
             _COMPILED_PATTERNS[key] = re.compile(left + escaped + right, re.IGNORECASE)
 
@@ -358,7 +358,7 @@ def smart_match(phrase: str, text: str) -> bool:
     if pat is None:
         # Fallback for phrases not in GENE_DICT (e.g. from external dicts)
         escaped = re.escape(key)
-        left = r'\b' if re.match(r'\w', key) else r'(?<=\s|^)'
+        left = r'\b' if re.match(r'\w', key) else r'(?:(?<=\s)|^)'
         right = r'\b' if (key and re.match(r'\w', key[-1])) else r'(?=\s|$)'
         pat = re.compile(left + escaped + right, re.IGNORECASE)
         _COMPILED_PATTERNS[key] = pat
@@ -370,10 +370,41 @@ def any_match(word_list: List[str], text: str) -> bool:
 
 
 def clean_length(length_str: str) -> int:
-    try:
-        return int(re.sub(r'[^\d]', '', str(length_str)))
-    except (ValueError, TypeError):
+    """'550 bp' / '550' / 550.0 / '1,234 bp' -> int; anything else -> 0.
+    (Stripping all non-digits turned 550.0 into 5500.)"""
+    m = re.search(r"\d[\d,]*(?:\.\d+)?", str(length_str))
+    if not m:
         return 0
+    try:
+        return int(float(m.group(0).replace(",", "")))
+    except ValueError:
+        return 0
+
+
+# Words that look like gene keywords but are not marker genes (review item L-06).
+NEGATIVE_CONTEXT: Dict[str, re.Pattern] = {
+    "16s": re.compile(r"16s\s+r?rna\s+(?:\(\S+\)\s+)?(?:methyl|methylase|methyltransferase)", re.I),
+    "12s": re.compile(r"12s\s+r?rna\s+(?:methyl|methylase|methyltransferase)", re.I),
+    "h3": re.compile(r"(?:histone\s+)?h3\s*(?:k\d+|lysine|\S*(?:demethylase|methyltransferase|acetyltransferase|"
+                     r"deacetylase|kinase|chaperone))", re.I),
+    "ef-1": re.compile(r"elongation\s+factor[\s-]*1[\s-]*(?:beta|gamma|delta|b|g|d)\b", re.I),
+}
+_SPECIMEN_TOKEN = re.compile(r"\b(?:isolate|voucher|strain|clone|specimen|haplotype|culture|individual|sample)"
+                             r"\s+(?:voucher\s+)?[^\s,;]+", re.I)
+
+
+def clean_definition(definition: Any) -> str:
+    """Lower-cased DEFINITION for keyword matching: specimen identifiers ('isolate CO2', 'voucher COI-12')
+    and the English word 'its' are removed first, so they are not read as gene names (review item L-06)."""
+    text = str(definition or "")
+    text = _SPECIMEN_TOKEN.sub(" ", text)
+    text = re.sub(r"\bits\b", " ", text)          # lower-case possessive only; 'ITS' is kept
+    return re.sub(r"\s+", " ", text).lower().strip()
+
+
+def _negative_hit(gene: str, definition: str) -> bool:
+    pat = NEGATIVE_CONTEXT.get(gene)
+    return bool(pat and pat.search(definition))
 
 
 def filter_dataframe(df: pd.DataFrame, moleculetype: str, mol_type: str,
@@ -415,7 +446,7 @@ def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> List[Dict]:
             "input_row": r.get("g2t_input_row", ""),
             "ACCESSION": r.get("ACCESSION", ""), "LocusID": r.get("LocusID", ""),
             "Organism": r.get("Organism", r.get("organism", "")),
-            "Length": "" if pd.isna(r.get("Length")) else int(r.get("Length")),
+            "Length": r.get("g2t_length_raw", "") if pd.isna(r.get("Length")) else int(r.get("Length")),
             "Definition": r.get("Definition", ""), "step": step,
             "reason": reason(r) if callable(reason) else reason,
         })
@@ -447,6 +478,39 @@ def _filter_dataframe_logged(df: pd.DataFrame, moleculetype: str, mol_type: str,
         df = apply(df, df["organelle"].str.lower() == organelle_filter.lower(),
                    lambda r: f"organelle '{r.get('organelle', '')}' is not '{organelle_filter}'")
     return df
+
+
+CLASSIFY_OUTPUTS = ["assigned_genes_type.csv", "assigned_genes_types2.csv", "assigned_genes_types_all.csv",
+                    "unmatched_sequences.csv", "unmatched_sequences2.csv", "unmatched_categorized.csv",
+                    "unmatched_report.txt", "conflicted_genes.csv", "multiple_matched.csv", "multiple_matched2.csv",
+                    FILTERED_FILE, STATUS_FILE]
+
+
+def _clean_outputs(output_dir: str, extra: Optional[List[str]] = None) -> None:
+    """Remove the products of a previous run, so stale files are never read back (L-10, C2)."""
+    for name in CLASSIFY_OUTPUTS + list(extra or []):
+        path = os.path.join(output_dir, name)
+        if os.path.isfile(path):
+            os.remove(path)
+
+
+def _write_all(output_dir: str, prematch_output: str) -> str:
+    """assigned_genes_types_all.csv = round 1 (+ round 2 if it ran); always written."""
+    frames = []
+    for name in (prematch_output, "assigned_genes_types2.csv"):
+        path = os.path.join(output_dir, name)
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            try:
+                frames.append(pd.read_csv(path, dtype=str))
+            except pd.errors.EmptyDataError:
+                pass
+    merged = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=DIAG_COLUMNS + ["LocusID"])
+    if "LocusID" in merged.columns:
+        merged = merged.drop_duplicates(subset=["LocusID"])
+    merged = reorder_columns(merged)
+    all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
+    merged.to_csv(all_file, index=False)
+    return all_file
 
 
 DIAG_COLUMNS = ["gene_type", "Conflict", "match_source", "Original_match",
@@ -484,12 +548,13 @@ def _match_gene_loop(
     for pg in priority_genes:
         if pg in skip_genes or pg not in gene_set:
             continue
-        if any_match(GENE_DICT.get(pg, []), definition):
+        if any_match(GENE_DICT.get(pg, []), definition) and not _negative_hit(pg, definition):
             range_str = config.get_gene_length_range(pg)
             if length_in_range(length_val, range_str):
                 # Extra check for mtgenome
-                if pg == "mtgenome" and length_val <= 3000:
-                    notes.append(f"mtgenome: keyword matched but Length={length_val}<=3000")
+                mt_min = parse_interval(config.get_gene_length_range("mtgenome"))[0] or 3000
+                if pg == "mtgenome" and length_val < mt_min:
+                    notes.append(f"mtgenome: keyword matched but Length={length_val}<{mt_min}")
                     continue
                 matched.add(pg)
                 notes.append(f"{pg}: priority match hit")
@@ -505,6 +570,9 @@ def _match_gene_loop(
         if not keywords:
             continue
         if not any_match(keywords, definition):
+            continue
+        if _negative_hit(gene, definition):
+            notes.append(f"{gene}: keyword matched but excluded by context (not the marker gene)")
             continue
 
         range_str = config.get_gene_length_range(gene)
@@ -549,7 +617,7 @@ def match_nuclear_genes(definition: str, length_val: int,
 
 
 def first_round_match(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
-    definition = str(row.get("Definition", "")).lower().strip()
+    definition = clean_definition(row.get("Definition", ""))
     organelle = str(row.get("organelle", "")).lower().strip()
     length_val = clean_length(row.get("Length", "0"))
 
@@ -667,7 +735,7 @@ def _conflict_mito(genes: Set[str], definition: str, length_val: int,
             notes.append(f"Dual match + '{trigger}' in definition, kept original + flagged")
             return resolved, conflict, conflict_reason, notes
 
-    for gene in list(genes):
+    for gene in sorted(genes):
         result = _check_ribosomal_conflict(gene, definition, length_val)
         if result:
             resolved = result["resolved"]
@@ -685,7 +753,7 @@ def _conflict_nuclear(genes: Set[str], definition: str, length_val: int,
     conflict_reason = ""
     resolved = set(genes)
 
-    for gene in list(genes):
+    for gene in sorted(genes):
         result = _check_ribosomal_conflict(gene, definition, length_val)
         if result:
             resolved = result["resolved"]
@@ -701,7 +769,7 @@ def _conflict_nuclear(genes: Set[str], definition: str, length_val: int,
 # Round 2: Recheck unmatched
 # =========================
 def recheck_match_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
-    definition = str(row.get("Definition", "")).lower().strip()
+    definition = clean_definition(row.get("Definition", ""))
     organelle = str(row.get("organelle", "")).strip()
     molecule_type = str(row.get("MoleculeType", "")).lower().strip()
     topology = str(row.get("Topology", "")).lower().strip()
@@ -725,12 +793,16 @@ def recheck_match_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any
                 continue
             if not any_match(keywords, definition):
                 continue
+            if _negative_hit(gene, definition):
+                conflict_notes.append(f"{gene}: keyword matched but excluded by context")
+                continue
 
             if gene == "mtgenome":
-                if (length_val > 3000 and molecule_type == "dna"
+                mt_min = parse_interval(config.get_gene_length_range("mtgenome"))[0] or 3000
+                if (length_val >= mt_min and molecule_type == "dna"
                         and (has_mito_def or has_mito_org)):
                     candidates.add("mtgenome")
-                    notes.append("mtgenome: keyword + Length>3000 + DNA + mitochondrial features")
+                    notes.append(f"mtgenome: keyword + Length>={mt_min} + DNA + mitochondrial features")
                 else:
                     conflict_notes.append(
                         f"mtgenome: conditions not met (Length={length_val}, "
@@ -801,7 +873,7 @@ def process_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
     if not gene_type_str:
         return prelim
 
-    definition = str(row.get("Definition", "")).lower()
+    definition = clean_definition(row.get("Definition", ""))
     group = "mito" if "mitochondrion" in str(row.get("organelle", "")).lower() else "nuclear"
     length_val = clean_length(row.get("Length", "0"))
 
@@ -845,7 +917,8 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     df = utils_read_table(input_file)
     df.columns = df.columns.str.strip()
 
-    df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True)
+    df["g2t_length_raw"] = df["Length"].astype(str)
+    df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True).str.replace(",", "")
     df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
     df["g2t_input_row"] = range(len(df))
     removed: List[Dict] = []
@@ -871,8 +944,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
 
     results = []
     conflict_records = []
-    for row in df.itertuples(index=False):
-        row_dict = row._asdict()
+    for row_dict in df.to_dict("records"):      # itertuples renamed columns with spaces (L-14)
         res = process_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -884,7 +956,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
             conflict_records.append(row_dict)
         results.append(row_dict)
 
-    res_df = pd.DataFrame(results)
+    res_df = pd.DataFrame(results) if results else pd.DataFrame(columns=list(df.columns) + DIAG_COLUMNS)
     if "LocusID" in res_df.columns and len(res_df):
         dup = res_df.duplicated(subset=["LocusID"], keep="first")
         removed.extend(_filtered_rows(res_df[dup], "classify round 1",
@@ -893,7 +965,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     _write_filtered(output_dir, removed, append=False)
     if removed:
         logger.info(f"Filtered out {len(removed)} records -> {FILTERED_FILE} (with reasons)")
-    res_df = res_df.drop(columns=["g2t_input_row"], errors="ignore")
+    res_df = res_df.drop(columns=["g2t_input_row", "g2t_length_raw"], errors="ignore")
 
     if not config.add_assignment_reasons and "Assignment_reason" in res_df.columns:
         res_df = res_df.drop(columns=["Assignment_reason"])
@@ -909,7 +981,8 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     _save_csv(unmatched_df, output_dir, unmatched_output, "Unmatched")
 
     if conflict_records:
-        conflict_df = reorder_columns(pd.DataFrame(conflict_records).drop(columns=["g2t_input_row"], errors="ignore"))
+        conflict_df = reorder_columns(pd.DataFrame(conflict_records).drop(
+            columns=["g2t_input_row", "g2t_length_raw"], errors="ignore"))
         _save_csv(conflict_df, output_dir, conflicted_output, "Conflict")
 
     multip_df = assigned_df[assigned_df["gene_type"].apply(
@@ -945,7 +1018,7 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
 
     # P0-3: Use union of mt+nt ranges instead of nuclear-only
     if apply_length_filter:
-        df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True)
+        df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True).str.replace(",", "")
         df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
         lo_mt, hi_mt = parse_interval(config.length2_mtgenes)
         lo_nt, hi_nt = parse_interval(config.length2_ntgenes)
@@ -958,8 +1031,7 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
 
     results = []
     conflict_records = []
-    for row in df.itertuples(index=False):
-        row_dict = row._asdict()
+    for row_dict in df.to_dict("records"):      # itertuples renamed columns with spaces (L-14)
         res = recheck_match_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -971,7 +1043,7 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
             conflict_records.append(row_dict)
         results.append(row_dict)
 
-    res_df = pd.DataFrame(results)
+    res_df = pd.DataFrame(results) if results else pd.DataFrame(columns=list(df.columns) + DIAG_COLUMNS)
     if "LocusID" in res_df.columns:
         res_df = res_df.drop_duplicates(subset=["LocusID"])
 
@@ -1151,6 +1223,8 @@ def _run_cli(args: argparse.Namespace) -> None:
 
     output_dir = args.output
     os.makedirs(output_dir, exist_ok=True)
+    _clean_outputs(output_dir, [args.prematch_output_file_name, args.unmatched_sequences,
+                                args.multip_matched_genestype, args.conflicted_sequences])
 
     mtgenes = [s.strip() for s in args.mtgenes_list.split(",") if s.strip()]
     ntgenes = [s.strip() for s in args.ntgenes_list.split(",") if s.strip()]
@@ -1223,23 +1297,12 @@ def _run_cli(args: argparse.Namespace) -> None:
                 apply_length_filter=(args.if_length_range_work2_recheck.lower() == "yes")
             )
 
-            round1_output_path = os.path.join(output_dir, args.prematch_output_file_name)
-            round2_output_path = os.path.join(output_dir, "assigned_genes_types2.csv")
-            if os.path.exists(round1_output_path) and os.path.exists(round2_output_path):
-                try:
-                    round1_df = pd.read_csv(round1_output_path, dtype=str)
-                    round2_df = pd.read_csv(round2_output_path, dtype=str)
-                    merged = pd.concat([round1_df, round2_df])
-                    if "LocusID" in merged.columns:
-                        merged = merged.drop_duplicates(subset=["LocusID"])
-                    merged = reorder_columns(merged)
-                    all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
-                    merged.to_csv(all_file, index=False)
-                    logger.info(f"Merged results: {all_file} ({len(merged)} records)")
-                except (OSError, pd.errors.EmptyDataError) as e:
-                    logger.error(f"Merge failed: {e}")
         else:
-            logger.warning(f"Unmatched file not found: {unmatched_file}, skipping round 2")
+            logger.warning(f"Unmatched file not found or empty: {unmatched_file}, skipping round 2")
+    all_file = _write_all(output_dir, args.prematch_output_file_name)
+    logger.info(f"Merged results: {all_file}")
+    build_record_status(args.input, output_dir, args.if_recheck_unmatched.lower() == "yes", config,
+                        args.unmatched_sequences, args.prematch_output_file_name)
 
     logger.info("=" * 60)
     logger.info("Processing complete")
@@ -1247,7 +1310,8 @@ def _run_cli(args: argparse.Namespace) -> None:
 
 
 def build_record_status(input_file: str, output_dir: str, if_recheck: bool, config: MatchConfig,
-                        unmatched_output: str = "unmatched_sequences.csv") -> pd.DataFrame:
+                        unmatched_output: str = "unmatched_sequences.csv",
+                        prematch_output: str = "assigned_genes_type.csv") -> pd.DataFrame:
     """One row per input row: assigned (gene_type) / unmatched / filtered, each with a reason."""
     src = utils_read_table(input_file)
     src.columns = src.columns.str.strip()
@@ -1265,11 +1329,12 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
     filt_reason = {str(r["input_row"]): r["reason"] for _, r in filt.iterrows()} if len(filt) else {}
     assigned = read("assigned_genes_types_all.csv")
     if assigned.empty:
-        assigned = read("assigned_genes_type.csv")
+        assigned = read(prematch_output)
     gene_of = dict(zip(assigned.get("LocusID", []), assigned.get("gene_type", [])))
     reason_of = dict(zip(assigned.get("LocusID", []), assigned.get("Assignment_reason", [""] * len(assigned))))
     un1 = read(unmatched_output)
-    un2 = read("unmatched_sequences2.csv") if if_recheck else pd.DataFrame()
+    recheck_ran = if_recheck and os.path.exists(os.path.join(output_dir, "unmatched_sequences2.csv"))
+    un2 = read("unmatched_sequences2.csv") if recheck_ran else pd.DataFrame()
     un2_ids = set(un2.get("LocusID", []))
     rows = []
     for i, r in src.iterrows():
@@ -1283,11 +1348,11 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
             rows.append({**base, "status": "assigned", "gene_type": gene_of[lid], "reason": reason_of.get(lid, "")})
         else:
             reason = "no gene type matched (DEFINITION keywords, round 1"
-            if if_recheck and len(un1) and lid not in un2_ids:
+            if recheck_ran and lid not in un2_ids:
                 reason += (f"); skipped in round-2 recheck: length outside {config.length2_mtgenes} / "
                            f"{config.length2_ntgenes}")
             else:
-                reason += " and 2)" if if_recheck else ")"
+                reason += " and 2)" if recheck_ran else ")"
             rows.append({**base, "status": "unmatched", "gene_type": "", "reason": reason})
     out = pd.DataFrame(rows, columns=["input_row", "ACCESSION", "LocusID", "Organism", "Length", "Definition",
                                       "status", "gene_type", "reason"])
@@ -1315,6 +1380,7 @@ def classify(
 
     if config is None:
         config = MatchConfig()
+    _clean_outputs(output_dir, [prematch_output, unmatched_output])
 
     try:
         prematch_df = process_prematch(
@@ -1331,26 +1397,13 @@ def classify(
                     unmatched_file, output_dir, config,
                     apply_length_filter=apply_length_filter_recheck,
                 )
-                round1_output_path = os.path.join(output_dir, prematch_output)
-                round2_output_path = os.path.join(output_dir, "assigned_genes_types2.csv")
-                if os.path.exists(round1_output_path) and os.path.exists(round2_output_path):
-                    try:
-                        round1_df = pd.read_csv(round1_output_path, dtype=str)
-                        round2_df = pd.read_csv(round2_output_path, dtype=str)
-                        merged = pd.concat([round1_df, round2_df])
-                        if "LocusID" in merged.columns:
-                            merged = merged.drop_duplicates(subset=["LocusID"])
-                        merged = reorder_columns(merged)
-                        all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
-                        merged.to_csv(all_file, index=False)
-                    except Exception:
-                        pass
+        _write_all(output_dir, prematch_output)
 
         if extract_gene_types:
             extract_genes(prematch_df, extract_gene_types, output_dir)
 
         try:
-            build_record_status(input_file, output_dir, if_recheck, config, unmatched_output)
+            build_record_status(input_file, output_dir, if_recheck, config, unmatched_output, prematch_output)
         except Exception as e:  # noqa: BLE001 - accounting must not break classification
             logger.warning(f"Failed to write {STATUS_FILE}: {e}")
 
@@ -1365,10 +1418,7 @@ def classify(
                 logger.warning(f"Failed to generate unmatched report: {e}")
 
         all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
-        if os.path.exists(all_file):
-            rows = len(pd.read_csv(all_file, dtype=str))
-        else:
-            rows = 0
+        rows = len(pd.read_csv(all_file, dtype=str))
 
         return StepResult(
             success=True,

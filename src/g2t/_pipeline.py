@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,7 +24,7 @@ class PipelineResult:
 
 def _run_step(
     *,
-    step_num: int,
+    step_num: int | str,
     skip: bool,
     resume: bool,
     output_path: Path,
@@ -186,21 +187,35 @@ def run(
         steps_completed += 1
 
     # --- Step 3b: Reconcile voucher variants ---
+    # --resume must not reuse 3b/4 outputs made with other reconcile settings
+    params_file = out_root / ".g2t_params.json"
+    params = {"skip_reconcile": bool(skip_reconcile), "reconcile_min_confidence": reconcile_min_confidence}
+    try:
+        old_params = json.loads(params_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old_params = None
+    resume_late = resume and old_params == params
+    if resume and not resume_late:
+        msg = "Reconcile settings changed (or unknown) since the last run: re-running steps 3b and 4"
+        log_lines.append(msg)
+        if not quiet:
+            print(msg)
+
     organize_input = out_updated_voucher
     if not skip_reconcile:
         from g2t.reconcile import ReconcileConfig
         err = _run_step(
-            step_num=3, skip=False, resume=resume,
+            step_num="3b", skip=False, resume=resume_late,
             output_path=out_reconciled, module_path="g2t.reconcile", func_name="reconcile",
             kwargs=dict(input_file=str(out_updated_voucher), output_dir=str(voucher_dir),
                         config=ReconcileConfig(min_confidence=reconcile_min_confidence)),
             quiet=quiet, log_lines=log_lines,
         )
         if err:
-            return _fail(err.replace("Step 3", "Step 3b"))
-        if log_lines and log_lines[-1].startswith("Step 3 "):
-            log_lines[-1] = log_lines[-1].replace("Step 3 ", "Step 3b ", 1)
+            return _fail(err)
         organize_input = out_reconciled
+        steps_completed += 1
+    params_file.write_text(json.dumps(params), encoding="utf-8")
 
     # --- Step 4: Organize ---
     step4_kwargs = dict(
@@ -210,7 +225,7 @@ def run(
     if organize_extra:
         step4_kwargs.update(organize_extra)
     err = _run_step(
-        step_num=4, skip=skip_organize, resume=resume,
+        step_num=4, skip=skip_organize, resume=resume_late,
         output_path=out_organized, module_path="g2t.organize", func_name="organize",
         kwargs=step4_kwargs, quiet=quiet, log_lines=log_lines,
     )

@@ -31,6 +31,14 @@ from g2t.utils import (
 )
 
 
+# Priority order of columns used to build the primary voucher (pse). Single source of truth for the
+# API, the g2t pipeline and the g2t-voucher CLI (other modules import this constant).
+DEFAULT_VOUCHER_COLUMNS: List[str] = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
+
+# Whether an empty pse falls back to the haplotype column. Same default for API and CLI.
+DEFAULT_FILL_HAPLOTYPE: bool = False
+
+
 def now_ts() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
@@ -47,9 +55,14 @@ def log(msg: str, quiet: bool, log_file_path: Optional[str] = None) -> None:
             pass
 
 
-def normalize_columns_inplace(df: pd.DataFrame) -> None:
-    """Normalize column names in-place: strip whitespace, replace spaces with underscores, deduplicate."""
-    new_cols = [col_key(c) for c in df.columns]
+def normalize_columns_inplace(df: pd.DataFrame, lowercase: bool = True) -> None:
+    """Normalize column names in-place: strip whitespace, replace spaces with underscores, deduplicate.
+
+    ``lowercase`` defaults to True only for backward compatibility of direct callers. The pipeline
+    (``build_species_vouchers(normalize_column_names=True)``) passes ``lowercase=False``: case is
+    preserved so required columns such as ``LocusID`` / ``ACCESSION`` survive for later steps (L-11).
+    """
+    new_cols = [col_key(c) if lowercase else str(c).strip().replace(" ", "_") for c in df.columns]
     seen: Dict[str, int] = {}
     fixed: List[str] = []
     for c in new_cols:
@@ -62,13 +75,27 @@ def normalize_columns_inplace(df: pd.DataFrame) -> None:
     df.columns = fixed
 
 
+def _is_blank_value(v) -> bool:
+    """True for NA, empty, whitespace-only and punctuation-only strings (no letter/digit at all)."""
+    if pd.isna(v):
+        return True
+    return not any(ch.isalnum() for ch in str(v))
+
+
+def _blank_to_na(series: pd.Series) -> pd.Series:
+    """Return *series* as string dtype with blank / punctuation-only values replaced by NA (L-22)."""
+    s = series.astype("string")
+    blank = pd.Series([_is_blank_value(v) for v in s], index=s.index, dtype=bool)
+    return s.mask(blank)
+
+
 def build_species_vouchers(
     file_path: str,
     output_dir: str,
     if_generate_simple_csv: bool = True,
     if_generate_sorted_group: bool = True,
     combine_order: str = "species_name+pse",
-    if_write_haplotype: bool = False,
+    if_write_haplotype: bool = DEFAULT_FILL_HAPLOTYPE,
     columns_order: List[str] = None,
     col_for_empty_fill: str = "ACCESSION",
     primary_voucher_column_name: str = "species_voucher_pse",
@@ -80,7 +107,7 @@ def build_species_vouchers(
     log_file: str = "",
 ) -> StepResult:
     if columns_order is None:
-        columns_order = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
+        columns_order = list(DEFAULT_VOUCHER_COLUMNS)
     os.makedirs(output_dir, exist_ok=True)
     log_file_path = log_file
 
@@ -92,8 +119,9 @@ def build_species_vouchers(
     log(f"Loaded table: rows={len(df)} cols={len(df.columns)}", quiet, log_file_path)
 
     if normalize_column_names:
-        normalize_columns_inplace(df)
-        log("normalize_column_names=ON: columns spaces -> underscores (and deduped)", quiet, log_file_path)
+        normalize_columns_inplace(df, lowercase=False)
+        log("normalize_column_names=ON: column-name spaces -> underscores, case preserved (and deduped)",
+            quiet, log_file_path)
     else:
         log("normalize_column_names=OFF: keeping original column names", quiet, log_file_path)
 
@@ -138,7 +166,9 @@ def build_species_vouchers(
     fill_from_fallback = 0
 
     if resolved_order_cols:
-        tmp = df[resolved_order_cols].astype("string")
+        # Whitespace-only / punctuation-only values (" ", "..", "()") count as empty (L-22),
+        # so the fallback to the next column works; non-blank values are kept verbatim.
+        tmp = pd.concat([_blank_to_na(df[c]).rename(c) for c in resolved_order_cols], axis=1)
         primary_voucher_series = tmp.bfill(axis=1).iloc[:, 0]
         primary_voucher_series = primary_voucher_series.infer_objects(copy=False)
         fill_from_priority = int(primary_voucher_series.notna().sum())
@@ -147,13 +177,13 @@ def build_species_vouchers(
 
     if if_write_haplotype and hap_col and hap_col in df.columns:
         before = primary_voucher_series.notna().sum()
-        primary_voucher_series = primary_voucher_series.fillna(df[hap_col].astype("string")).infer_objects(copy=False)
+        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[hap_col])).infer_objects(copy=False)
         after = primary_voucher_series.notna().sum()
         fill_from_hap = int(after - before)
 
     if fallback_col and fallback_col in df.columns:
         before = primary_voucher_series.notna().sum()
-        primary_voucher_series = primary_voucher_series.fillna(df[fallback_col].astype("string")).infer_objects(copy=False)
+        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[fallback_col])).infer_objects(copy=False)
         after = primary_voucher_series.notna().sum()
         fill_from_fallback = int(after - before)
 
@@ -277,12 +307,12 @@ def main(argv=None):
     parser.add_argument("--log_file", default="", help="Log file path")
 
     parser.add_argument("--normalize_column_names", type=str2bool, default=False,
-                        help="Replace column name spaces with underscores (default False)")
+                        help="Replace column name spaces with underscores; case is preserved (default False)")
     parser.add_argument("--fill_haplotype", "--if_write_haplotype_into_new_species_voucher",
-                        type=str2bool, default=True,
-                        help="Fill empty primary_voucher with haplotype (default True)")
+                        type=str2bool, default=DEFAULT_FILL_HAPLOTYPE,
+                        help=f"Fill empty primary_voucher with haplotype (default {DEFAULT_FILL_HAPLOTYPE})")
     parser.add_argument("--columns_to_combine", "--which_columes_want_combine",
-                        default="specimen_voucher,isolate,clone,strain",
+                        default=",".join(DEFAULT_VOUCHER_COLUMNS),
                         help="Columns used to generate primary_voucher, in priority order")
     parser.add_argument("--fallback_column", "--which_volumn_write2_still_empty_species_voucher",
                         default="ACCESSION",

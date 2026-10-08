@@ -110,3 +110,16 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 **决定**：暂按原逻辑。备选方案：区段层拆分——特征表有坐标的直接切；无坐标的用 ITSx/barrnap 识别边界；都不行标"未拆分"。需要时再实施。
 
 **手动处理**：在 Records 或 assigned_genes_types_all.csv 中筛选 gene_type = its1-its2 且长度 > 1000 bp 的记录，核对 DEFINITION。
+
+
+---
+
+## 已知未修复（v0.02 代码审查遗留，2026-10-09）
+
+审查报告：yzz 工作流 `docs/g2t_review_legacy.md`、`docs/g2t_review_new_code.md`。
+
+1. **第 2 轮复查**（classify `recheck_match_row`）：`Topology=circular` 直接判 mtgenome，不看长度和细胞器；第 2 轮不使用 `--mtgenes_list/--ntgenes_list`；`--which_gene_types_extract` 只含第 1 轮结果（L-18）。
+2. **`g2t` 的 `--extract_extra/--classify_extra/--voucher_extra/--organize_extra`**：解析后未传给 `run()`，目前无效；需要改单步参数时请分步运行各命令。
+3. **格式损坏的记录**：Biopython 解析失败后，同一文件中其后的记录不再读取；`extraction_report.json` 标为部分完成并给出应有/实际记录数，但不恢复。
+4. **矩阵元数据逐列取首个非空值**（organize `first_nonempty`）：地点、日期等可能来自同一标本的不同记录（L-09 只修了 Conflict 列）。
+5. **mtgenome / 18-28s 的列复制**不检查记录是否注释了该基因（默认行为保留；可用 `--mtgenome_includes` 限定）。

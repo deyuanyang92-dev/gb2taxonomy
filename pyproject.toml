@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "g2t"
-version = "0.0.1"
+version = "0.0.2"
 description = "GenBank to Taxonomy: download a taxon from NCBI and build a specimen x gene matrix"
 readme = "README.md"
 license = "MIT"

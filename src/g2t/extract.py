@@ -20,12 +20,13 @@ import csv
 import json
 import shutil
 import argparse
-import traceback
+import functools
+import warnings
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Callable
-from g2t.utils import StepResult, PipelineStepError
-from Bio import SeqIO
+from g2t.utils import StepResult
+from Bio import Entrez, SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
 import concurrent.futures
@@ -46,11 +47,24 @@ if hasattr(sys.stdout, 'reconfigure'):
 # ===============================
 # Global state (encapsulated in TaxonomyService)
 # ===============================
+_LINEAGE_RANKS = ("class", "order", "family", "genus")
+ENTREZ_TAXONOMY_BATCH = 200  # max TaxIDs per efetch request
+TAXONOMY_CACHE_NAME = "taxonomy_cache.json"
+_TAXON_XREF_RE = re.compile(r'/db_xref="taxon:(\d+)"')
+
+
 class TaxonomyService:
-    """Encapsulates NCBI taxonomy lookup state."""
+    """Encapsulates NCBI taxonomy lookup state.
+
+    Backends, in order of preference:
+      1. ete3 (local NCBI taxonomy database) when it can be imported;
+      2. otherwise Bio.Entrez ``efetch(db="taxonomy")`` in batches of at most
+         200 TaxIDs (L-05).  Results are cached in ``<output_dir>/taxonomy_cache.json``.
+    """
 
     def __init__(self):
         self.ete3_available: bool = False
+        self.entrez_fallback: bool = False
         self.ncbi_taxa_cls = None
         self.cache: Dict[str, Dict[str, str]] = {}
         self.errors_reported: set = set()
@@ -73,31 +87,40 @@ class TaxonomyService:
             return False
 
     def initialize(self, interactive: bool = True) -> bool:
-        self.ete3_available = importlib.util.find_spec("ete3") is not None
-        if self.ete3_available:
+        """Select a taxonomy backend.  Returns True when a backend is available.
+
+        ``interactive`` is kept for backward compatibility; there is no prompt any
+        more because the Entrez fallback makes "continue without taxonomy" moot.
+        """
+        self.ete3_available = False
+        self.entrez_fallback = False
+        reason = ""
+        try:
+            spec = importlib.util.find_spec("ete3")
+        except (ImportError, ValueError):
+            spec = None
+        if spec is not None:
             try:
                 from ete3 import NCBITaxa
                 self.ncbi_taxa_cls = NCBITaxa
+                self.ete3_available = True
                 logger.info("ete3 module loaded")
                 return True
-            except Exception as e:
-                logger.warning(f"ete3 init error: {e}")
-                self.ete3_available = False
+            except Exception as e:  # ImportError / ModuleNotFoundError (e.g. no `cgi` on Python 3.13)
+                reason = f"ete3 init error: {e}"
         else:
-            logger.warning("ete3 not detected, taxonomy unavailable")
-            logger.info("Install: pip install ete3")
-            if interactive and not sys.flags.interactive:
-                try:
-                    if input("Continue without taxonomy? (y/n, default y): ").strip().lower()[:1] == 'n':
-                        raise PipelineStepError("User declined to continue without taxonomy")
-                except (EOFError, IndexError):
-                    pass
-        return False
+            reason = "ete3 not detected"
+        self.entrez_fallback = True
+        logger.warning(
+            f"{reason}; falling back to NCBI Entrez (db=taxonomy, needs network) "
+            f"for Class/Order/Family/Genus. Set NCBI_EMAIL / NCBI_API_KEY to identify yourself to NCBI.")
+        return True
 
     def get_lineage(self, tax_id_str: str) -> Dict[str, str]:
         if tax_id_str in self.cache:
             return self.cache[tax_id_str]
         if not self.ete3_available or not self.ncbi_taxa_cls:
+            # Entrez fallback: lineages are bulk-loaded by prefetch_entrez(); never one request per record.
             return {}
         try:
             tax_id = int(tax_id_str)
@@ -115,7 +138,7 @@ class TaxonomyService:
             result = {
                 rank_dict[tid].capitalize(): names[tid]
                 for tid in lineage
-                if rank_dict.get(tid) in ("class", "order", "family", "genus")
+                if rank_dict.get(tid) in _LINEAGE_RANKS
             }
         except Exception as e:
             if tax_id_str not in self.errors_reported:
@@ -124,6 +147,106 @@ class TaxonomyService:
             result = {}
         self.cache[tax_id_str] = result
         return result
+
+    # ---- Entrez fallback (L-05) -------------------------------------------
+    @staticmethod
+    def _load_disk_cache(cache_path: Optional[str]) -> Dict[str, Dict[str, str]]:
+        if not cache_path or not os.path.isfile(cache_path):
+            return {}
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("not a JSON object")
+            return {str(k): {str(a): str(b) for a, b in v.items()}
+                    for k, v in data.items() if isinstance(v, dict)}
+        except Exception as e:
+            logger.warning(f"Ignoring unreadable taxonomy cache {cache_path}: {e}")
+            return {}
+
+    @staticmethod
+    def _save_disk_cache(cache_path: str, data: Dict[str, Dict[str, str]]) -> None:
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
+            tmp = cache_path + ".tmp"
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1, sort_keys=True)
+            os.replace(tmp, cache_path)
+        except OSError as e:
+            logger.warning(f"Could not write taxonomy cache {cache_path}: {e}")
+
+    @staticmethod
+    def _efetch_lineages(tax_ids: List[str]) -> Dict[str, Dict[str, str]]:
+        """One Entrez request for ``tax_ids`` (at most ENTREZ_TAXONOMY_BATCH of them)."""
+        email = os.environ.get("NCBI_EMAIL")
+        api_key = os.environ.get("NCBI_API_KEY")
+        if email:
+            Entrez.email = email
+        if api_key:
+            Entrez.api_key = api_key
+        saved = (Entrez.max_tries, Entrez.sleep_between_tries)
+        Entrez.max_tries, Entrez.sleep_between_tries = 2, 2  # fail reasonably fast when offline
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)  # "Email address is not specified"
+                handle = Entrez.efetch(db="taxonomy", id=",".join(tax_ids), retmode="xml")
+                try:
+                    records = Entrez.read(handle)
+                finally:
+                    handle.close()
+        finally:
+            Entrez.max_tries, Entrez.sleep_between_tries = saved
+        out: Dict[str, Dict[str, str]] = {}
+        for rec in records:
+            nodes = list(rec.get("LineageEx", []))
+            nodes.append({"Rank": rec.get("Rank", ""), "ScientificName": rec.get("ScientificName", "")})
+            lineage = {}
+            for node in nodes:  # ancestors first, the taxon itself last (same as ete3)
+                rank = str(node.get("Rank", ""))
+                if rank in _LINEAGE_RANKS:
+                    lineage[rank.capitalize()] = str(node.get("ScientificName", ""))
+            ids = [str(rec.get("TaxId", ""))] + [str(x) for x in rec.get("AkaTaxIds", [])]
+            for tid in ids:
+                if tid:
+                    out[tid] = lineage
+        return out
+
+    def prefetch_entrez(self, tax_ids, cache_path: Optional[str] = None) -> None:
+        """Bulk-load Class/Order/Family/Genus for ``tax_ids`` via Entrez (no-op unless fallback is active)."""
+        if not self.entrez_fallback:
+            return
+        wanted: List[str] = []
+        seen = set()
+        for t in tax_ids:
+            t = str(t).strip()
+            if t.isascii() and t.isdigit() and t not in seen:
+                seen.add(t)
+                wanted.append(t)
+        disk = self._load_disk_cache(cache_path)
+        for tid, lineage in disk.items():
+            self.cache.setdefault(tid, lineage)
+        missing = [t for t in wanted if t not in self.cache]
+        if missing:
+            logger.info(f"Taxonomy: requesting {len(missing)} TaxonID(s) from NCBI Entrez "
+                        f"({len(wanted) - len(missing)} already cached)")
+        for i in range(0, len(missing), ENTREZ_TAXONOMY_BATCH):
+            chunk = missing[i:i + ENTREZ_TAXONOMY_BATCH]
+            try:
+                got = self._efetch_lineages(chunk)
+            except Exception as e:
+                pending = len(missing) - i
+                logger.warning(
+                    f"NCBI Entrez taxonomy lookup failed ({type(e).__name__}: {e}); "
+                    f"Class/Order/Family/Genus will be empty for {pending} TaxonID(s). "
+                    f"Re-run with network access to fill them.")
+                break
+            for tid in chunk:
+                self.cache[tid] = got.get(tid, {})  # unknown ids -> {} (request succeeded)
+        if cache_path:
+            merged = dict(disk)
+            merged.update({t: self.cache[t] for t in wanted if t in self.cache})
+            if merged and (merged != disk or not os.path.isfile(cache_path)):
+                self._save_disk_cache(cache_path, merged)
 
 
 _taxonomy = TaxonomyService()
@@ -190,6 +313,8 @@ class FileResult:
     assembly_extracted: int = 0
     assembly_no_data: int = 0
     assembly_failed: int = 0
+    # Number of "//" record terminators found in the file (None = not counted).
+    records_expected: Optional[int] = None
     error_message: str = ""
     elapsed_time: float = 0.0
     record_errors: List[RecordError] = field(default_factory=list)
@@ -312,6 +437,8 @@ class ProcessingSummary:
             if r.assembly_failed > 0:
                 asm_str += f" (failed:{r.assembly_failed})"
             logger.info(f"      Records: {r.total_records}  |  {md_str}  |  {asm_str}  |  {r.elapsed_time:.1f}s")
+            if r.status != FileStatus.SUCCESS and r.error_message:
+                logger.info(f"      Note: {r.error_message}")
 
             if r.metadata_failed > 0 or r.assembly_failed > 0:
                 failed_accs = [t.accession for t in r.record_tracks if not t.metadata_ok]
@@ -353,6 +480,7 @@ class ProcessingSummary:
                 "assembly_extracted": r.assembly_extracted,
                 "assembly_no_data": r.assembly_no_data,
                 "assembly_failed": r.assembly_failed,
+                "records_expected": r.records_expected,
                 "error_message": r.error_message,
                 "elapsed_time": round(r.elapsed_time, 2),
                 "record_errors": [
@@ -525,6 +653,30 @@ def get_taxonomy_lineage(tax_id_str: str) -> Dict[str, str]:
     return _taxonomy.get_lineage(tax_id_str)
 
 
+def collect_taxon_ids(gb_files: List[str]) -> List[str]:
+    """Unique ``/db_xref="taxon:<id>"`` values in the files (cheap line scan, no full parse)."""
+    ids: Dict[str, None] = {}
+    for fp in gb_files:
+        try:
+            with open(fp, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'taxon:' in line:
+                        for tid in _TAXON_XREF_RE.findall(line):
+                            ids[tid] = None
+        except OSError:
+            continue
+    return list(ids)
+
+
+def prefetch_taxonomy(gb_files: List[str], output_dir: str, include_taxonomy: bool = True) -> None:
+    """Fill the taxonomy cache in bulk when the Entrez fallback is active (L-05)."""
+    if not include_taxonomy or not _taxonomy.entrez_fallback:
+        return
+    ids = collect_taxon_ids(gb_files)
+    if ids:
+        _taxonomy.prefetch_entrez(ids, os.path.join(output_dir, TAXONOMY_CACHE_NAME))
+
+
 # ===============================
 # Metadata extraction (Biopython)
 # ===============================
@@ -544,9 +696,16 @@ def parse_source_feature(feature: SeqFeature) -> Dict[str, str]:
     for q, vals in feature.qualifiers.items():
         cleaned = [' '.join(v.replace('\n', ' ').split()) for v in vals]
         if q == "db_xref":
-            tids = [x.split(":")[1] for x in cleaned if x.startswith("taxon:")]
+            # The first taxon:<id> becomes TaxonID.  Every other cross-reference
+            # (BOLD:..., a second taxon:..., etc.) is kept in the db_xref column (L-19).
+            tids = [x.split(":", 1)[1].strip() for x in cleaned if x.startswith("taxon:")]
+            tids = [t for t in tids if t]
             if tids:
                 data["TaxonID"] = tids[0]
+            others = [x for x in cleaned if not x.startswith("taxon:")]
+            others += [f"taxon:{t}" for t in tids[1:]]
+            if others:
+                data["db_xref"] = "; ".join(others)
             continue
         data[q] = "; ".join(cleaned)
     return data
@@ -576,10 +735,16 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> Dict[s
     if tax:
         metadata["Taxonomy"] = "; ".join(tax)
 
-    for feat in record.features:
-        if feat.type == "source":
-            metadata.update(parse_source_feature(feat))
-            break
+    sources = [feat for feat in record.features if feat.type == "source"]
+    if len(sources) > 1:
+        logger.warning(
+            f"{metadata['ACCESSION'] or record.id}: {len(sources)} source features found; "
+            f"using the first one and ignoring the others")
+    if sources:
+        metadata.update(parse_source_feature(sources[0]))
+    if not metadata.get("organism"):
+        # No source feature (or no /organism in it): fall back to the record-level organism (L-21)
+        metadata["organism"] = metadata.get("Organism", "")
 
     if include_taxonomy:
         tid = metadata.get("TaxonID")
@@ -731,6 +896,16 @@ def get_ordered_fieldnames(row: Dict, base: List[str]) -> List[str]:
     return ordered + extra
 
 
+def canonical_metadata_columns(present) -> List[str]:
+    """Column order shared by every output path: BASE columns, then extras sorted.
+
+    Identical to what ``prescan_fieldnames`` returns when ``present`` holds the
+    keys that occur in the data (L-20), but needs no second parse of the files.
+    """
+    base = set(BASE_METADATA_COLUMNS)
+    return list(BASE_METADATA_COLUMNS) + sorted(c for c in set(present) if c not in base)
+
+
 def prescan_fieldnames(gb_files: List[str]) -> List[str]:
     """Pre-scan all GB files to collect every unique source qualifier key."""
     from Bio import SeqIO
@@ -793,6 +968,19 @@ def process_record_unified(
 # ===============================
 # P1-7: Shared record processing loop
 # ===============================
+def count_record_terminators(file_path: str) -> Optional[int]:
+    """Number of lines that are exactly "//" (GenBank record terminators); None if unreadable."""
+    count = 0
+    try:
+        with open(file_path, 'rb') as f:
+            for line in f:
+                if line.strip() == b"//":
+                    count += 1
+    except OSError:
+        return None
+    return count
+
+
 RecordCallback = Callable[[Optional[Dict[str, str]], Optional[Dict[str, str]],
                            str, bool, RecordTrack, 'FileResult'], None]
 
@@ -831,6 +1019,7 @@ def _process_record_loop(
     logger.info(f"  Size: {format_size(sz)}")
 
     record_idx = 0
+    parse_error = ""
     try:
         with open(file_path, 'r', encoding='utf-8', errors='replace') as handle:
             for record in SeqIO.parse(handle, "genbank"):
@@ -845,6 +1034,10 @@ def _process_record_loop(
                     metadata, assembly_data, assembly_source, has_asm = process_record_unified(
                         record, include_taxonomy, do_metadata, do_assembly
                     )
+                    if do_assembly:
+                        # L-24: must be set before the callback so that a failing
+                        # callback is counted as assembly_failed instead of vanishing.
+                        track.has_assembly_data = has_asm
 
                     callback(metadata, assembly_data, assembly_source, has_asm, track, result)
 
@@ -852,7 +1045,6 @@ def _process_record_loop(
                         result.metadata_extracted += 1
                         track.metadata_ok = True
                     if do_assembly:
-                        track.has_assembly_data = has_asm
                         if assembly_data is not None:
                             result.assembly_extracted += 1
                             track.assembly_ok = True
@@ -885,22 +1077,50 @@ def _process_record_loop(
                         f"  Progress: {done} ({speed:.0f}/s{mem_s})")
 
     except Exception as e:
-        result.error_message = f"Biopython parse error: {e}"
+        parse_error = f"Biopython parse error: {e}"
+        result.error_message = parse_error
         logger.error(f"  File-level error: {e}")
+        result.add_record_error(RecordError(
+            file_path=file_path, record_index=record_idx + 1, accession="",
+            error_type=type(e).__name__, error_message=str(e), phase="parse"))
 
     # Set total records after processing
     result.total_records = record_idx
 
-    # Status determination
+    # L-02: reconcile the number of parsed records with the number of "//"
+    # terminators, so records lost after a mid-file parse error (or a truncated
+    # download) can never go unnoticed.
+    file_problem = bool(parse_error)
+    expected = count_record_terminators(file_path)
+    result.records_expected = expected
+    if expected is not None and expected != record_idx:
+        file_problem = True
+        name = os.path.basename(file_path)
+        if record_idx > expected:
+            detail = "the last record has no '//' terminator (file truncated?)"
+        else:
+            detail = f"{expected - record_idx} record(s) were not parsed"
+        msg = (f"record count mismatch: file has {expected} '//' terminator(s) "
+               f"but {record_idx} record(s) were parsed; {detail}")
+        logger.warning(f"  {name}: {msg}")
+        result.error_message = f"{result.error_message}; {msg}" if result.error_message else msg
+        result.add_record_error(RecordError(
+            file_path=file_path, record_index=record_idx + 1, accession="",
+            error_type="RecordCountMismatch", error_message=msg, phase="parse"))
+
+    # Status determination (a file with any parse problem is never SUCCESS)
     if do_metadata:
         if result.metadata_extracted == 0:
             result.status = FileStatus.FAILED
             if not result.error_message:
                 result.error_message = "No metadata extracted"
-        elif result.metadata_failed > 0:
+        elif result.metadata_failed > 0 or file_problem:
             result.status = FileStatus.PARTIAL
         else:
             result.status = FileStatus.SUCCESS
+    elif file_problem:
+        done_ok = result.assembly_extracted + result.assembly_no_data
+        result.status = FileStatus.PARTIAL if done_ok > 0 else FileStatus.FAILED
     else:
         result.status = FileStatus.SUCCESS
 
@@ -1009,17 +1229,21 @@ def memory_process_single_file(
 # ===============================
 # Merge metadata + assembly
 # ===============================
-def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delimiter: str = ','):
+def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delimiter: str = ',',
+                               md_delimiter: str = ',', asm_delimiter: str = '\t'):
     start = time.time()
+    # L-04: read everything as text so leading zeros ("007"), exponent-like ids
+    # ("1E5") and big integers are never rewritten; empty cells stay "" and
+    # strings such as "NA" are not turned into NaN.
     try:
-        md_df = pd.read_csv(md_file, low_memory=False)
+        md_df = pd.read_csv(md_file, sep=md_delimiter, dtype=str, keep_default_na=False, low_memory=False)
     except Exception as e:
         logger.error(f"Failed to read metadata: {e}")
         return
 
     asm_df = None
     try:
-        asm_df = pd.read_csv(asm_file, sep='\t')
+        asm_df = pd.read_csv(asm_file, sep=asm_delimiter, dtype=str, keep_default_na=False)
     except (FileNotFoundError, pd.errors.EmptyDataError):
         pass
     except Exception as e:
@@ -1028,12 +1252,31 @@ def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delim
     if asm_df is not None and "ACCESSION" in md_df.columns and "ACCESSION" in asm_df.columns:
         md_df["ACCESSION"] = md_df["ACCESSION"].astype(str).str.strip()
         asm_df["ACCESSION"] = asm_df["ACCESSION"].astype(str).str.strip()
-        final = pd.merge(md_df, asm_df, how="left", on="ACCESSION")
+        final = pd.merge(md_df, asm_df, how="left", on="ACCESSION").fillna("")
     else:
         final = md_df
 
     final.to_csv(out_file, index=False, sep=delimiter, encoding='utf-8')
     logger.info(f"Merged: {out_file} ({len(final)} records, {time.time()-start:.1f}s)")
+
+
+def _write_metadata_frame(rows: List[Dict], path: str, delimiter: str) -> pd.DataFrame:
+    """Write metadata rows with the same column set/order as the stream writer (L-20)."""
+    df = pd.DataFrame(rows)
+    df = df.reindex(columns=canonical_metadata_columns(df.columns)).fillna("")
+    df.to_csv(path, index=False, sep=delimiter, encoding='utf-8')
+    return df
+
+
+def _write_assembly_frame(rows: List[Dict], path: str, delimiter: str) -> pd.DataFrame:
+    """Write assembly rows (header-only when empty, like the stream writer)."""
+    df = pd.DataFrame(rows)
+    for c in ASSEMBLY_CSV_COLUMNS:
+        if c not in df.columns:
+            df[c] = ""
+    df = df[ASSEMBLY_CSV_COLUMNS].fillna("")
+    df.to_csv(path, index=False, sep=delimiter, encoding='utf-8')
+    return df
 
 
 # ===============================
@@ -1064,6 +1307,8 @@ def process_all_files(
     metadata_path = os.path.join(output_dir, metadata_output)
     assembly_path = os.path.join(output_dir, assembly_output)
     final_path = os.path.join(output_dir, final_output)
+
+    prefetch_taxonomy(gb_files, output_dir, tax)
 
     if stream_mode:
         metadata_fh = None
@@ -1125,7 +1370,8 @@ def process_all_files(
 
         if do_metadata and do_assembly and summary.total_metadata_extracted > 0:
             try:
-                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter)
+                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
+                                           metadata_delimiter, assembly_delimiter)
             except Exception as e:
                 logger.error(f"Merge error: {e}")
 
@@ -1150,25 +1396,22 @@ def process_all_files(
 
         if do_metadata and all_metadata:
             try:
-                pd.DataFrame(all_metadata).to_csv(metadata_path, index=False, sep=metadata_delimiter, encoding='utf-8')
+                _write_metadata_frame(all_metadata, metadata_path, metadata_delimiter)
                 logger.info(f"Metadata: {metadata_path} ({len(all_metadata)} records)")
             except Exception as e:
                 logger.error(f"Failed to save metadata: {e}")
 
-        if do_assembly and all_assembly:
+        if do_assembly and (all_assembly or all_metadata):
             try:
-                df = pd.DataFrame(all_assembly)
-                for c in ASSEMBLY_CSV_COLUMNS:
-                    if c not in df.columns:
-                        df[c] = ""
-                df[ASSEMBLY_CSV_COLUMNS].to_csv(assembly_path, index=False, sep=assembly_delimiter, encoding='utf-8')
+                _write_assembly_frame(all_assembly, assembly_path, assembly_delimiter)
                 logger.info(f"Assembly: {assembly_path} ({len(all_assembly)} records)")
             except Exception as e:
                 logger.error(f"Failed to save assembly: {e}")
 
         if do_metadata and do_assembly and all_metadata:
             try:
-                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter)
+                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
+                                           metadata_delimiter, assembly_delimiter)
             except Exception as e:
                 logger.error(f"Merge error: {e}")
 
@@ -1184,6 +1427,126 @@ def _init_worker(cache_dict):
     _taxonomy.cache = dict(cache_dict)
 
 
+def _unique_batch_names(gb_files: List[str]) -> List[str]:
+    """One output-directory stem per input file; same-named files get a numeric suffix (L-01)."""
+    used = set()
+    names = []
+    for fp in gb_files:
+        stem = os.path.splitext(os.path.basename(fp))[0]
+        name, k = stem, 1
+        while name.lower() in used:
+            k += 1
+            name = f"{stem}_{k}"
+        used.add(name.lower())
+        names.append(name)
+    return names
+
+
+def _batch_paths(output_dir: str, base: str) -> Tuple[str, str, str, str]:
+    sub = os.path.join(output_dir, base + "_metadata")
+    return (sub, os.path.join(sub, base + "_metadata.csv"),
+            os.path.join(sub, base + "_assembly.csv"),
+            os.path.join(sub, base + "_metadata_final.csv"))
+
+
+def _process_single_file_batch(
+    file_path: str, base: str, *,
+    output_dir: str, do_metadata: bool, do_assembly: bool, tax: bool, stream_mode: bool,
+    metadata_delimiter: str, assembly_delimiter: str, final_delimiter: str, log_interval: int,
+) -> FileResult:
+    """Process one GenBank file into ``<output_dir>/<base>_metadata/``.
+
+    Module-level on purpose: ProcessPoolExecutor must be able to pickle it (L-01);
+    options are bound with ``functools.partial``.
+    """
+    sub, md_name, asm_name, final_path = _batch_paths(output_dir, base)
+    os.makedirs(sub, exist_ok=True)
+    metadata_path = md_name if do_metadata else None
+    assembly_path = asm_name if do_assembly else None
+
+    if stream_mode:
+        fr = stream_process_single_file(
+            file_path, metadata_path, assembly_path, tax, do_metadata, do_assembly,
+            metadata_delimiter, assembly_delimiter, log_interval)
+    else:
+        fr, mdr, asmr = memory_process_single_file(file_path, tax, do_assembly, do_metadata)
+        if do_metadata and mdr and metadata_path:
+            try:
+                _write_metadata_frame(mdr, metadata_path, metadata_delimiter)
+            except Exception as e:
+                logger.error(f"Save error: {e}")
+        if do_assembly and asmr and assembly_path:
+            try:
+                _write_assembly_frame(asmr, assembly_path, assembly_delimiter)
+            except Exception as e:
+                logger.error(f"Save error: {e}")
+
+    if do_metadata and do_assembly and metadata_path and assembly_path:
+        if os.path.exists(metadata_path) and os.path.getsize(metadata_path) > 0:
+            try:
+                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
+                                           metadata_delimiter, assembly_delimiter)
+            except Exception as e:
+                logger.error(f"Merge error: {e}")
+
+    return fr
+
+
+def _read_text_csv(path: str, sep: str) -> Optional[pd.DataFrame]:
+    """Read a CSV as text (L-04); None when missing/empty."""
+    try:
+        return pd.read_csv(path, sep=sep, dtype=str, keep_default_na=False, low_memory=False)
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to read {path}: {e}")
+        return None
+
+
+def _merge_batch_outputs(
+    names: List[str], output_dir: str,
+    metadata_output: str, assembly_output: str, final_output: str,
+    do_metadata: bool, do_assembly: bool,
+    metadata_delimiter: str, assembly_delimiter: str, final_delimiter: str,
+) -> int:
+    """Concatenate the per-file CSVs (in input order) into metadata/assembly/final.csv.
+
+    The result has the same columns and order as the non-batch output (L-01).
+    Returns the number of merged metadata rows.
+    """
+    metadata_path = os.path.join(output_dir, metadata_output)
+    assembly_path = os.path.join(output_dir, assembly_output)
+    final_path = os.path.join(output_dir, final_output)
+
+    md_frames, asm_frames = [], []
+    for base in names:
+        _, md_file, asm_file, _ = _batch_paths(output_dir, base)
+        if do_metadata:
+            df = _read_text_csv(md_file, metadata_delimiter)
+            if df is not None and len(df):
+                md_frames.append(df)
+        if do_assembly:
+            df = _read_text_csv(asm_file, assembly_delimiter)
+            if df is not None and len(df):
+                asm_frames.append(df)
+
+    n_rows = 0
+    if do_metadata and md_frames:
+        md = pd.concat(md_frames, ignore_index=True, sort=False)
+        md = md.reindex(columns=canonical_metadata_columns(md.columns)).fillna("")
+        md.to_csv(metadata_path, index=False, sep=metadata_delimiter, encoding='utf-8')
+        n_rows = len(md)
+        logger.info(f"Metadata: {metadata_path} ({n_rows} records)")
+    if do_assembly and (asm_frames or (md_frames and do_metadata)):
+        rows = pd.concat(asm_frames, ignore_index=True, sort=False).to_dict("records") if asm_frames else []
+        _write_assembly_frame(rows, assembly_path, assembly_delimiter)
+        logger.info(f"Assembly: {assembly_path} ({len(rows)} records)")
+    if do_metadata and do_assembly and n_rows > 0:
+        combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
+                                   metadata_delimiter, assembly_delimiter)
+    return n_rows
+
+
 def process_batch_mode(
     gb_files: List[str], output_dir: str,
     max_tasks: int = 4, stream_mode: bool = False,
@@ -1191,53 +1554,28 @@ def process_batch_mode(
     include_taxonomy: bool = True,
     metadata_delimiter: str = ',', assembly_delimiter: str = '\t',
     final_delimiter: str = ',', log_interval: int = 5000,
+    metadata_output: str = "metadata.csv", assembly_output: str = "assembly.csv",
+    final_output: str = "final.csv",
 ) -> ProcessingSummary:
     summary = ProcessingSummary()
     summary.gb_files_found = len(gb_files)
     t0 = time.time()
+    os.makedirs(output_dir, exist_ok=True)
 
     do_metadata = not only_assembly
     do_assembly = not only_except_assembly
     tax = include_taxonomy and not only_except_assembly
 
-    def _process_single_file_batch(file_path: str) -> FileResult:
-        base = os.path.splitext(os.path.basename(file_path))[0]
-        sub = os.path.join(output_dir, base + "_metadata")
-        os.makedirs(sub, exist_ok=True)
+    names = _unique_batch_names(gb_files)
+    worker = functools.partial(
+        _process_single_file_batch,
+        output_dir=output_dir, do_metadata=do_metadata, do_assembly=do_assembly, tax=tax,
+        stream_mode=stream_mode, metadata_delimiter=metadata_delimiter,
+        assembly_delimiter=assembly_delimiter, final_delimiter=final_delimiter,
+        log_interval=log_interval)
 
-        metadata_path = os.path.join(sub, base + "_metadata.csv") if do_metadata else None
-        assembly_path = os.path.join(sub, base + "_assembly.csv") if do_assembly else None
-        final_path = os.path.join(sub, base + "_metadata_final.csv")
-
-        if stream_mode:
-            fr = stream_process_single_file(
-                file_path, metadata_path, assembly_path, tax, do_metadata, do_assembly,
-                metadata_delimiter, assembly_delimiter, log_interval)
-        else:
-            fr, mdr, asmr = memory_process_single_file(file_path, tax, do_assembly, do_metadata)
-            if do_metadata and mdr and metadata_path:
-                try:
-                    pd.DataFrame(mdr).to_csv(metadata_path, index=False, sep=metadata_delimiter, encoding='utf-8')
-                except Exception as e:
-                    logger.error(f"Save error: {e}")
-            if do_assembly and asmr and assembly_path:
-                try:
-                    df = pd.DataFrame(asmr)
-                    for c in ASSEMBLY_CSV_COLUMNS:
-                        if c not in df.columns:
-                            df[c] = ""
-                    df[ASSEMBLY_CSV_COLUMNS].to_csv(assembly_path, index=False, sep=assembly_delimiter, encoding='utf-8')
-                except Exception as e:
-                    logger.error(f"Save error: {e}")
-
-        if do_metadata and do_assembly and metadata_path and assembly_path:
-            if os.path.exists(metadata_path) and os.path.getsize(metadata_path) > 0:
-                try:
-                    combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter)
-                except Exception as e:
-                    logger.error(f"Merge error: {e}")
-
-        return fr
+    # L-05: bulk-load lineages once in the parent; workers only read the cache.
+    prefetch_taxonomy(gb_files, output_dir, tax)
 
     # P1-10: Shared taxonomy cache via multiprocessing.Manager
     manager = multiprocessing.Manager()
@@ -1248,30 +1586,48 @@ def process_batch_mode(
     logger.info(f"Batch mode: {len(gb_files)} files, concurrency {max_tasks}, "
                 f"stream={'yes' if stream_mode else 'no'}")
 
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=max_tasks,
-        initializer=_init_worker,
-        initargs=(shared_cache,)
-    ) as ex:
-        future_to_file_map = {ex.submit(_process_single_file_batch, f): f for f in gb_files}
-        done = 0
-        for fut in concurrent.futures.as_completed(future_to_file_map):
-            f = future_to_file_map[fut]
-            done += 1
-            try:
-                fr = fut.result()
-                summary.add_result(fr)
-                icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
-                logger.info(f"[{done}/{len(gb_files)}] {icon} {os.path.basename(f)} "
-                            f"MD:{fr.metadata_extracted}/{fr.total_records} "
-                            f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)")
-            except Exception as e:
-                fr = FileResult(file_path=f, status=FileStatus.FAILED, error_message=str(e))
-                summary.add_result(fr)
-                logger.error(f"[{done}/{len(gb_files)}] X {os.path.basename(f)}: {e}")
+    results: Dict[int, FileResult] = {}
+    try:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max(1, max_tasks),
+            initializer=_init_worker,
+            initargs=(shared_cache,)
+        ) as ex:
+            future_to_idx = {ex.submit(worker, f, names[i]): i for i, f in enumerate(gb_files)}
+            done = 0
+            for fut in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[fut]
+                f = gb_files[idx]
+                done += 1
+                try:
+                    fr = fut.result()
+                    icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
+                    logger.info(f"[{done}/{len(gb_files)}] {icon} {os.path.basename(f)} "
+                                f"MD:{fr.metadata_extracted}/{fr.total_records} "
+                                f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)")
+                except Exception as e:
+                    fr = FileResult(file_path=f, status=FileStatus.FAILED, error_message=str(e))
+                    logger.error(f"[{done}/{len(gb_files)}] X {os.path.basename(f)}: {e}")
+                results[idx] = fr
+        # Sync cache back
+        _taxonomy.cache.update(dict(shared_cache))
+    finally:
+        manager.shutdown()
 
-    # Sync cache back
-    _taxonomy.cache.update(shared_cache)
+    # Report in input order (deterministic), not completion order.
+    for i in range(len(gb_files)):
+        if i in results:
+            summary.add_result(results[i])
+
+    # L-01: merge per-file outputs into <output_dir>/final.csv (+ metadata.csv, assembly.csv)
+    merged_names = [names[i] for i in range(len(gb_files))
+                    if i in results and results[i].status in (FileStatus.SUCCESS, FileStatus.PARTIAL)]
+    try:
+        _merge_batch_outputs(
+            merged_names, output_dir, metadata_output, assembly_output, final_output,
+            do_metadata, do_assembly, metadata_delimiter, assembly_delimiter, final_delimiter)
+    except Exception as e:
+        logger.error(f"Batch merge error: {e}")
 
     summary.total_elapsed_time = time.time() - t0
     return summary
@@ -1280,6 +1636,19 @@ def process_batch_mode(
 # ===============================
 # Public API
 # ===============================
+def _finish_extract(summary: ProcessingSummary, output_dir: str, start_time: float,
+                    final_path: str = "", rows: int = 0, success: bool = False) -> StepResult:
+    """Always write extraction_report.json (L-02) and build the StepResult."""
+    summary.total_elapsed_time = time.time() - start_time
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        summary.save_report(output_dir)
+    except OSError as e:
+        logger.error(f"Failed to save extraction report: {e}")
+    return StepResult(success=success, output_file=final_path if success else "",
+                      rows=rows, elapsed=time.time() - start_time)
+
+
 def extract(
     input_files: list,
     output_dir: str,
@@ -1288,53 +1657,80 @@ def extract(
     max_tasks: int = 1,
     final_name: str = "final.csv",
 ) -> StepResult:
-    """Extract metadata from GenBank files. Returns StepResult."""
+    """Extract metadata from GenBank files. Returns StepResult.
+
+    Invalid/skipped files are logged with ``logger.warning`` and every file's status,
+    record counts and errors are written to ``<output_dir>/extraction_report.json``.
+    The step is successful as long as at least one file produced records; it fails
+    only when every file failed (or no usable file/final table exists).
+    """
     start_time = time.time()
     os.makedirs(output_dir, exist_ok=True)
+    summary = ProcessingSummary()
 
     try:
         gb_files, total, skipped = discover_gb_files(input_files, True)
+        summary.total_files_found = total
+        summary.non_gb_files_skipped = skipped
+        summary.gb_files_found = len(gb_files)
         if not gb_files:
-            return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
+            logger.warning(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}) found in the inputs")
+            return _finish_extract(summary, output_dir, start_time)
 
         valid_files = []
         for f in gb_files:
             ok, err, _ = validate_and_estimate_records(f)
             if ok:
                 valid_files.append(f)
+            else:
+                summary.add_result(FileResult(file_path=f, status=FileStatus.INVALID, error_message=err))
+                logger.warning(f"Extract: skipping invalid file {os.path.basename(f)} ({err})")
 
         if not valid_files:
-            return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
+            logger.warning("Extract: none of the input files is a valid GenBank file")
+            return _finish_extract(summary, output_dir, start_time)
 
         initialize_ncbi_taxa()
 
         if batch:
-            summary = process_batch_mode(
+            processing = process_batch_mode(
                 valid_files, output_dir, max_tasks, stream,
-                False, False, True, ',', '\t', ',', 5000)
+                False, False, True, ',', '\t', ',', 5000,
+                final_output=final_name)
         else:
-            summary = process_all_files(
+            processing = process_all_files(
                 valid_files, output_dir,
                 "metadata.csv", "assembly.csv", final_name,
                 True, False, False, ',', '\t', ',', stream, 5000)
+        for r in processing.file_results:
+            summary.add_result(r)
 
         final_path = os.path.join(output_dir, final_name)
         rows = 0
         if os.path.exists(final_path):
             try:
-                rows = len(pd.read_csv(final_path, dtype=str))
+                rows = len(pd.read_csv(final_path, dtype=str, keep_default_na=False))
             except Exception:
                 pass
 
-        return StepResult(
-            success=True,
-            output_file=final_path,
-            rows=rows,
-            elapsed=time.time() - start_time,
-        )
+        n_ok = summary.files_succeeded + summary.files_partial
+        problems = [r for r in summary.file_results if r.status != FileStatus.SUCCESS]
+        if problems:
+            logger.warning(
+                f"Extract finished with problems: {summary.files_succeeded} ok, "
+                f"{summary.files_partial} partial, {summary.files_failed} failed, "
+                f"{summary.files_invalid} invalid, {summary.files_empty} empty "
+                f"(see {os.path.join(output_dir, 'extraction_report.json')})")
+            for r in problems:
+                logger.warning(f"  {os.path.basename(r.file_path)}: {r.status.value}"
+                               f"{' - ' + r.error_message if r.error_message else ''}")
+        success = n_ok > 0 and os.path.exists(final_path)
+        if not success:
+            logger.error("Extract: no file produced a usable final table")
+        return _finish_extract(summary, output_dir, start_time, final_path, rows, success)
     except Exception as e:
         logger.error(f"Extract failed: {e}")
-        return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
+        return _finish_extract(summary, output_dir, start_time)
 
 
 # ===============================
@@ -1449,7 +1845,9 @@ def main(argv=None):
             args.only_assembly_meta, args.only_except_assembly_meta,
             not args.only_except_assembly_meta,
             args.metadata_delimiter, args.assembly_delimiter,
-            args.final_delimiter, args.log_interval)
+            args.final_delimiter, args.log_interval,
+            metadata_output=args.metadata_output, assembly_output=args.assembly_output,
+            final_output=args.final_output)
         for r in processing_result.file_results:
             summary.add_result(r)
         summary.total_elapsed_time = processing_result.total_elapsed_time

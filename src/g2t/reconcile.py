@@ -50,8 +50,11 @@ GENE_TOKENS = (r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S
                r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO")
 GENE_PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 GENE_SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
-CORE = re.compile(r"(?:^|[^A-Za-z0-9])([A-Za-z]{0,6})[\s_\-]?(\d{2,8}[A-Za-z]?)$")
-VOUCHER_FIELDS = ["specimen_voucher", "isolate", "culture_collection", "strain", "clone"]
+CORE = re.compile(r"(?:^|[^A-Za-z0-9])([A-Za-z]{0,6})[\s_\-]?((?:(?:1[89]|20)\d{2}[\s_.\-])?\d{2,8}[A-Za-z]?)$")
+TRAILING = re.compile(r"(\s*\([^()]*\)|[\s.,;:]+)$")
+SPLIT = re.compile(r"\s*(?:[,;/]|\band\b)\s*")
+# same priority as the voucher step (g2t.voucher): specimen_voucher > isolate > culture_collection > clone > strain
+VOUCHER_FIELDS = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
 MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun",
                                            "jul", "aug", "sep", "oct", "nov", "dec"])}
 RANK = {"high": 2, "medium": 1}
@@ -80,19 +83,46 @@ class Evidence:
 
 # --------------------------------------------------------------------------- parsing helpers
 
-def voucher_core(raw: str, min_len: int = 4) -> str:
-    """Core identifier of a voucher string: gene tokens stripped, last letters+digits token."""
-    v = str(raw or "").strip()
-    if not v or v.lower() == "nan":
-        return ""
-    for _ in range(2):
+def _core_of(part: str, min_len: int) -> str:
+    v = part
+    for _ in range(3):
+        v = TRAILING.sub("", v)
         v = GENE_PREFIX.sub("", v)
         v = GENE_SUFFIX.sub("", v)
     m = CORE.search(" " + v)
     if not m:
         return ""
-    core = (m.group(1) + m.group(2)).upper()
+    core = (m.group(1) + re.sub(r"[\s_.\-]", "", m.group(2))).upper()
     return core if len(core) >= min_len else ""
+
+
+def voucher_cores(raw: str, min_len: int = 4) -> list[str]:
+    """Candidate keys of a voucher string: one core per listed identifier (gene names, trailing
+    notes such as '(holotype)' and punctuation removed; a year-number pair such as 2014-1234 is kept
+    whole), plus a digits-only key ('#123456', >= 5 digits) so that 'USNM 123456' meets '123456'."""
+    v = str(raw or "").strip()
+    if not v or v.lower() == "nan":
+        return []
+    out: list[str] = []
+    for part in SPLIT.split(v):
+        c = _core_of(part.strip(), min_len)
+        if c and c not in out:
+            out.append(c)
+    for c in list(out):
+        digits = re.sub(r"^[A-Z]+", "", c)
+        if digits.isdigit() and len(digits) >= 5 and f"#{digits}" not in out:
+            out.append(f"#{digits}")
+    return out
+
+
+def voucher_core(raw: str, min_len: int = 4) -> str:
+    """Primary core identifier of a voucher string ('' if none)."""
+    cores = voucher_cores(raw, min_len)
+    return cores[0] if cores else ""
+
+
+def _genes(df: pd.DataFrame) -> set:
+    return {g.strip() for v in _vals(df, "gene_type") for g in v.split(",") if g.strip()}
 
 
 def _vals(df: pd.DataFrame, col: str) -> set:
@@ -172,7 +202,10 @@ def compare_groups(a: pd.DataFrame, b: pd.DataFrame) -> Evidence:
     la = [p for p in map(_latlon, _vals(a, "lat_lon")) if p]
     lb = [p for p in map(_latlon, _vals(b, "lat_lon")) if p]
     if la and lb:
-        d = min(math.dist(x, y) for x in la for y in lb)
+        def dist(x, y):
+            dlon = abs(x[1] - y[1]) % 360
+            return math.hypot(x[0] - y[0], min(dlon, 360 - dlon))
+        d = min(dist(x, y) for x in la for y in lb)
         if d <= 0.01:
             ev.strong.append("same coordinates")
         elif d <= 0.5:
@@ -215,6 +248,8 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     config = config or ReconcileConfig()
     df = df.copy()
     key, org = config.key_column, config.organism_column
+    if org not in df.columns:
+        raise ValueError(f"organism column '{org}' not found: cannot tell organisms apart, refusing to reconcile")
     df[key] = df[key].fillna("").astype(str)
     df["species_voucher_g2t"] = df[key]
 
@@ -225,7 +260,9 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                 return v
         return ""
 
-    df["voucher_core"] = df.apply(lambda r: voucher_core(raw_voucher(r), config.min_core_length), axis=1)
+    raw = df.apply(raw_voucher, axis=1)
+    all_cores = raw.map(lambda v: voucher_cores(v, config.min_core_length))
+    df["voucher_core"] = all_cores.map(lambda c: next((x for x in c if not x.startswith("#")), c[0] if c else ""))
     df["match_basis"] = "exact"
     df["match_confidence"] = ""
     df["match_evidence"] = ""
@@ -234,8 +271,50 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     groups = {k: g for k, g in df.groupby(key, sort=False)}
     cores: dict[str, list[str]] = {}
     for k, g in groups.items():
-        for c in set(g["voucher_core"]) - {""}:
+        for c in sorted({c for lst in all_cores[g.index] for c in lst}):
             cores.setdefault(c, []).append(k)
+
+    cache: dict[frozenset, Evidence] = {}
+
+    def evidence(ka: str, kb: str) -> Evidence:
+        k = frozenset((ka, kb))
+        if k not in cache:
+            cache[k] = compare_groups(groups[ka], groups[kb])
+        return cache[k]
+
+    def row_for(core, ka, kb):
+        ga, gb = groups[ka], groups[kb]
+        return dict(voucher_core=core, group_a=ka, group_b=kb,
+                    organism_a="; ".join(sorted(_vals(ga, org))), organism_b="; ".join(sorted(_vals(gb, org))),
+                    accessions_a="; ".join(map(str, ga["ACCESSION"])) if "ACCESSION" in ga else "",
+                    accessions_b="; ".join(map(str, gb["ACCESSION"])) if "ACCESSION" in gb else "",
+                    genes_a="; ".join(sorted(_genes(ga))), genes_b="; ".join(sorted(_genes(gb))))
+
+    edges = []
+    seen_pairs: set[frozenset] = set()
+    for core, keys in cores.items():
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                ka, kb = keys[i], keys[j]
+                if frozenset((ka, kb)) in seen_pairs:
+                    continue
+                seen_pairs.add(frozenset((ka, kb)))
+                oa, ob = _vals(groups[ka], org), _vals(groups[kb], org)
+                base = row_for(core, ka, kb)
+                if not oa or not ob:
+                    report.append({**base, "evidence": "", "confidence": "",
+                                   "decision": "not merged: organism missing"})
+                    continue
+                if oa != ob:
+                    report.append({**base, "evidence": "", "confidence": "",
+                                   "decision": "not merged: different organisms"})
+                    continue
+                ev = evidence(ka, kb)
+                overlap = bool(_genes(groups[ka]) & _genes(groups[kb]))
+                conf, decision = _decide(ev, overlap, config.min_confidence)
+                report.append({**base, "evidence": ev.text(), "confidence": conf, "decision": decision})
+                if conf:
+                    edges.append((RANK[conf], len(ev.strong), len(ev.moderate), ka, kb, conf, ev.text()))
 
     parent = {k: k for k in groups}
 
@@ -246,44 +325,31 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         return x
 
     members: dict[str, set[str]] = {k: {k} for k in groups}
-    conflict_pairs = set()
-    edges = []
-    for core, keys in cores.items():
-        if len(keys) < 2:
-            continue
-        for i in range(len(keys)):
-            for j in range(i + 1, len(keys)):
-                ka, kb = keys[i], keys[j]
-                ga, gb = groups[ka], groups[kb]
-                oa, ob = _vals(ga, org), _vals(gb, org)
-                base = dict(voucher_core=core, group_a=ka, group_b=kb,
-                            organism_a="; ".join(sorted(oa)), organism_b="; ".join(sorted(ob)),
-                            accessions_a="; ".join(map(str, ga["ACCESSION"])) if "ACCESSION" in ga else "",
-                            accessions_b="; ".join(map(str, gb["ACCESSION"])) if "ACCESSION" in gb else "",
-                            genes_a="; ".join(sorted(_vals(ga, "gene_type"))),
-                            genes_b="; ".join(sorted(_vals(gb, "gene_type"))))
-                if oa != ob:
-                    report.append({**base, "evidence": "", "confidence": "",
-                                   "decision": "not merged: different organisms"})
-                    continue
-                ev = compare_groups(ga, gb)
-                overlap = bool(_vals(ga, "gene_type") & _vals(gb, "gene_type"))
-                conf, decision = _decide(ev, overlap, config.min_confidence)
+
+    def blocker(ra: str, rb: str) -> str:
+        """Check every pair across the two clusters, not only the pairs that shared a core."""
+        for x in sorted(members[ra]):
+            for y in sorted(members[rb]):
+                if _vals(groups[x], org) != _vals(groups[y], org):
+                    return "not merged: would join different organisms"
+                ev = evidence(x, y)
                 if ev.conflicts:
-                    conflict_pairs.add(frozenset((ka, kb)))
-                report.append({**base, "evidence": ev.text(), "confidence": conf, "decision": decision})
-                if conf:
-                    edges.append((RANK[conf], len(ev.strong), len(ev.moderate), ka, kb, conf, ev.text()))
+                    return f"not merged: would join conflicting groups ({x} vs {y}: {'; '.join(ev.conflicts)})"
+                if _genes(groups[x]) & _genes(groups[y]) and not ev.strong:
+                    return (f"not merged: would put the same gene twice in one specimen without strong "
+                            f"evidence ({x} vs {y})")
+        return ""
 
     edge_info: dict[str, list[tuple[str, str]]] = {}
-    for _, _, _, ka, kb, conf, text in sorted(edges, reverse=True):
+    for _, _, _, ka, kb, conf, text in sorted(edges, key=lambda e: (-e[0], -e[1], -e[2], e[3], e[4])):
         ra, rb = find(ka), find(kb)
         if ra == rb:
             continue
-        if any(frozenset((x, y)) in conflict_pairs for x in members[ra] for y in members[rb]):
+        why = blocker(ra, rb)
+        if why:
             for r in report:
                 if {r["group_a"], r["group_b"]} == {ka, kb}:
-                    r["decision"] = "not merged: would join conflicting groups"
+                    r["decision"] = why
             continue
         parent[rb] = ra
         members[ra] |= members.pop(rb)
@@ -291,16 +357,18 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         edge_info[ra].append((conf, f"{ka} + {kb}: {text}"))
 
     used_keys = set(groups)
-    for root, member_keys in members.items():
+    for root in sorted(members):
+        member_keys = members[root]
         if len(member_keys) < 2:
             continue
         sub = df[df[key].isin(member_keys)]
         orgs = sorted(_vals(sub, org))
         organism = orgs[0] if orgs else "unknown"
         core = sorted(set(sub["voucher_core"]) - {""})[0]
-        new_key = f"{re.sub(r'[^A-Za-z0-9]+', '_', organism).strip('_')}_{core}"
-        if new_key in used_keys - member_keys:
-            new_key += "_reconciled"
+        base_key = f"{re.sub(r'[^A-Za-z0-9]+', '_', organism).strip('_')}_{core.lstrip('#')}"
+        new_key, n = base_key, 1
+        while new_key in used_keys - member_keys:
+            new_key, n = f"{base_key}_reconciled{n}", n + 1
         used_keys.add(new_key)
         confs = [c for c, _ in edge_info.get(root, [])]
         conf = "high" if confs and all(c == "high" for c in confs) else "medium"
