@@ -394,6 +394,61 @@ def filter_dataframe(df: pd.DataFrame, moleculetype: str, mol_type: str,
     return df
 
 
+FILTERED_FILE = "filtered_records.csv"
+STATUS_FILE = "record_status.csv"
+_FILTER_COLS = ["input_row", "ACCESSION", "LocusID", "Organism", "Length", "Definition", "step", "reason"]
+
+
+def _write_filtered(output_dir: str, rows: List[Dict], append: bool) -> None:
+    """Write records removed by a filter, with the reason, so nothing disappears silently."""
+    path = os.path.join(output_dir, FILTERED_FILE)
+    df = pd.DataFrame(rows, columns=_FILTER_COLS)
+    if append and os.path.exists(path):
+        df = pd.concat([pd.read_csv(path, dtype=str), df.astype(str)], ignore_index=True)
+    df.to_csv(path, index=False)
+
+
+def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> List[Dict]:
+    out = []
+    for _, r in removed.iterrows():
+        out.append({
+            "input_row": r.get("g2t_input_row", ""),
+            "ACCESSION": r.get("ACCESSION", ""), "LocusID": r.get("LocusID", ""),
+            "Organism": r.get("Organism", r.get("organism", "")),
+            "Length": "" if pd.isna(r.get("Length")) else int(r.get("Length")),
+            "Definition": r.get("Definition", ""), "step": step,
+            "reason": reason(r) if callable(reason) else reason,
+        })
+    return out
+
+
+def _filter_dataframe_logged(df: pd.DataFrame, moleculetype: str, mol_type: str,
+                             length_filter: str, organelle_filter: str, removed: List[Dict]) -> pd.DataFrame:
+    """filter_dataframe, but every removed row is appended to `removed` with its reason."""
+    def apply(d, keep, reason):
+        removed.extend(_filtered_rows(d[~keep], "classify round 1", reason))
+        return d[keep]
+    if moleculetype.lower() != "all":
+        df = apply(df, df["MoleculeType"].str.lower() == moleculetype.lower(),
+                   lambda r: f"MoleculeType '{r.get('MoleculeType', '')}' is not '{moleculetype}'")
+    if mol_type.lower() != "all":
+        allowed = [x.strip().lower() for x in mol_type.split(",")]
+        df = apply(df, df["mol_type"].str.lower().isin(allowed),
+                   lambda r: f"mol_type '{r.get('mol_type', '')}' not in {mol_type}")
+    if length_filter.lower() != "all":
+        lo, hi = parse_interval(length_filter)
+        keep = pd.Series(True, index=df.index)
+        if lo is not None:
+            keep &= df["Length"] >= lo
+        if hi is not None:
+            keep &= df["Length"] <= hi
+        df = apply(df, keep, lambda r: f"length {int(r['Length'])} bp outside --length {length_filter}")
+    if organelle_filter.lower() != "all":
+        df = apply(df, df["organelle"].str.lower() == organelle_filter.lower(),
+                   lambda r: f"organelle '{r.get('organelle', '')}' is not '{organelle_filter}'")
+    return df
+
+
 DIAG_COLUMNS = ["gene_type", "Conflict", "match_source", "Original_match",
                 "Conflict_reason", "Assignment_reason"]
 
@@ -792,15 +847,26 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
 
     df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True)
     df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
+    df["g2t_input_row"] = range(len(df))
+    removed: List[Dict] = []
 
+    missing = df["Length"].isna()
+    removed.extend(_filtered_rows(df[missing], "classify round 1", "length missing or not numeric"))
+    df = df[~missing]
     lo, hi = parse_interval(config.global_length_range)
+    keep = pd.Series(True, index=df.index)
     if lo is not None:
-        df = df[df["Length"] >= lo]
+        keep &= df["Length"] >= lo
     if hi is not None:
-        df = df[df["Length"] <= hi]
+        keep &= df["Length"] <= hi
+    removed.extend(_filtered_rows(
+        df[~keep], "classify round 1",
+        lambda r: (f"length {int(r['Length'])} bp outside {config.global_length_range} "
+                   "(global length filter; change with --length_range2_all)")))
+    df = df[keep]
     logger.info(f"After global length filter: {len(df)} records")
 
-    df = filter_dataframe(df, moleculetype, mol_type, length_filter, organelle_filter)
+    df = _filter_dataframe_logged(df, moleculetype, mol_type, length_filter, organelle_filter, removed)
     logger.info(f"After additional filters: {len(df)} records")
 
     results = []
@@ -819,8 +885,15 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
         results.append(row_dict)
 
     res_df = pd.DataFrame(results)
-    if "LocusID" in res_df.columns:
-        res_df = res_df.drop_duplicates(subset=["LocusID"])
+    if "LocusID" in res_df.columns and len(res_df):
+        dup = res_df.duplicated(subset=["LocusID"], keep="first")
+        removed.extend(_filtered_rows(res_df[dup], "classify round 1",
+                                      "duplicate LocusID (first occurrence kept)"))
+        res_df = res_df[~dup]
+    _write_filtered(output_dir, removed, append=False)
+    if removed:
+        logger.info(f"Filtered out {len(removed)} records -> {FILTERED_FILE} (with reasons)")
+    res_df = res_df.drop(columns=["g2t_input_row"], errors="ignore")
 
     if not config.add_assignment_reasons and "Assignment_reason" in res_df.columns:
         res_df = res_df.drop(columns=["Assignment_reason"])
@@ -836,7 +909,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     _save_csv(unmatched_df, output_dir, unmatched_output, "Unmatched")
 
     if conflict_records:
-        conflict_df = reorder_columns(pd.DataFrame(conflict_records))
+        conflict_df = reorder_columns(pd.DataFrame(conflict_records).drop(columns=["g2t_input_row"], errors="ignore"))
         _save_csv(conflict_df, output_dir, conflicted_output, "Conflict")
 
     multip_df = assigned_df[assigned_df["gene_type"].apply(
@@ -1173,6 +1246,58 @@ def _run_cli(args: argparse.Namespace) -> None:
     logger.info("=" * 60)
 
 
+def build_record_status(input_file: str, output_dir: str, if_recheck: bool, config: MatchConfig,
+                        unmatched_output: str = "unmatched_sequences.csv") -> pd.DataFrame:
+    """One row per input row: assigned (gene_type) / unmatched / filtered, each with a reason."""
+    src = utils_read_table(input_file)
+    src.columns = src.columns.str.strip()
+
+    def read(name):
+        path = os.path.join(output_dir, name)
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            try:
+                return pd.read_csv(path, dtype=str).fillna("")
+            except pd.errors.EmptyDataError:
+                pass
+        return pd.DataFrame()
+
+    filt = read(FILTERED_FILE)
+    filt_reason = {str(r["input_row"]): r["reason"] for _, r in filt.iterrows()} if len(filt) else {}
+    assigned = read("assigned_genes_types_all.csv")
+    if assigned.empty:
+        assigned = read("assigned_genes_type.csv")
+    gene_of = dict(zip(assigned.get("LocusID", []), assigned.get("gene_type", [])))
+    reason_of = dict(zip(assigned.get("LocusID", []), assigned.get("Assignment_reason", [""] * len(assigned))))
+    un1 = read(unmatched_output)
+    un2 = read("unmatched_sequences2.csv") if if_recheck else pd.DataFrame()
+    un2_ids = set(un2.get("LocusID", []))
+    rows = []
+    for i, r in src.iterrows():
+        lid = str(r.get("LocusID", ""))
+        base = {"input_row": i, "ACCESSION": r.get("ACCESSION", ""), "LocusID": lid,
+                "Organism": r.get("Organism", r.get("organism", "")), "Length": r.get("Length", ""),
+                "Definition": r.get("Definition", "")}
+        if str(i) in filt_reason:
+            rows.append({**base, "status": "filtered", "gene_type": "", "reason": filt_reason[str(i)]})
+        elif lid in gene_of:
+            rows.append({**base, "status": "assigned", "gene_type": gene_of[lid], "reason": reason_of.get(lid, "")})
+        else:
+            reason = "no gene type matched (DEFINITION keywords, round 1"
+            if if_recheck and len(un1) and lid not in un2_ids:
+                reason += (f"); skipped in round-2 recheck: length outside {config.length2_mtgenes} / "
+                           f"{config.length2_ntgenes}")
+            else:
+                reason += " and 2)" if if_recheck else ")"
+            rows.append({**base, "status": "unmatched", "gene_type": "", "reason": reason})
+    out = pd.DataFrame(rows, columns=["input_row", "ACCESSION", "LocusID", "Organism", "Length", "Definition",
+                                      "status", "gene_type", "reason"])
+    out.to_csv(os.path.join(output_dir, STATUS_FILE), index=False)
+    counts = out["status"].value_counts().to_dict()
+    logger.info(f"Record status: input={len(out)}, assigned={counts.get('assigned', 0)}, "
+                f"unmatched={counts.get('unmatched', 0)}, filtered={counts.get('filtered', 0)} -> {STATUS_FILE}")
+    return out
+
+
 def classify(
     input_file: str,
     output_dir: str,
@@ -1223,6 +1348,11 @@ def classify(
 
         if extract_gene_types:
             extract_genes(prematch_df, extract_gene_types, output_dir)
+
+        try:
+            build_record_status(input_file, output_dir, if_recheck, config, unmatched_output)
+        except Exception as e:  # noqa: BLE001 - accounting must not break classification
+            logger.warning(f"Failed to write {STATUS_FILE}: {e}")
 
         # Generate unmatched report
         unmatched_file = os.path.join(output_dir, unmatched_output)

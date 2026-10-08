@@ -61,7 +61,7 @@ g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcil
 | Step | Command | Input → output |
 |---|---|---|
 | 1 | `g2t-extract -i gb/markers -o s1` | GenBank → `final.csv` (one row per record: accession, length, definition, organism, voucher, isolate, locality, coordinates, date, references, …) |
-| 2 | `g2t-classify -i s1/final.csv -o s2` | → `assigned_genes_types_all.csv` (gene type per record), `unmatched_sequences.csv` |
+| 2 | `g2t-classify -i s1/final.csv -o s2` | → `assigned_genes_types_all.csv` (gene type per record), `unmatched_sequences.csv`, `filtered_records.csv`, `record_status.csv` |
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
 | 3b | `g2t-reconcile -i s3/updated_species_voucher.csv -o s3` | → `reconciled_species_voucher.csv`, `reconcile_report.csv` |
 | 4 | `g2t-organize -i s3/reconciled_species_voucher.csv -o matrix.csv` | → specimen × gene matrix |
@@ -73,6 +73,8 @@ OUT/
 ├── gb_metadata/final.csv                              step 1
 ├── labeled_genes/assigned_genes_types_all.csv         step 2
 ├── labeled_genes/unmatched_sequences.csv              step 2 (no gene type found)
+├── labeled_genes/filtered_records.csv                 step 2 (records removed by a filter, with the reason)
+├── labeled_genes/record_status.csv                    step 2 (every input record: assigned / unmatched / filtered + reason)
 ├── updated_species_vouchers/updated_species_voucher.csv     step 3
 ├── updated_species_vouchers/reconciled_species_voucher.csv  step 3b
 ├── updated_species_vouchers/reconcile_report.csv            step 3b (every candidate pair + decision)
@@ -115,7 +117,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 
 1. **Gene type comes from the record's DEFINITION line, for the whole record.** A record that spans several regions gets one type. Multi-region rRNA records named "5.8S … ITS2 … 28S" or "18S … ITS1" are typed `its1-its2`, so their 18S or 28S part is missing from the 18s/28s columns (Priapulidae: 9 of 175 rRNA records, e.g. AY210840 with ~3.7 kb of 28S). See [BUGS.md](BUGS.md).
 2. **Sequences are not cut into genes.** For a mitogenome (`mtgenome`) or an 18S–ITS–28S record (`18-28s`) the matrix copies the accession into every gene column it covers, but no per-gene sequence is extracted; this has to be done downstream before alignment.
-3. **Length filter.** Records outside 150–50,000 bp are removed before classification and do **not** appear in `unmatched_sequences.csv`. To list them, run `g2t-classify … --length_range2_all 1:1000000`.
+3. **Length filter.** Records outside 150–50,000 bp (or without a length, or duplicated LocusIDs) are removed before classification. They are not lost silently: each is listed in `filtered_records.csv` with the reason, and `record_status.csv` gives every input record exactly one status. To classify them instead, widen the range with `g2t-classify … --length_range2_all 1:1000000`.
 4. **Only 13 gene types.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, …) end up in `unmatched_sequences.csv` unless added to `gene_dict.yaml`.
 5. **Vouchers.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging).
 6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are.

@@ -1,5 +1,14 @@
 # 更新日志 / Changelog
 
+## 未发布 / Unreleased
+
+### 新增
+- **被过滤记录不再静默丢弃**（classify）：
+  - `filtered_records.csv`：每条被过滤的记录及原因——全局长度过滤（默认 150–50,000 bp）、长度缺失、`--moleculetype/--mol_type/--length/--organelle` 过滤、重复 LocusID（保留首条）。
+  - `record_status.csv`：每条输入记录恰好一行，状态为 assigned（附 gene_type）/ unmatched / filtered，均附原因；第 2 轮 recheck 因长度被跳过的未匹配记录在原因中注明。
+  - Priapulidae 实测：548 = assigned 496 + unmatched 22 + filtered 30（此前 30 条短于 150 bp 的 FOXA3/Hox 片段在任何输出中都看不到）。
+- 测试：新增 4 项，共 236 项通过。
+
 ## v0.01（2026-10-08）
 
 首个版本号。包内版本 `0.0.1`（PEP 440 会把 "0.01" 规范化为 "0.1"，故包内写 0.0.1；GitHub 标签为 `v0.01`）。

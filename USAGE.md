@@ -214,7 +214,9 @@ output/
 │   └── final.csv                    # Step 1 输出：所有序列的元数据
 ├── labeled_genes/
 │   ├── assigned_genes_types_all.csv # Step 2 输出：带基因类型标签
-│   └── unmatched_sequences.csv      # Step 2：未识别出基因类型的记录
+│   ├── unmatched_sequences.csv      # Step 2：未识别出基因类型的记录
+│   ├── filtered_records.csv         # Step 2：被过滤掉的记录及原因（长度、缺长度、重复 LocusID 等）
+│   └── record_status.csv            # Step 2：每条输入记录一行：assigned / unmatched / filtered + 原因
 ├── updated_species_vouchers/
 │   ├── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
 │   ├── reconciled_species_voucher.csv # Step 3b 输出：凭证号核对后
@@ -285,7 +287,7 @@ pip install pandas biopython
 
 1. **基因类型按 DEFINITION 整条判定。** 一条记录只得到一个类型。跨区段的 rRNA 记录（如"5.8S … ITS2 … 28S""18S … ITS1"）被归为 `its1-its2`，其中的 18S 或 28S 部分不会出现在 18s/28s 列（Priapulidae：175 条 rRNA 记录中 9 条，如 AY210840 含约 3.7 kb 28S）。详见 [BUGS.md](BUGS.md)。
 2. **不切分序列。** 线粒体基因组（`mtgenome`）或 18S–ITS–28S 记录（`18-28s`）的登录号会被复制到它覆盖的各基因列，但不会切出各基因的序列；比对前需另行提取。
-3. **长度过滤。** 默认长度 150–50,000 bp 以外的记录在分类前被去掉，且**不会**出现在 `unmatched_sequences.csv`。要列出它们：`g2t-classify … --length_range2_all 1:1000000`。
+3. **长度过滤。** 默认长度 150–50,000 bp 以外（以及缺长度、LocusID 重复）的记录在分类前被去掉。它们不会静默消失：逐条列在 `filtered_records.csv`（含原因），`record_status.csv` 给每条输入记录恰好一个状态。若要让它们也参与分类：`g2t-classify … --length_range2_all 1:1000000`。
 4. **只识别 13 类基因。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非在 `gene_dict.yaml` 中添加。
 5. **凭证号。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）。
 6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样。
