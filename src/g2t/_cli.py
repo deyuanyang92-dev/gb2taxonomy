@@ -3,9 +3,11 @@ CLI entry points for g2t.
 
 Installed as console scripts:
   g2t             → main_pipeline
+  g2t-download    → main_download
   g2t-extract     → main_extract
   g2t-classify    → main_classify
   g2t-voucher     → main_voucher
+  g2t-reconcile   → main_reconcile
   g2t-organize    → main_organize
 """
 
@@ -80,7 +82,7 @@ def main_pipeline(argv=None):
 
     ap = argparse.ArgumentParser(
         prog="g2t",
-        description="GenBank to Taxonomy pipeline: extract -> classify -> voucher -> organize",
+        description="GenBank to Taxonomy pipeline: extract -> classify -> voucher -> reconcile -> organize",
     )
     ap.add_argument("-i", "--input", nargs="+", required=True,
                     help="GenBank files or directories")
@@ -96,6 +98,10 @@ def main_pipeline(argv=None):
     ap.add_argument("--skip_classify", action="store_true")
     ap.add_argument("--skip_voucher", action="store_true")
     ap.add_argument("--skip_organize", action="store_true")
+    ap.add_argument("--skip_reconcile", action="store_true",
+                    help="Do not merge voucher variants (organize exact-match vouchers only)")
+    ap.add_argument("--reconcile_min_confidence", choices=["high", "medium"], default="medium",
+                    help="Evidence needed to merge voucher variants (default: medium)")
     ap.add_argument("--normalize_columns", action="store_true",
                     help="Normalize column names (spaces to underscores)")
     ap.add_argument("--extract_extra", default="", help="Extra args for extract step")
@@ -118,6 +124,8 @@ def main_pipeline(argv=None):
         skip_classify=args.skip_classify,
         skip_voucher=args.skip_voucher,
         skip_organize=args.skip_organize,
+        skip_reconcile=args.skip_reconcile,
+        reconcile_min_confidence=args.reconcile_min_confidence,
         normalize_columns=args.normalize_columns,
     )
 
@@ -133,6 +141,13 @@ def main_pipeline(argv=None):
         print(f"  Time:   {result.elapsed:.1f}s")
 
     return result
+
+
+def main_download(argv=None):
+    """g2t-download — Download GenBank records of a taxon from NCBI."""
+    check_dependencies()
+    from g2t.download import main
+    return main(argv)
 
 
 def main_extract(argv=None):
@@ -156,6 +171,14 @@ def main_voucher(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.voucher import main
+    return main(argv)
+
+
+def main_reconcile(argv=None):
+    """g2t-reconcile — Merge voucher variants using evidence from the records."""
+    check_dependencies()
+    _configure_logging()
+    from g2t.reconcile import main
     return main(argv)
 
 

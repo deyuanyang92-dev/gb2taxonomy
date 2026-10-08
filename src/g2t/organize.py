@@ -64,7 +64,8 @@ class OrganizeConfig:
 
     tail_columns: List[str] = field(default_factory=lambda: [
         "TaxonID", "geo_loc_name", "lat_lon",
-        "Ref1Authors", "Ref1Title", "Ref1Journal"
+        "Ref1Authors", "Ref1Title", "Ref1Journal",
+        "match_basis", "match_confidence", "match_evidence",
     ])
 
     def get_mito_genes(self) -> List[str]:

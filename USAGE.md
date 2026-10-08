@@ -78,6 +78,26 @@ g2t -i /path/to/files -o /path/to/output --resume
 
 ## 处理流程
 
+### Step 0: 下载 (download)
+
+按类群从 NCBI 下载 GenBank 记录。默认只下"标记基因"：排除 WGS contig、mRNA、RefSeq（预测模型及 NC_ 等与 INSDC 重复的拷贝），大类群中这几类常占 95% 以上，对多基因表无用。
+
+```bash
+g2t-download -t Priapulidae -o gb_out --dry-run                # 类群构成 + 各基因条数 + 检索式
+g2t-download -t Priapulidae -o gb_out                          # gb_out/markers/
+g2t-download -t Priapulidae -o gb_out --mito                   # 线粒体记录
+g2t-download -t Priapulidae -o gb_out --mitogenome             # 完整线粒体基因组 (10–30 kb)
+g2t-download -t Priapulidae -o gb_out --gene COI,18S,28S       # 指定基因 (g2t/ncbi_genes.py)
+g2t-download -t Priapulidae -o gb_out --gene COI --minlen 500
+g2t-download -t Priapulidae -o gb_out --query 'Russia[Country]'
+g2t-download -t Priapulidae -o gb_out --all                    # 全部 (可能极大)
+```
+
+- 按 accession 列表分批下载（不依赖会过期的 WebEnv），每批校验条数，失败自动重试；中断后重跑同一命令即续传。
+- 每种选择存独立子目录（markers / mito / mitogenome / gene-COI_18S …），附 `accessions.tsv` 与 `manifest.json`（检索式、日期、条数）。
+- 邮箱与 API key：`-e/-k` 或环境变量 `NCBI_EMAIL` / `NCBI_API_KEY`（可选；有 key 时 10 次/秒）。
+- 旧脚本 `scripts/download_entrez.py` 仍可用，参数相同。
+
 ### Step 1: 提取元数据 (extract)
 
 从 GenBank 文件中提取序列信息和标本信息。
@@ -139,6 +159,27 @@ g2t-voucher -i assigned_genes_types_all.csv -o /path/to/out
 
 ---
 
+### Step 3b: 凭证号核对 (reconcile)
+
+同一标本的不同基因，提交者常把凭证号写成不同形式（`COI_ZMMU_MSU_WS399` / `28S_ZMMU_WS399` / `WS399`），Step 3 按字面匹配会拆成多行。本步骤依据记录中的证据合并：
+
+| 证据 | 内容 |
+|---|---|
+| 候选 | 同一物种 + 核心编号相同（去掉基因名与馆藏缩写，≥4 字符）；不同物种同号只报告、不合并 |
+| 强 | 同一篇论文（不含 Direct Submission）、采集日期完全相同、坐标相差 ≤0.01° |
+| 中 | 第一作者相同、采集人相同、详细地点相同、坐标相差 ≤0.5° |
+| 矛盾（阻止合并） | 日期不符、国家不同、坐标相差 >0.5° |
+
+判定：有强证据 → 合并（high）；中等证据 ≥2 → 合并（medium）；否则不合并。两组已含同一基因时只接受强证据。
+
+```bash
+g2t-reconcile -i updated_species_voucher.csv -o /path/to/out [--min_confidence high]
+```
+
+输出 `reconciled_species_voucher.csv`（新增 species_voucher_g2t / voucher_core / match_basis / match_confidence / match_evidence）与 `reconcile_report.csv`（每对候选的证据与判定）。完整流程中默认开启；`g2t --skip_reconcile` 关闭，`--reconcile_min_confidence high` 只按强证据合并。
+
+---
+
 ### Step 4: 生成矩阵 (organize)
 
 生成物种 × 基因的矩阵表，每行一个标本，每列一个基因标记。
@@ -169,7 +210,9 @@ output/
 ├── labeled_genes/
 │   └── assigned_genes_types_all.csv # Step 2 输出：带基因类型标签
 ├── updated_species_vouchers/
-│   └── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
+│   ├── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
+│   ├── reconciled_species_voucher.csv # Step 3b 输出：凭证号核对后
+│   └── reconcile_report.csv         # Step 3b：每对候选的证据与判定
 └── organized_genes/
     └── organized_species_voucher.csv # Step 4 输出：最终矩阵
 ```

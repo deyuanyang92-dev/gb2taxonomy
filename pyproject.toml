@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "g2t"
-version = "1.0.0"
+version = "1.1.0"
 description = "GenBank to Taxonomy: extract metadata, classify genes, build vouchers, organize by species"
 readme = "README.md"
 license = "MIT"
@@ -41,9 +41,11 @@ Repository = "https://github.com/bioinformatics/g2t"
 
 [project.scripts]
 g2t = "g2t._cli:main_pipeline"
+g2t-download = "g2t._cli:main_download"
 g2t-extract = "g2t._cli:main_extract"
 g2t-classify = "g2t._cli:main_classify"
 g2t-voucher = "g2t._cli:main_voucher"
+g2t-reconcile = "g2t._cli:main_reconcile"
 g2t-organize = "g2t._cli:main_organize"
 
 [tool.setuptools.packages.find]

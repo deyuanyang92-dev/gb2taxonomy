@@ -1,7 +1,7 @@
 """
 g2t — GenBank to Taxonomy
 =========================
-A 4-step pipeline: extract -> classify -> voucher -> organize.
+A pipeline: extract -> classify -> voucher -> reconcile -> organize.
 
 Usage (CLI):
     g2t -i /path/to/gb_files -o /path/to/output --stream
@@ -12,12 +12,17 @@ Usage (Python API):
     result = g2t.extract(["/path/to/gb"], "/path/to/out")
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 def run(*args, **kwargs):
     from g2t._pipeline import run as _run
     return _run(*args, **kwargs)
+
+
+def download(*args, **kwargs):
+    from g2t.download import download as _download
+    return _download(*args, **kwargs)
 
 
 def extract(*args, **kwargs):
@@ -35,9 +40,14 @@ def voucher(*args, **kwargs):
     return _voucher(*args, **kwargs)
 
 
+def reconcile(*args, **kwargs):
+    from g2t.reconcile import reconcile as _reconcile
+    return _reconcile(*args, **kwargs)
+
+
 def organize(*args, **kwargs):
     from g2t.organize import organize as _organize
     return _organize(*args, **kwargs)
 
 
-__all__ = ["run", "extract", "classify", "voucher", "organize"]
+__all__ = ["run", "download", "extract", "classify", "voucher", "reconcile", "organize"]

@@ -79,13 +79,20 @@ def run(
     skip_classify: bool = False,
     skip_voucher: bool = False,
     skip_organize: bool = False,
+    skip_reconcile: bool = False,
+    reconcile_min_confidence: str = "medium",
     normalize_columns: bool = False,
     extract_extra: dict = None,
     classify_extra: dict = None,
     voucher_extra: dict = None,
     organize_extra: dict = None,
 ) -> PipelineResult:
-    """Run the full g2t pipeline: extract -> classify -> voucher -> organize.
+    """Run the full g2t pipeline: extract -> classify -> voucher -> reconcile -> organize.
+
+    The reconcile step (3b) merges specimen groups whose vouchers are written
+    differently (e.g. COI_ZMMU_WS399 / 28S_ZMMU_WS399 / WS399) when the GenBank
+    records give evidence (shared paper, date, coordinates); see g2t.reconcile.
+    Set skip_reconcile=True to organize the exact-match vouchers instead.
 
     Returns a PipelineResult with status and output paths.
     """
@@ -107,6 +114,7 @@ def run(
     out_final_csv = extract_dir / "final.csv"
     out_assigned_all = classify_dir / "assigned_genes_types_all.csv"
     out_updated_voucher = voucher_dir / "updated_species_voucher.csv"
+    out_reconciled = voucher_dir / "reconciled_species_voucher.csv"
     out_organized = organize_dir / "organized_species_voucher.csv"
 
     def _fail(msg: str) -> PipelineResult:
@@ -177,9 +185,26 @@ def run(
     if not skip_voucher:
         steps_completed += 1
 
+    # --- Step 3b: Reconcile voucher variants ---
+    organize_input = out_updated_voucher
+    if not skip_reconcile:
+        from g2t.reconcile import ReconcileConfig
+        err = _run_step(
+            step_num=3, skip=False, resume=resume,
+            output_path=out_reconciled, module_path="g2t.reconcile", func_name="reconcile",
+            kwargs=dict(input_file=str(out_updated_voucher), output_dir=str(voucher_dir),
+                        config=ReconcileConfig(min_confidence=reconcile_min_confidence)),
+            quiet=quiet, log_lines=log_lines,
+        )
+        if err:
+            return _fail(err.replace("Step 3", "Step 3b"))
+        if log_lines and log_lines[-1].startswith("Step 3 "):
+            log_lines[-1] = log_lines[-1].replace("Step 3 ", "Step 3b ", 1)
+        organize_input = out_reconciled
+
     # --- Step 4: Organize ---
     step4_kwargs = dict(
-        input_file=str(out_updated_voucher),
+        input_file=str(organize_input),
         output_file=str(out_organized),
     )
     if organize_extra:
