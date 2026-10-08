@@ -96,3 +96,17 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 |--------|------|------|
 | c73bd81 | 2026-05-12 | 性能优化 + cob 同义词修复 |
 | 6c6c186 | 2026-05-12 | Initial release v1.0.0 |
+
+---
+
+## 已知限制（v0.01，有意保留）：跨区段 rRNA 记录按整条归类
+
+**现象**：classify 按 DEFINITION 把整条记录归入一个基因类型。同时包含多个区段的 rRNA 记录被归入 `its1-its2`，其中的 18S 或 28S 序列不会出现在 18s/28s 列。
+
+**实例（Priapulidae，175 条 rRNA 记录中 9 条）**：
+- AY210840（*Priapulus caudatus*，4271 bp）、AH010828（*Halicryptus spinulosus*，4135 bp）：5.8S + ITS2 + 约 3.66 kb 28S，特征表有区段坐标。
+- OP247717、OP247728、PQ326428 等 7 条：18S（部分）+ ITS1，1.4–1.8 kb，特征表只有一个笼统的 misc_RNA，无区段边界。
+
+**决定**：暂按原逻辑。备选方案：区段层拆分——特征表有坐标的直接切；无坐标的用 ITSx/barrnap 识别边界；都不行标"未拆分"。需要时再实施。
+
+**手动处理**：在 Records 或 assigned_genes_types_all.csv 中筛选 gene_type = its1-its2 且长度 > 1000 bp 的记录，核对 DEFINITION。

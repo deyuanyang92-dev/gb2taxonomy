@@ -12,7 +12,7 @@ Usage (Python API):
     result = g2t.extract(["/path/to/gb"], "/path/to/out")
 """
 
-__version__ = "1.1.0"
+__version__ = "0.0.1"
 
 
 def run(*args, **kwargs):
