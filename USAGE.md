@@ -208,20 +208,21 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ### 矩阵中的凭证号
 
-矩阵在 `organism` 之后有三列：`voucher_as_submitted`（该标本在 GenBank 中出现过的全部 specimen_voucher 原样写法，用于看出提交差异）、`voucher_standardized`（每个标本一个统一凭证号：去基因名前缀、`:`/空格统一为 `_`、取信息最全的写法，如 `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU_MSU_WS2585`，`ZMMU:WS30980; ZMMU_WS30980` → `ZMMU_WS30980`）、`voucher_note`（几种写法不只是前缀/分隔符不同时提示人工核对）。
+矩阵在 `organism` 之后有三列：`voucher_as_submitted`（该标本在 GenBank 中出现过的全部 specimen_voucher 原样写法，用于看出提交差异）、`voucher_standardized`（每个标本一个统一凭证号：去基因名前缀、取信息最全的写法，按 INSDC `/specimen_voucher` 格式 `[机构代码:[收藏代码:]]标本号` 书写，如 `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU:MSU:WS2585`，`ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`）、`voucher_note`（几种写法不只是前缀/分隔符不同时提示人工核对）。
 
 ### Step 5: 校正元数据 (curate，可选)
 
 GenBank 记录常在论文发表后不再更新（经纬度、鉴定、出版物等）。校正写在你自己的表里，应用到矩阵副本上：
 
 ```bash
-g2t-curate -m matrix.csv --template corrections.xlsx      # 生成模板：每个标本一行，已填当前值
+g2t-curate -m matrix.csv --template corrections.xlsx      # 生成模板：每个标本一行，已填当前值，另存 baseline 工作表
 # 在 corrections.xlsx 中改需要校正的单元格；空单元格 = 不改
 g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 ```
 
 - 定位：`accession`（任一基因列的登录号，版本号可省）和/或 `voucher`（任何写法，如 `WS2585` 可找到 `ZMMU_MSU_WS2585`）；同一凭证号出现在多个物种时加 `organism_match`。其余列为要设置的值（`organism`、`lat_lon`、`geo_loc_name`、`collection_date`、`Ref1Title`、`curation_source` 等，也可是新列）。
 - 输出：`curated.csv`（含 `curated_fields` 列）、`curated_curation_log.csv`（每处修改：原值 → 新值、匹配依据）、`curated_curation_problems.csv`（匹配不到、匹配到多个标本、accession 与 voucher 指向不同标本的行——均不应用）。原矩阵不改。
+- 使用模板时只有你改过的单元格才算修改（与模板中的 `baseline (do not edit)` 工作表比较），没改的单元格不会把 GenBank 之后更新的值改回去；你改过而 GenBank 也已变化的单元格列为冲突，不应用。
 - 不能通过校正把单元格清空（空 = 不改）。
 
 ---

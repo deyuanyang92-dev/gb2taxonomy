@@ -6,8 +6,10 @@ Voucher standardisation and metadata curation (Step 5)
 1. ``standardize_vouchers``: one voucher per specimen. GenBank submitters write the same voucher
    differently per record (``COI_ZMMU_MSU_WS2585`` / ``28S_ZMMU_WS2585`` / ``WS2585``,
    ``ZMMU:WS30980`` / ``ZMMU_WS30980``). Each written form is normalised (gene names removed,
-   ``:``/spaces -> ``_``) and the most complete form is kept. The organize step writes it to
-   ``voucher_standardized`` next to ``voucher_as_submitted`` (all forms as found in GenBank).
+   separators unified), the most complete form is kept and written in the INSDC format
+   ``[<institution-code>:[<collection-code>:]]<specimen_id>`` (``ZMMU:MSU:WS2585``, ``ZMMU:WS30980``).
+   The organize step writes it to ``voucher_standardized`` next to ``voucher_as_submitted``
+   (all forms as found in GenBank).
 
 2. ``apply_updates`` / ``g2t-curate``: GenBank metadata is often outdated (coordinates, species names,
    publications added after submission). A user table with one row per correction updates the
@@ -17,7 +19,7 @@ Voucher standardisation and metadata curation (Step 5)
    contradict each other are reported and not applied. The input matrix is never modified.
 
 CLI:
-    g2t-curate -m organized_species_voucher.csv --template curation_template.csv
+    g2t-curate -m organized_species_voucher.csv --template corrections.xlsx   # keeps a baseline copy
     g2t-curate -m organized_species_voucher.csv -u corrections.csv -o curated_matrix.csv
 """
 
@@ -33,7 +35,8 @@ GENE_TOKENS = (r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S
                r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO")
 _PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 _SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
-KEY_COLUMNS = ["voucher", "accession", "organism_match"]
+KEY_COLUMNS = ["row_id", "voucher", "accession", "organism_match"]
+BASELINE_SHEET = "baseline (do not edit)"
 TEMPLATE_FIELDS = ["organism", "lat_lon", "geo_loc_name", "country", "collection_date", "collected_by",
                    "identified_by", "Ref1Authors", "Ref1Title", "Ref1Journal", "curation_source"]
 DEFAULT_GENES = ["mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3", "18s", "28s", "its1-its2",
@@ -69,9 +72,29 @@ def _contains(big: str, small: str) -> bool:
     return i == len(s)
 
 
+def to_insdc(norm: str) -> str:
+    """Normalised voucher -> INSDC /specimen_voucher form "[<institution-code>:[<collection-code>:]]<specimen_id>".
+    Leading letters-only tokens are the codes, the rest is the specimen id:
+    ZMMU_WS30980 -> ZMMU:WS30980; ZMMU_MSU_WS12387_XZ5022 -> ZMMU:MSU:WS12387_XZ5022; WS0397 -> WS0397.
+    With more than two code tokens the form is left unchanged (cannot tell institution from collection)."""
+    if not norm:
+        return ""
+    toks = norm.split("_")
+    codes = []
+    for t in toks[:-1]:
+        if re.fullmatch(r"[A-Za-z]{2,10}", t):
+            codes.append(t)
+        else:
+            break
+    if not codes or len(codes) > 2:
+        return norm
+    return ":".join(codes + ["_".join(toks[len(codes):])])
+
+
 def standardize_vouchers(values) -> tuple[str, bool]:
-    """-> (standardised voucher, consistent). The most complete normalised form is kept; consistent is
-    False when some form is not contained in it (more than a prefix/separator difference)."""
+    """-> (standardised voucher in INSDC form, consistent). The most complete normalised form is kept
+    (see to_insdc); consistent is False when some form is not contained in it (more than a
+    prefix/separator difference)."""
     forms: list[str] = []
     for raw in values:
         for part in str(raw if raw is not None else "").split(";"):
@@ -81,7 +104,7 @@ def standardize_vouchers(values) -> tuple[str, bool]:
     if not forms:
         return "", True
     best = max(forms, key=lambda f: (len(_tokens(f)), len(f), -forms.index(f)))
-    return best, all(_contains(best, f) for f in forms)
+    return to_insdc(best), all(_contains(best, f) for f in forms)
 
 
 # --------------------------------------------------------------------------- curation
@@ -110,8 +133,16 @@ def _blank(v) -> bool:
 
 
 def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None,
-                  key_column: str = "species_voucher_new") -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """-> (curated matrix, change log, problems). See module docstring."""
+                  key_column: str = "species_voucher_new",
+                  baseline: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """-> (curated matrix, change log, problems). See module docstring.
+
+    ``baseline``: the values a pre-filled template was made from (rows joined on ``row_id``). With it,
+    only cells the user edited count as corrections, so unedited template cells never overwrite values
+    that GenBank updated later; an edited cell whose GenBank value also changed is reported, not applied."""
+    base_map: dict[str, dict] = {}
+    if baseline is not None and "row_id" in baseline.columns:
+        base_map = {str(r["row_id"]).strip(): r for _, r in baseline.fillna("").astype(str).iterrows()}
     out = matrix.copy().astype(object)
     genes = _gene_cols(out, gene_columns)
     acc_index: dict[str, set[int]] = {}
@@ -165,13 +196,24 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
             continue
         i = next(iter(hits))
         by = "accession" if acc else "voucher"
+        base = base_map.get(str(r.get("row_id", "")).strip()) if base_map else None
         for c in fields:
             new = r[c]
             if _blank(new):
                 continue
             old = out.at[i, c]
             new = str(new).strip()
-            if str(old).strip() == new:
+            cur = "" if _blank(old) else str(old).strip()
+            if base is not None and c in base.index:
+                was = str(base[c]).strip()
+                if new == was:
+                    continue                      # not edited by the user
+                if cur != was:
+                    problems.append({"update_row": rownum, "keys": keys,
+                                     "problem": f"{c}: GenBank value changed since the template was made "
+                                                f"('{was}' -> '{cur}'); your value '{new}' not applied"})
+                    continue
+            if cur == new:
                 continue
             out.at[i, c] = new
             done = [x for x in str(out.at[i, "curated_fields"]).split("; ") if x]
@@ -194,7 +236,7 @@ def make_template(matrix: pd.DataFrame, gene_columns=None, fields=None) -> pd.Da
         acc = next((str(r[g]).split(";")[0].strip() for g in genes
                     if str(r[g]).strip() and str(r[g]).lower() != "nan"), "")
         voucher = r.get("voucher_standardized", "")
-        row = {"voucher": "" if _blank(voucher) else voucher, "accession": acc,
+        row = {"row_id": len(rows) + 1, "voucher": "" if _blank(voucher) else voucher, "accession": acc,
                "organism_match": r.get("organism", "")}
         for f in fields or TEMPLATE_FIELDS:
             v = r.get(f, "")
@@ -203,12 +245,37 @@ def make_template(matrix: pd.DataFrame, gene_columns=None, fields=None) -> pd.Da
     return pd.DataFrame(rows)
 
 
-def _read(path: str) -> pd.DataFrame:
+def _read(path: str, sheet=0) -> pd.DataFrame:
     p = Path(path)
     if p.suffix.lower() in (".xlsx", ".xls"):
-        return pd.read_excel(p, dtype=str).fillna("")
+        return pd.read_excel(p, dtype=str, sheet_name=sheet).fillna("")
     sep = "\t" if p.suffix.lower() in (".tsv", ".txt") else ","
     return pd.read_csv(p, dtype=str, sep=sep, keep_default_na=False)
+
+
+def write_template(template: pd.DataFrame, path: str) -> None:
+    """xlsx: sheets 'corrections' + baseline; csv: <name>.csv + <name>.baseline.csv."""
+    p = Path(path)
+    if p.suffix.lower() == ".xlsx":
+        with pd.ExcelWriter(p) as w:
+            template.to_excel(w, sheet_name="corrections", index=False)
+            template.to_excel(w, sheet_name=BASELINE_SHEET, index=False)
+    else:
+        template.to_csv(p, index=False)
+        template.to_csv(p.with_name(p.stem + ".baseline.csv"), index=False)
+
+
+def read_corrections(path: str) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """-> (corrections, baseline or None)."""
+    p = Path(path)
+    if p.suffix.lower() in (".xlsx", ".xls"):
+        sheets = pd.read_excel(p, dtype=str, sheet_name=None)
+        names = list(sheets)
+        upd = sheets["corrections"] if "corrections" in sheets else sheets[names[0]]
+        base = sheets.get(BASELINE_SHEET)
+        return upd.fillna(""), (base.fillna("") if base is not None else None)
+    b = p.with_name(p.stem + ".baseline.csv")
+    return _read(path), (_read(str(b)) if b.exists() else None)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -222,13 +289,13 @@ def main(argv: list[str] | None = None) -> None:
     matrix = _read(a.matrix)
     if a.template:
         t = make_template(matrix)
-        (t.to_excel(a.template, index=False) if a.template.lower().endswith(".xlsx")
-         else t.to_csv(a.template, index=False))
+        write_template(t, a.template)
         print(f"Template: {a.template} ({len(t)} specimens). Edit the cells to correct, leave blank to keep.")
         return
     if not (a.updates and a.output):
         p.error("-u/--updates and -o/--output are required (or use --template)")
-    out, log, problems = apply_updates(matrix, _read(a.updates))
+    upd, base = read_corrections(a.updates)
+    out, log, problems = apply_updates(matrix, upd, baseline=base)
     o = Path(a.output)
     out.to_csv(o, index=False)
     log.to_csv(o.with_name(o.stem + "_curation_log.csv"), index=False)

@@ -106,7 +106,7 @@ The matrix has three voucher columns after `organism`:
 | Column | Content |
 |---|---|
 | `voucher_as_submitted` | every distinct `specimen_voucher` of the specimen, exactly as in GenBank (`COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585`) |
-| `voucher_standardized` | one voucher per specimen: gene names removed, `:`/spaces → `_`, the most complete form kept (`ZMMU_MSU_WS2585`; `ZMMU:WS30980; ZMMU_WS30980` → `ZMMU_WS30980`) |
+| `voucher_standardized` | one voucher per specimen: gene names removed, the most complete form kept, written in the INSDC `/specimen_voucher` format `[<institution-code>:[<collection-code>:]]<specimen_id>` (`ZMMU:MSU:WS2585`; `ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`) |
 | `voucher_note` | filled when the forms differ by more than prefixes/separators (check by hand) |
 
 ### Step 5 — correcting metadata (`g2t-curate`)
@@ -114,13 +114,14 @@ The matrix has three voucher columns after `organism`:
 GenBank records are often not updated after publication (coordinates, identifications, references). Corrections are kept in your own table and applied to a copy of the matrix:
 
 ```bash
-g2t-curate -m matrix.csv --template corrections.xlsx      # one row per specimen, pre-filled with current values
+g2t-curate -m matrix.csv --template corrections.xlsx      # one row per specimen, pre-filled; keeps a baseline sheet
 # edit cells in corrections.xlsx; blank cells mean "no change"
 g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 ```
 
 - Rows are located by `accession` (any gene column, version optional) and/or `voucher` (any written form, e.g. `WS2585` finds `ZMMU_MSU_WS2585`); add `organism_match` when one voucher occurs in several species. Other columns are the values to set (`organism`, `lat_lon`, `geo_loc_name`, `collection_date`, `Ref1Title`, `curation_source`, … or any new column).
 - `curated.csv` gets a `curated_fields` column; `curated_curation_log.csv` lists every change (old → new, matched by); `curated_curation_problems.csv` lists rows that matched nothing, several specimens, or where accession and voucher point to different specimens — these are not applied. The input matrix is not changed.
+- With a template, only the cells you edit count (compared with its `baseline (do not edit)` sheet), so unedited cells never overwrite values GenBank updated later; an edited cell whose GenBank value has also changed is reported as a conflict and not applied.
 - Cells cannot be emptied through a correction (blank = keep).
 
 ### Python API
