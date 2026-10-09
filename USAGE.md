@@ -212,7 +212,28 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ### Step 5: 校正元数据 (curate，可选)
 
-GenBank 记录常在论文发表后不再更新（经纬度、鉴定、出版物等）。流程：NCBI 矩阵（**A**）+ 你自己整理的表（**B**）→ 校正后的新矩阵（**C**）。
+#### 目的
+
+序列通常在投稿时提交到 GenBank。审稿后常有改动：标本重新鉴定或组合变更、被描述为新种、题目改变、坐标和日期更正。GenBank 记录只能由提交者更新。INSDC 欢迎"作者对错误的更正和记录的更新"（[INSDC policy](https://www.insdc.org/policy/)）；NCBI 要求文章发表后由提交者把出版信息发给 GenBank（[GenBank 概述](https://www.ncbi.nlm.nih.gov/genbank/)），来源信息按表格提交更新（[Update GenBank records](https://www.ncbi.nlm.nih.gov/genbank/update/)）。实际上很多记录从未更新，下载的数据集里元数据可能过时或错误。公共序列鉴定错误和注释不全已有文献记载（Bridge et al. 2003, *New Phytologist* 160: 43–48, [doi:10.1046/j.1469-8137.2003.00861.x](https://doi.org/10.1046/j.1469-8137.2003.00861.x)；Meiklejohn et al. 2019, *PLOS ONE* 14: e0217084, [doi:10.1371/journal.pone.0217084](https://doi.org/10.1371/journal.pone.0217084)）。
+
+Step 5 让分类学者把核实过的信息用到"标本 × 基因"矩阵上，不修改 GenBank，也不丢失原始值：
+
+- **A**：由 GenBank 整理的矩阵，保持提交时的原样（一个标本一行）。
+- **B**：你自己整理的表，沿用你已有的格式。内容是你核实过的信息：有效种名、正式发表的题目和作者、更正后的坐标或日期，以及水深等额外字段。
+- **C**：用 B 校正 A 后的新矩阵，用于后续分析。
+
+原则：
+
+- **以标本为单位**：B 的每一行校正一个标本（矩阵中的一行）。B 中的凭证号和登录号只用来找到这一行。
+- **保守**：B 的某行匹配不到标本、匹配到多个标本、或凭证号与登录号指向不同标本时，不应用，列出原因。
+- **可追溯**：C 中保留 A 的原样。每处修改都记录原值、新值和匹配依据，改动的单元格标黄。修改记录也就是需要告知提交者或 NCBI 的更正清单。
+- **沿用 GenBank 字段与格式**：值按 GenBank 格式写（`lat_lon` `66.55 N 33.10 E`，`collection_date` `12-Jun-2019`），使 C 与新下载的数据可直接比较。Darwin Core 字段命名和导出 NCBI 来源信息更新表计划后续加入。
+
+g2t 不修改 GenBank。C 是你的校正副本；INSDC 中的记录仍由提交者负责。
+
+#### 用法
+
+NCBI 矩阵（**A**）+ 你自己整理的表（**B**）→ 校正后的新矩阵（**C**）。
 
 ```bash
 g2t-curate -m matrix_A.xlsx -u 我的表_B.xlsx -o 校正后_C.xlsx
@@ -332,10 +353,11 @@ pip install pandas biopython
 3. **长度过滤。** 默认长度 150–50,000 bp 以外（以及缺长度、LocusID 重复）的记录在分类前被去掉。它们不会静默消失：逐条列在 `filtered_records.csv`（含原因），`record_status.csv` 给每条输入记录恰好一个状态。若要让它们也参与分类，三个范围都要放宽：`g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`。
 4. **只识别 13 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非在 `gene_dict.yaml` 中添加。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
 5. **凭证号与元数据。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）。矩阵中的地点、日期等元数据逐列取该标本第一条有值的记录，因此可能来自不同记录；任一记录被标记冲突，`Conflict` 即为 True。
-6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样。
+6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样，除非在 Step 5 中校正。
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
-9. **代码状态。** v0.02 为早期版本，在 Python 3.13 上以 344 项单元测试验证；早期模块仍有 `ruff` 代码风格警告。
+9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
+10. **代码状态。** v0.02 为早期版本，在 Python 3.13 上以 344 项单元测试验证；早期模块仍有 `ruff` 代码风格警告。
 
 ---
 

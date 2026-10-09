@@ -111,7 +111,28 @@ The matrix has three voucher columns after `organism`:
 
 ### Step 5 — correcting metadata (`g2t-curate`)
 
-GenBank records are often not updated after publication (coordinates, identifications, references). Workflow: the NCBI matrix (**A**) + your own table (**B**) → a new corrected matrix (**C**).
+#### Purpose
+
+Sequences are usually deposited in GenBank when a manuscript is submitted. Peer review often changes things afterwards: the specimens may be re-identified or given a new combination, the species may be described as new, the title may change, or the coordinates and dates may be corrected. Only the submitters can bring a record up to date. INSDC welcomes "corrections of errors and update of the records by authors" ([INSDC policy](https://www.insdc.org/policy/)), and NCBI asks submitters to send the publication data once the paper appears ([GenBank overview](https://www.ncbi.nlm.nih.gov/genbank/); source updates via a table, [Update GenBank records](https://www.ncbi.nlm.nih.gov/genbank/update/)). In practice many records are never updated, so the metadata of a downloaded dataset can be out of date or wrong. Misidentified and poorly annotated public sequences are well documented (Bridge et al. 2003, *New Phytologist* 160: 43–48, [doi:10.1046/j.1469-8137.2003.00861.x](https://doi.org/10.1046/j.1469-8137.2003.00861.x); Meiklejohn et al. 2019, *PLOS ONE* 14: e0217084, [doi:10.1371/journal.pone.0217084](https://doi.org/10.1371/journal.pone.0217084)).
+
+Step 5 lets a taxonomist apply verified information to the specimen × gene matrix without editing GenBank and without losing the original values:
+
+- **A**: the matrix built from GenBank, exactly as deposited (one specimen = one row).
+- **B**: your own table, in whatever layout you already keep. It holds the information you have checked: the accepted species name, the published title and authors, corrected coordinates or dates, and extra fields such as depth.
+- **C**: A corrected with B, ready for analysis.
+
+Principles:
+
+- **Specimen-level.** Each row of B corrects one specimen (one matrix row). Vouchers and accessions in B are used only to find that row.
+- **Conservative.** If a row of B matches no specimen, matches several specimens, or its voucher and accessions point to different specimens, it is not applied. It is listed with the reason instead.
+- **Traceable.** A is kept unchanged inside C. Every changed cell is logged with its old and new values and how the row was matched, and changed cells are highlighted. The log also tells you what to send to the submitters or NCBI if you want GenBank itself corrected.
+- **GenBank vocabulary.** Values are written in GenBank form (`lat_lon` `66.55 N 33.10 E`, `collection_date` `12-Jun-2019`), so C stays comparable with newly downloaded data. Darwin Core field names and an NCBI source-update table are planned.
+
+g2t does not change GenBank. C is your curated copy; the INSDC record stays the responsibility of its submitters.
+
+#### Usage
+
+The NCBI matrix (**A**) + your own table (**B**) → a new corrected matrix (**C**).
 
 ```bash
 g2t-curate -m matrix_A.xlsx -u my_table_B.xlsx -o curated_C.xlsx
@@ -170,10 +191,11 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 3. **Length filter.** Records outside 150–50,000 bp (or without a length, or duplicated LocusIDs) are removed before classification. They are not lost silently: each is listed in `filtered_records.csv` with the reason, and `record_status.csv` gives every input record exactly one status. To classify them instead, widen all three ranges: `g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`.
 4. **Only 13 gene types, matched by keywords.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, …) end up in `unmatched_sequences.csv` unless added to `gene_dict.yaml`. Specimen identifiers in the DEFINITION (`isolate CO2`, `voucher COI-12`) and the English word "its" are ignored, and a few look-alikes are excluded (16S rRNA methyltransferase, histone H3 lysine/demethylase, elongation factor-1 beta/gamma), but keyword matching can still misfire on unusual wording.
 5. **Vouchers and metadata.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging). In the matrix, locality, date and other metadata are taken from the first record of the specimen that has a value, column by column, so they can come from different records; `Conflict` is true if any record was flagged.
-6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are.
+6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are unless you correct them in Step 5.
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
-9. **Code status.** v0.02 is an early release. Tested on Python 3.13 with 344 unit tests; older modules still raise `ruff` style warnings.
+9. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
+10. **Code status.** v0.02 is an early release. Tested on Python 3.13 with 344 unit tests; older modules still raise `ruff` style warnings.
 
 ## Citation
 
