@@ -212,7 +212,28 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ### Step 5: 校正元数据 (curate，可选)
 
-GenBank 记录常在论文发表后不再更新（经纬度、鉴定、出版物等）。校正写在你自己的表里，应用到矩阵副本上：
+GenBank 记录常在论文发表后不再更新（经纬度、鉴定、出版物等）。流程：NCBI 矩阵（**A**）+ 你自己整理的表（**B**）→ 校正后的新矩阵（**C**）。
+
+```bash
+g2t-curate -m matrix_A.xlsx -u 我的表_B.xlsx -o 校正后_C.xlsx
+g2t-curate -m matrix_A.xlsx -u B.xlsx -o C.xlsx --map "编号=voucher" --map "Lat=latitude"   # 识别错时强制指定
+```
+
+**B 可以是你已有的任意表格**（Excel/csv，列名随意，中英文均可；`--sheet` 选工作表）。自动识别：
+
+| B 中的列（示例） | 用途 |
+|---|---|
+| voucher、凭证号、标本号、catalog number | 定位标本（任何写法） |
+| 任何登录号列：`COI登录号`、`28S accession`，或值像 `ON792938.1` 的列 | 定位标本；同一行的登录号必须指向同一标本 |
+| species、拉丁名、生物种拉丁名 | `organism` |
+| 纬度 + 经度（十进制） | 合并为 GenBank 格式 `lat_lon`（`66.55 N 33.10 E`） |
+| 采集日期（`20190612`、`2019-06-12`） | `collection_date`，GenBank 格式（`12-Jun-2019`） |
+| 采集地、国家、论文题目、作者、期刊、采集人、鉴定人 | `geo_loc_name`、`country`、`Ref1Title`、`Ref1Authors`、`Ref1Journal`、`collected_by`、`identified_by` |
+| 其余列（如 `水深(m)`） | 作为新列 `user:<列名>` 加入 C |
+
+C 的工作表：*Matrix*（改过的单元格标黄）、*Changes*（原值 → 新值、匹配依据）、*Problems*（匹配不到、匹配到多个标本、登录号与凭证号指向不同标本——均不应用）、*Column mapping*（B 每列如何使用）、*Matrix (GenBank)*（A 原样）。与 A 相同的值不算修改。
+
+也可用预填模板：
 
 ```bash
 g2t-curate -m matrix.csv --template corrections.xlsx      # 生成模板：每个标本一行，已填当前值，另存 baseline 工作表

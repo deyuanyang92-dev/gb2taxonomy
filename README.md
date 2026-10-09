@@ -65,7 +65,7 @@ g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcil
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
 | 3b | `g2t-reconcile -i s3/updated_species_voucher.csv -o s3` | → `reconciled_species_voucher.csv`, `reconcile_report.csv` |
 | 4 | `g2t-organize -i s3/reconciled_species_voucher.csv -o matrix.csv` | → specimen × gene matrix |
-| 5 | `g2t-curate -m matrix.csv -u corrections.csv -o curated.csv` | → matrix with your corrections, `*_curation_log.csv`, `*_curation_problems.csv` (optional) |
+| 5 | `g2t-curate -m matrix_A.xlsx -u your_table_B.xlsx -o curated_C.xlsx` | → corrected matrix C (sheets Matrix / Changes / Problems / Column mapping / Matrix (GenBank)) (optional) |
 
 Output of the full pipeline:
 
@@ -111,7 +111,28 @@ The matrix has three voucher columns after `organism`:
 
 ### Step 5 — correcting metadata (`g2t-curate`)
 
-GenBank records are often not updated after publication (coordinates, identifications, references). Corrections are kept in your own table and applied to a copy of the matrix:
+GenBank records are often not updated after publication (coordinates, identifications, references). Workflow: the NCBI matrix (**A**) + your own table (**B**) → a new corrected matrix (**C**).
+
+```bash
+g2t-curate -m matrix_A.xlsx -u my_table_B.xlsx -o curated_C.xlsx
+g2t-curate -m matrix_A.xlsx -u B.xlsx -o C.xlsx --map "编号=voucher" --map "Lat=latitude"   # override detection
+```
+
+**B can be any table you already keep** (Excel/csv, any column names, English or Chinese; `--sheet` picks a sheet). Columns are recognised automatically:
+
+| B column (examples) | used as |
+|---|---|
+| voucher, specimen no., catalog number, 凭证号, 标本号 | locates the specimen (any written form) |
+| any accession column(s): `COI accession`, `28S 登录号`, or values like `ON792938.1` | locates the specimen; all accessions in a row must point to the same specimen |
+| species, scientific name, 拉丁名 | `organism` |
+| latitude + longitude (decimal), 纬度 + 经度 | combined into GenBank `lat_lon` (`66.55 N 33.10 E`) |
+| collection date, 采集日期 (`20190612`, `2019-06-12`) | `collection_date` in GenBank form (`12-Jun-2019`) |
+| locality / 采集地, country / 国家, title / 论文题目, authors / 作者, journal / 期刊, collector / 采集人, identified by / 鉴定人 | `geo_loc_name`, `country`, `Ref1Title`, `Ref1Authors`, `Ref1Journal`, `collected_by`, `identified_by` |
+| anything else (e.g. `Depth (m)`) | added to C as a new column `user:<name>` |
+
+C's sheet *Column mapping* shows how each B column was used; *Matrix* highlights every changed cell; *Matrix (GenBank)* is A unchanged. Values identical to A are not counted as changes.
+
+Alternatively, use a pre-filled template:
 
 ```bash
 g2t-curate -m matrix.csv --template corrections.xlsx      # one row per specimen, pre-filled; keeps a baseline sheet

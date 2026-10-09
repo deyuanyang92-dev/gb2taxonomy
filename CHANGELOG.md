@@ -5,10 +5,11 @@
 ### 新增
 - **统一凭证号**（organize）：矩阵在 `organism` 之后新增 `voucher_standardized`（去基因前缀、取最完整写法，按 INSDC `/specimen_voucher` 格式 `机构代码:收藏代码:标本号` 书写，如 `ZMMU:MSU:WS2585`）、`voucher_as_submitted`（GenBank 原样，全部写法）、`voucher_note`（写法差异超出前缀/分隔符时提示）。Priapulidae：213 个有凭证号的标本，同一物种内标准化凭证号无重复，无需提示的冲突。
 - **元数据校正 `g2t-curate`**（Step 5，`g2t/curate.py`）：按 accession 和/或凭证号（任何写法，可加 `organism_match`）定位标本，用校正表更新经纬度、物种名、地点、出版物等；输出校正后矩阵、修改记录、问题清单；`--template` 生成已填当前值的模板，并另存 baseline 工作表：只有改过的单元格才算修改，未改单元格不会覆盖 GenBank 之后更新的值，改过且 GenBank 也变了的列为冲突。
+- **用你自己的表校正（A + B → C）**：`g2t-curate -m A.xlsx -u B.xlsx -o C.xlsx`。B 为任意格式的表（中英文列名），自动识别凭证号/标本号、多个登录号列、拉丁名、纬度+经度（合并为 GenBank `lat_lon`）、采集日期（转为 `DD-Mon-YYYY`）、题目/作者/期刊等；`--map` 强制指定；其余列以 `user:<列名>` 加入。A 可直接用 Excel（自动读 `Matrix` 工作表）。C 含 Matrix（修改处标黄）/ Changes / Problems / Column mapping / Matrix (GenBank)。
 
 ### 修改
 - **凭证号核对**：复合凭证号中每个"字母+数字"编号都作为候选（`ZMMU MSU WS14906` 与 `COI_ZMMU_MSU_WS14906_XZ5507` 现在会被比较）。Priapulidae：合并标本 94 → 100（新增的 8 对均有同一论文强证据），矩阵 323 → 315 个标本。
-- 测试：新增 39 项，共 383 项通过。
+- 测试：新增 44 项，共 388 项通过。
 
 ### 计划（后期）
 - 字段采用 Darwin Core 命名；导出 NCBI 记录更新表（source modifiers）。
