@@ -1,6 +1,6 @@
 # g2t — GenBank to Taxonomy
 
-[![version](https://img.shields.io/badge/version-v0.02-blue)](CHANGELOG.md) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![version](https://img.shields.io/badge/version-v0.03-blue)](CHANGELOG.md) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 g2t downloads the GenBank records of a taxon from NCBI and turns them into a **specimen × gene matrix** for multi-locus phylogenetics and taxonomy: it reads the metadata of every record, assigns each record to a marker gene (COI, 16S, 18S, 28S, ITS, …), links the sequences of one specimen through its voucher, and writes one row per specimen with the accession of each gene.
 
@@ -195,19 +195,19 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-10. **Code status.** v0.02 is an early release. Tested on Python 3.13 with 344 unit tests; older modules still raise `ruff` style warnings.
+10. **Code status.** v0.03 is an early release. Tested on Python 3.13 with 389 unit tests; older modules still raise `ruff` style warnings.
 
 ## Citation
 
 There is no paper on g2t yet. Please cite the software and version you used:
 
-> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.02) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
+> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.03) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
 
 ```bibtex
 @software{yang_g2t_2026,
   author  = {Yang, Deyuan},
   title   = {g2t: GenBank to Taxonomy},
-  version = {v0.02},
+  version = {v0.03},
   year    = {2026},
   url     = {https://github.com/deyuanyang92-dev/gb2taxonomy}
 }

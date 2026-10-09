@@ -357,7 +357,7 @@ pip install pandas biopython
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
 9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
-10. **代码状态。** v0.02 为早期版本，在 Python 3.13 上以 344 项单元测试验证；早期模块仍有 `ruff` 代码风格警告。
+10. **代码状态。** v0.03 为早期版本，在 Python 3.13 上以 389 项单元测试验证；早期模块仍有 `ruff` 代码风格警告。
 
 ---
 
@@ -365,13 +365,13 @@ pip install pandas biopython
 
 g2t 目前没有发表论文，请引用软件本身及所用版本：
 
-> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.02) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
+> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.03) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
 
 ```bibtex
 @software{yang_g2t_2026,
   author  = {Yang, Deyuan},
   title   = {g2t: GenBank to Taxonomy},
-  version = {v0.02},
+  version = {v0.03},
   year    = {2026},
   url     = {https://github.com/deyuanyang92-dev/gb2taxonomy}
 }

@@ -1,6 +1,8 @@
 # 更新日志 / Changelog
 
-## 未发布 / Unreleased
+## v0.03（2026-10-09）
+
+包内版本 `0.0.3`。本版新增统一凭证号和元数据校正（Step 5：NCBI 矩阵 A + 你自己的表 B → 校正后的矩阵 C）。
 
 ### 新增
 - **统一凭证号**（organize）：矩阵在 `organism` 之后新增 `voucher_standardized`（去基因前缀、取最完整写法，按 INSDC `/specimen_voucher` 格式 `机构代码:收藏代码:标本号` 书写，如 `ZMMU:MSU:WS2585`）、`voucher_as_submitted`（GenBank 原样，全部写法）、`voucher_note`（写法差异超出前缀/分隔符时提示）。Priapulidae：213 个有凭证号的标本，同一物种内标准化凭证号无重复，无需提示的冲突。
@@ -10,6 +12,7 @@
 ### 修改
 - **凭证号核对**：复合凭证号中每个"字母+数字"编号都作为候选（`ZMMU MSU WS14906` 与 `COI_ZMMU_MSU_WS14906_XZ5507` 现在会被比较）。Priapulidae：合并标本 94 → 100（新增的 8 对均有同一论文强证据），矩阵 323 → 315 个标本。
 - **安全**：写 Excel（校正结果 C、模板）时所有数据单元格按文本写入；此前以 `=` 开头的 GenBank/用户值会被写成公式，打开时执行。
+- **文档**：README / USAGE 说明 Step 5 的目的与原则（GenBank 记录只能由提交者更新，发表后常未更新；引用 INSDC 政策、NCBI 更新说明、Bridge et al. 2003、Meiklejohn et al. 2019），并在"不足"中列出校正的限制。
 - 测试：新增 45 项，共 389 项通过。
 
 ### 计划（后期）

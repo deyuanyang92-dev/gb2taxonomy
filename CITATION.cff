@@ -6,7 +6,7 @@ type: software
 authors:
   - family-names: Yang
     given-names: Deyuan
-version: v0.02
+version: v0.03
 date-released: 2026-10-09
 license: MIT
 repository-code: "https://github.com/deyuanyang92-dev/gb2taxonomy"
