@@ -47,6 +47,8 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 | `--include-wgs` / `--include-mrna` / `--include-refseq` | add back an excluded class |
 | `--include-large` | keep records > 100 kb (skipped by default) |
 | `--dry-run` | only report taxon composition, records per gene and the query |
+| `--since auto` / `--since 2026-01-01` | incremental: only records created or modified in NCBI ([MDAT]) since the last download (minus 3 days) or the date; cannot see withdrawn records, so run without `--since` now and then |
+| `--no-store` | no SQLite store: the selection's batch files are the only copy (new records → new batch files, superseded versions removed) |
 | `--report` | also count composition and records per gene while downloading (about 23 extra searches, slow on big taxa; skipped by default) |
 
 - `-t` accepts a taxon name or an NCBI taxid. Each selection is saved in its own sub-directory, named after the options (`markers`, `mito`, `mitogenome`, `gene-COI_18S`, `incl-wgs`, `all-mito`, `custom-1a2b3c` for a `--query` (hash of the query), … or `--tag NAME`), together with `accessions.tsv` and `manifest.json` (query, date, accession-list checksum, completion status).

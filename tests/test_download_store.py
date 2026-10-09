@@ -1,5 +1,6 @@
 """Offline tests of the accession-level record store used by g2t.download (Entrez calls are faked)."""
 
+import json
 import re
 from pathlib import Path
 
@@ -22,7 +23,7 @@ def accs(prefix, n, ver=1):
 
 @pytest.fixture
 def fake(monkeypatch):
-    state = {"list": [], "fetched": [], "fail_once": set()}
+    state = {"list": [], "fetched": [], "fail_once": set(), "mdat": [], "terms": [], "cur": []}
 
     def _call(fn, parse, retries=5, **kw):
         name = fn.__name__
@@ -30,9 +31,12 @@ def fake(monkeypatch):
             return {"IdList": ["37891"]} if name == "esearch" else [
                 {"ScientificName": "Priapulidae", "Rank": "family", "Lineage": "x"}]
         if name == "esearch":
-            return {"Count": str(len(state["list"])), "WebEnv": "w", "QueryKey": "1"}
+            lst = state["mdat"] if "[MDAT]" in kw["term"] else state["list"]
+            state["terms"].append(kw["term"])
+            state["cur"] = lst
+            return {"Count": str(len(lst)), "WebEnv": "w", "QueryKey": "1"}
         if kw.get("rettype") == "acc":
-            return "\n".join(state["list"][kw["retstart"]: kw["retstart"] + kw["retmax"]]) + "\n"
+            return "\n".join(state["cur"][kw["retstart"]: kw["retstart"] + kw["retmax"]]) + "\n"
         ids = kw["id"].split(",")
         state["fetched"] += ids
         return "".join(_rec(a) for a in ids)
@@ -252,3 +256,63 @@ def test_download_skips_report_queries_unless_asked(tmp_path, fake, monkeypatch)
     terms.clear()
     res = download("Priapulidae", str(tmp_path), DownloadOptions(), dry_run=True)
     assert len(terms) > 10
+
+
+def _set_date(out, iso):
+    m = out / "manifest.json"
+    d = json.loads(m.read_text())
+    d["date"] = iso
+    m.write_text(json.dumps(d))
+
+
+def test_since_auto_fetches_only_modified_records(tmp_path, fake):
+    fake["list"] = accs("AB", 20)
+    download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
+    _set_date(tmp_path / "markers", "2026-01-10")
+    fake["fetched"].clear()
+    fake["terms"].clear()
+    fake["mdat"] = ["AB000003.2", "CD000001.1"]          # one updated, one new
+    res = download("Priapulidae", str(tmp_path), DownloadOptions(since="auto"), progress=False)
+    assert any("2026/01/07:3000[MDAT]" in t for t in fake["terms"])          # last date minus 3 days
+    assert sorted(fake["fetched"]) == ["AB000003.2", "CD000001.1"]
+    got = ids_in(tmp_path / "markers")
+    assert "AB000003.1" not in got and "AB000003.2" in got and "CD000001.1" in got and len(got) == 21
+    assert (res.new, res.updated, res.removed, res.since) == (1, 1, 0, "2026/01/07")
+    m = json.loads((tmp_path / "markers" / "manifest.json").read_text())
+    assert m["since"] == "2026/01/07" and m["last_full_check"] is not None
+
+
+def test_since_without_earlier_download_falls_back_to_full_list(tmp_path, fake):
+    fake["list"] = accs("AB", 5)
+    res = download("Priapulidae", str(tmp_path), DownloadOptions(since="auto"), progress=False)
+    assert res.since == "" and res.fetched == 5
+
+
+def test_no_store_mode_is_incremental_without_sqlite(tmp_path, fake):
+    fake["list"] = accs("AB", 12)
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
+    assert not list(tmp_path.glob("*.sqlite"))
+    assert sorted(ids_in(tmp_path / "markers")) == accs("AB", 12)
+    fake["fetched"].clear()
+    fake["list"] = accs("AB", 11) + ["AB000012.2", "CD000001.1"]
+    res = download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
+    assert sorted(fake["fetched"]) == ["AB000012.2", "CD000001.1"]
+    got = ids_in(tmp_path / "markers")
+    assert sorted(got) == sorted(fake["list"]) and len(got) == len(set(got))
+    assert (res.reused, res.updated, res.new) == (11, 1, 1)
+    fake["list"] = accs("AB", 3)                          # withdrawn records are removed from the files
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
+    assert sorted(ids_in(tmp_path / "markers")) == accs("AB", 3)
+    assert not list(tmp_path.glob("*.sqlite"))
+
+
+def test_no_store_with_since(tmp_path, fake):
+    fake["list"] = accs("AB", 8)
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True), progress=False)
+    _set_date(tmp_path / "markers", "2026-02-01")
+    fake["fetched"].clear()
+    fake["mdat"] = ["EF000001.1"]
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, since="2026-03-01"), progress=False)
+    assert fake["fetched"] == ["EF000001.1"]
+    assert any("2026/03/01:3000[MDAT]" in t for t in fake["terms"])
+    assert len(ids_in(tmp_path / "markers")) == 9

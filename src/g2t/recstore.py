@@ -90,3 +90,62 @@ class RecordStore:
 
     def close(self) -> None:
         self.db.close()
+
+
+class DirStore:
+    """Store-free mode: the batch files of one selection directory are the only copy of the records.
+
+    Present records are found by scanning VERSION lines; fetched records are written as new batch files;
+    superseded versions and records no longer in the selection are removed from the old files (``prune``).
+    """
+
+    def __init__(self, out: str | Path):
+        self.out = Path(out)
+        self.where: dict[str, Path] = {}
+        for f in sorted(self.out.glob("batch_*.gb")):
+            with open(f, encoding="utf-8", errors="ignore") as fh:
+                for acc, _ in iter_records(fh):
+                    self.where[acc] = f
+        nums = [int(m.group(1)) for f in self.out.glob("batch_*.gb") if (m := re.fullmatch(r"batch_(\d+)\.gb", f.name))]
+        self.next = max(nums, default=0) + 1
+
+    def missing(self, accs: Iterable[str]) -> list[str]:
+        return [a for a in accs if a not in self.where]
+
+    def put_many(self, items: Iterable[tuple[str, str]]) -> int:
+        recs = list(items)
+        if not recs:
+            return 0
+        self.out.mkdir(parents=True, exist_ok=True)
+        f = self.out / f"batch_{self.next:04d}.gb"
+        self.next += 1
+        tmp = f.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            for acc, text in recs:
+                fh.write(text)
+                self.where[acc] = f
+        tmp.replace(f)
+        return len(recs)
+
+    def prune(self, keep: set[str]) -> int:
+        """Remove records not in ``keep`` from the batch files; returns the number removed."""
+        drop = {a for a in self.where if a not in keep}
+        for f in sorted({self.where[a] for a in drop}):
+            tmp = f.with_suffix(".tmp")
+            n_left = 0
+            with open(f, encoding="utf-8", errors="ignore") as src, open(tmp, "w", encoding="utf-8") as dst:
+                for acc, text in iter_records(src):
+                    if acc not in drop:
+                        dst.write(text)
+                        n_left += 1
+            if n_left:
+                tmp.replace(f)
+            else:
+                tmp.unlink()
+                f.unlink()
+        for a in drop:
+            del self.where[a]
+        return len(drop)
+
+    def close(self) -> None:
+        pass

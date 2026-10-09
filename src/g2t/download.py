@@ -44,12 +44,12 @@ import urllib.request
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
 
 from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, canon, clause
-from g2t.recstore import RecordStore, iter_records
+from g2t.recstore import DirStore, RecordStore, iter_records
 
 # Markers selections skip NUCLEAR records longer than LARGE_BP (chromosome-level assemblies, genome scaffolds,
 # TSA master records, large clones; one Polynoidae chromosome is ~100 MB) unless --include-large. Organelle records
@@ -82,6 +82,8 @@ class DownloadOptions:
     include_mrna: bool = False
     include_refseq: bool = False
     include_large: bool = False
+    since: str = ""           # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
+    no_store: bool = False    # keep records only in the selection's batch files (no SQLite store)
     batch: int = 500
     workers: int = 3
     tag: str = ""
@@ -107,6 +109,8 @@ class DownloadResult:
     updated: int = 0
     removed: int = 0
     query_changed: bool = False   # the selection's query differs from the previous run (g2t default changed)
+    since: str = ""               # Entrez date of an incremental run (records modified since then)
+    candidates: int = 0           # records modified since that date
 
 
 def setup_entrez(email: str | None = None, api_key: str | None = None) -> float:
@@ -271,6 +275,47 @@ def _changes(old: list[str], new: list[str]) -> list[tuple[str, str, str]]:
     return rows
 
 
+def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
+    """accession.version list of a query; pages are fetched in parallel (Phyllodocida: 38 pages, ~4 s each)."""
+    from Bio import Entrez
+    if total == 0:
+        return []
+    r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
+    pages: dict[int, list[str]] = {}
+
+    def _page(start: int) -> tuple[int, list[str]]:
+        txt = _call(Entrez.efetch, False, db="nuccore", rettype="acc", retmode="text", retstart=start,
+                    retmax=5000, webenv=r["WebEnv"], query_key=r["QueryKey"])
+        return start, [x.strip() for x in txt.split() if x.strip()]
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+        pfuts = []
+        for start in range(0, total, 5000):
+            pfuts.append(ex.submit(_page, start))
+            time.sleep(delay)
+        for pf in as_completed(pfuts):
+            pstart, page = pf.result()
+            pages[pstart] = page
+    return list(dict.fromkeys(a for p in sorted(pages) for a in pages[p]))
+
+
+SINCE_MARGIN_DAYS = 3   # NCBI indexes some records a few days after their modification date
+
+
+def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: bool) -> str:
+    """'' (full list) or an Entrez date YYYY/MM/DD for an incremental --since run."""
+    if not since:
+        return ""
+    if not prev_list or query_changed or not prev.get("complete"):
+        print("   --since: no complete earlier download of this selection, downloading the full list",
+              file=sys.stderr)
+        return ""
+    if since == "auto":
+        d = date.fromisoformat(prev["date"]) - timedelta(days=SINCE_MARGIN_DAYS)
+        return d.strftime("%Y/%m/%d")
+    return date.fromisoformat(since.replace("/", "-")).strftime("%Y/%m/%d")
+
+
 def download(taxon: str, out_root: str, options: DownloadOptions | None = None, dry_run: bool = False,
              email: str | None = None, api_key: str | None = None, progress: bool = True,
              store: str | None = None, report: bool = False) -> DownloadResult:
@@ -280,7 +325,6 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     only accession.versions missing from it are fetched. ``<out_root>/<tag>/batch_NNNN.gb`` is then
     written from the store, so downstream steps see the usual batch files.
     """
-    from Bio import Entrez
     o = options or DownloadOptions()
     delay = setup_entrez(email, api_key)
     tid, name, rank, lineage = resolve_taxon(taxon)
@@ -315,33 +359,31 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     if o.tag and res.query_changed:   # a user-named directory is never silently re-purposed
         raise ValueError(f"{out} holds records of a different query:\n  {old_q}\n"
                          f"current query:\n  {term}\nUse another --tag or output directory.")
-    # the accession list is always refreshed: NCBI adds and removes records between runs
-    r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
-    # pages of the accession list are fetched in parallel (Phyllodocida: 38 pages, ~4 s each)
-    pages: dict[int, list[str]] = {}
-
-    def _page(start: int) -> tuple[int, list[str]]:
-        txt = _call(Entrez.efetch, False, db="nuccore", rettype="acc", retmode="text", retstart=start,
-                    retmax=5000, webenv=r["WebEnv"], query_key=r["QueryKey"])
-        return start, [x.strip() for x in txt.split() if x.strip()]
-
-    with ThreadPoolExecutor(max_workers=max(1, o.workers)) as ex:
-        pfuts = []
-        for start in range(0, total, 5000):
-            pfuts.append(ex.submit(_page, start))
-            time.sleep(delay)
-        for pf in as_completed(pfuts):
-            pstart, page = pf.result()
-            pages[pstart] = page
-    accs = list(dict.fromkeys(a for p in sorted(pages) for a in pages[p]))
+    prev = json.loads(mfile.read_text(encoding="utf-8")) if mfile.exists() else {}
+    prev_list = _previous_list(out)
+    since = _since_date(o.since, prev, prev_list, res.query_changed)
+    if since:
+        # only records created or modified since the last download (NCBI modification date, [MDAT])
+        sterm = f"({term}) AND {since}:3000[MDAT]"
+        cand = _acc_list(sterm, count(sterm), delay, o.workers)
+        base_new = {a.split(".")[0]: a for a in cand}
+        accs = [base_new.pop(a.split(".")[0], a) for a in prev_list] + list(base_new.values())
+        res.since = since
+        res.candidates = len(cand)
+    else:
+        # the accession list is always refreshed: NCBI adds and removes records between runs
+        accs = _acc_list(term, total, delay, o.workers)
     res.count = len(accs)
     spath = Path(store) if store else Path(out_root) / "_records.sqlite"
-    if dry_run and not spath.exists():
+    if o.no_store:
+        st: RecordStore | DirStore = DirStore(out)
+    elif dry_run and not spath.exists():
         res.to_fetch = len(accs)
         return res
-    st = RecordStore(spath)
+    else:
+        st = RecordStore(spath)
     missing = st.missing(accs)
-    if missing and not dry_run:
+    if missing and not dry_run and isinstance(st, RecordStore):
         # records fetched by older g2t versions (plain batch files, any selection) are imported, not re-fetched
         legacy = sorted(Path(out_root).glob("*/batch_*.gb"))
         if legacy:
@@ -374,7 +416,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
                 print(f"   [{i}/{len(batches)}] {'OK' if txt else 'FAILED, will split'}  {time.time() - t0:.0f}s",
                       flush=True)
     # a batch that keeps failing (e.g. one very large record breaks the transfer) is split in halves until
-    # the failing records are isolated, so one bad record never blocks the other 199
+    # the failing records are isolated, so one bad record never blocks the others
     while retry:
         ids = retry.pop()
         if len(ids) == 1:
@@ -392,28 +434,31 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
                 retry.append(half)
             else:
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
-    # write the selection view from the store, in NCBI list order
     failed_set = set(failed_ids)
     have = [a for a in accs if a not in failed_set]
-    nb = (len(have) + o.batch - 1) // o.batch
-    prev = json.loads(mfile.read_text(encoding="utf-8")) if mfile.exists() else {}
-    unchanged = (not failed_ids and prev.get("complete") and prev.get("query") == term
-                 and prev.get("options", {}).get("batch") == o.batch
-                 and prev.get("accessions_sha1") == hashlib.sha1("\n".join(accs).encode()).hexdigest()
-                 and len(list(out.glob("batch_*.gb"))) == nb)
-    for b in range(0 if unchanged else nb):     # nothing new: keep the existing batch files
-        f = out / f"batch_{b + 1:04d}.gb"
-        tmp = f.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
-            for a in have[b * o.batch:(b + 1) * o.batch]:
-                fh.write(st.get(a) or "")
-        tmp.replace(f)
-    for f in sorted(out.glob("batch_*.gb")):
-        m = re.fullmatch(r"batch_(\d+)\.gb", f.name)
-        if m and int(m.group(1)) > nb:
-            f.unlink()
+    if isinstance(st, DirStore):
+        # store-free: new records were written as new batch files; drop superseded / withdrawn ones
+        st.prune(set(have))
+    else:
+        # write the selection view from the store, in NCBI list order
+        nb = (len(have) + o.batch - 1) // o.batch
+        unchanged = (not failed_ids and prev.get("complete") and prev.get("query") == term
+                     and prev.get("options", {}).get("batch") == o.batch
+                     and prev.get("accessions_sha1") == hashlib.sha1("\n".join(accs).encode()).hexdigest()
+                     and len(list(out.glob("batch_*.gb"))) == nb)
+        for b in range(0 if unchanged else nb):     # nothing new: keep the existing batch files
+            f = out / f"batch_{b + 1:04d}.gb"
+            tmp = f.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as fh:
+                for a in have[b * o.batch:(b + 1) * o.batch]:
+                    fh.write(st.get(a) or "")
+            tmp.replace(f)
+        for f in sorted(out.glob("batch_*.gb")):
+            m = re.fullmatch(r"batch_(\d+)\.gb", f.name)
+            if m and int(m.group(1)) > nb:
+                f.unlink()
     st.close()
-    ch = _changes(_previous_list(out), accs)
+    ch = _changes(prev_list, accs)
     res.new = sum(c[0] == "new" for c in ch)
     res.updated = sum(c[0] == "updated" for c in ch)
     res.removed = sum(c[0] == "removed" for c in ch)
@@ -431,12 +476,16 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     elif (out / "changes.tsv").exists():
         (out / "changes.tsv").unlink()
     (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
+    # date of the last check against the full NCBI list (a --since run cannot see withdrawn records)
+    full_check = prev.get("last_full_check") if since else date.today().isoformat()
     manifest = dict(taxon=taxon, ncbi_taxid=tid, ncbi_name=name, ncbi_rank=rank, ncbi_lineage=lineage,
                     query=term, tag=tag, date=date.today().isoformat(), count=len(accs),
                     accessions_sha1=hashlib.sha1("\n".join(accs).encode()).hexdigest(),
                     complete=res.failed == 0, failed_batches=res.failed, failed_records=len(failed_ids),
                     fetched=res.fetched, reused=res.reused, new=res.new, updated=res.updated,
-                    removed=res.removed, query_changed=res.query_changed, store=str(spath),
+                    removed=res.removed, query_changed=res.query_changed,
+                    store=None if o.no_store else str(spath), since=since or None,
+                    since_candidates=res.candidates if since else None, last_full_check=full_check,
                     taxon_composition=comp, per_gene=per_gene, options=asdict(o))
     mfile.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return res
@@ -455,7 +504,9 @@ def describe(res: DownloadResult, dry_run: bool = False) -> list[str]:
                 f"(reused {res.reused}, fetched {res.fetched}, failed {res.failed}); "
                 f"since last run: new {res.new}, updated {res.updated}, removed {res.removed}"
                 + (" (query changed since last run: differences partly reflect the selection)"
-                   if res.query_changed else ""))
+                   if res.query_changed else "")
+                + (f"; incremental since {res.since}: {res.candidates} records modified in NCBI "
+                   "(withdrawn records are only seen by a run without --since)" if res.since else ""))
     comp = (f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
             f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
             f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}") if c else "taxon composition: not counted"
@@ -489,6 +540,13 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("-b", "--batch-size", type=int, default=500,
                    help="Records per request and per batch file (default 500)")
     g.add_argument("-w", "--workers", type=int, default=3, help="Parallel NCBI requests (default 3)")
+    g.add_argument("--since", default="", metavar="auto|YYYY-MM-DD",
+                   help="Incremental: only fetch records created/modified (NCBI [MDAT]) since the last download "
+                        f"('auto', minus {SINCE_MARGIN_DAYS} days) or a date. Cannot see withdrawn records; run "
+                        "without --since now and then for a full check")
+    g.add_argument("--no-store", action="store_true",
+                   help="No SQLite record store: the selection's batch files are the only copy; new records go to "
+                        "new batch files, superseded versions are removed")
     g.add_argument("--store", default=None,
                    help="Record store (SQLite) shared by runs/taxa (default: <output>/_records.sqlite)")
 
@@ -497,7 +555,7 @@ def options_from_args(a: argparse.Namespace) -> DownloadOptions:
     return DownloadOptions(all=a.all, mito=a.mito, mitogenome=a.mitogenome, gene=a.gene, minlen=a.minlen,
                            maxlen=a.maxlen, query=a.query, include_wgs=a.include_wgs, include_mrna=a.include_mrna,
                            include_refseq=a.include_refseq, include_large=a.include_large,
-                           batch=a.batch_size, workers=a.workers, tag=a.tag)
+                           since=a.since, no_store=a.no_store, batch=a.batch_size, workers=a.workers, tag=a.tag)
 
 
 def main(argv: list[str] | None = None) -> int:
