@@ -48,6 +48,7 @@ g2t-classify = "g2t._cli:main_classify"
 g2t-voucher = "g2t._cli:main_voucher"
 g2t-reconcile = "g2t._cli:main_reconcile"
 g2t-organize = "g2t._cli:main_organize"
+g2t-curate = "g2t._cli:main_curate"
 
 [tool.setuptools.packages.find]
 where = ["src"]

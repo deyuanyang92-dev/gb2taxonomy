@@ -8,6 +8,7 @@ Installed as console scripts:
   g2t-classify    → main_classify
   g2t-voucher     → main_voucher
   g2t-reconcile   → main_reconcile
+  g2t-curate      → main_curate
   g2t-organize    → main_organize
 """
 
@@ -179,6 +180,13 @@ def main_reconcile(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.reconcile import main
+    return main(argv)
+
+
+def main_curate(argv=None):
+    """g2t-curate — Correct matrix metadata from a table keyed by accession or voucher."""
+    check_dependencies()
+    from g2t.curate import main
     return main(argv)
 
 

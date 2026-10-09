@@ -29,7 +29,7 @@ g2t -i gb/markers -o out --stream
 # final matrix: out/organized_genes/organized_species_voucher.csv
 ```
 
-Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 323 specimens, 117 with ≥ 2 genes.
+Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 315 specimens, 123 with ≥ 2 genes.
 
 ## Usage
 
@@ -65,6 +65,7 @@ g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcil
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
 | 3b | `g2t-reconcile -i s3/updated_species_voucher.csv -o s3` | → `reconciled_species_voucher.csv`, `reconcile_report.csv` |
 | 4 | `g2t-organize -i s3/reconciled_species_voucher.csv -o matrix.csv` | → specimen × gene matrix |
+| 5 | `g2t-curate -m matrix.csv -u corrections.csv -o curated.csv` | → matrix with your corrections, `*_curation_log.csv`, `*_curation_problems.csv` (optional) |
 
 Output of the full pipeline:
 
@@ -90,13 +91,37 @@ Gene types (step 2): `coi`, `cox2`, `cox3`, `cob`, `12s`, `16s`, `mtgenome`, `18
 
 Submitters often write the voucher of one specimen differently for each gene (`COI_ZMMU_MSU_WS399`, `28S_ZMMU_WS399`, `WS399`), so step 3 splits the specimen into one row per gene. Step 3b merges such groups only when the records support it:
 
-- **Candidates**: same organism and a shared core identifier: gene names, trailing notes such as "(holotype)" and punctuation are removed; a year–number pair such as `2014-1234` is kept whole; lists (`WS399, WS400`) give one core per identifier; numbers of ≥ 5 digits also match without their prefix (`USNM 123456` ~ `123456`). The same identifier in different organisms, or with an organism missing, is reported, never merged.
+- **Candidates**: same organism and a shared identifier (every letters+digits identifier of a compound voucher counts, so `ZMMU MSU WS14906` meets `COI_ZMMU_MSU_WS14906_XZ5507`): gene names, trailing notes such as "(holotype)" and punctuation are removed; a year–number pair such as `2014-1234` is kept whole; lists (`WS399, WS400`) give one core per identifier; numbers of ≥ 5 digits also match without their prefix (`USNM 123456` ~ `123456`). The same identifier in different organisms, or with an organism missing, is reported, never merged.
 - **Strong evidence**: the same publication (not "Direct Submission"); the same collection date; coordinates ≤ 0.01° apart.
 - **Moderate evidence**: same first author, same collector, same detailed locality; coordinates ≤ 0.5° apart.
 - **Conflict** (blocks the merge): incompatible dates, different countries, coordinates > 0.5° apart.
 - **Decision**: ≥ 1 strong → merged (`high`); ≥ 2 moderate → merged (`medium`); otherwise not merged. If both groups already hold the same gene, only strong evidence merges them. Before two specimens are joined, every pair of their records is checked, so a chain A–B–C cannot bring together A and C if they conflict or would put the same gene twice in one specimen without strong evidence.
 
-`--reconcile_min_confidence high` merges on strong evidence only; `--skip_reconcile` turns the step off. Merged rows carry `match_basis`, `match_confidence` and `match_evidence` into the matrix. In the Priapulidae data all 130 candidate pairs shared a publication and 94 specimens were merged; the identifier WS3020, used for *Halicryptus spinulosus* (28S) and *Priapulus caudatus* (COI, 16S), was reported and left unmerged.
+`--reconcile_min_confidence high` merges on strong evidence only; `--skip_reconcile` turns the step off. Merged rows carry `match_basis`, `match_confidence` and `match_evidence` into the matrix. In the Priapulidae data all 139 candidate pairs within a species shared a publication and 100 specimens were merged; the identifier WS3020, used for *Halicryptus spinulosus* (28S) and *Priapulus caudatus* (COI, 16S), was reported and left unmerged.
+
+### Vouchers in the matrix
+
+The matrix has three voucher columns after `organism`:
+
+| Column | Content |
+|---|---|
+| `voucher_as_submitted` | every distinct `specimen_voucher` of the specimen, exactly as in GenBank (`COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585`) |
+| `voucher_standardized` | one voucher per specimen: gene names removed, `:`/spaces → `_`, the most complete form kept (`ZMMU_MSU_WS2585`; `ZMMU:WS30980; ZMMU_WS30980` → `ZMMU_WS30980`) |
+| `voucher_note` | filled when the forms differ by more than prefixes/separators (check by hand) |
+
+### Step 5 — correcting metadata (`g2t-curate`)
+
+GenBank records are often not updated after publication (coordinates, identifications, references). Corrections are kept in your own table and applied to a copy of the matrix:
+
+```bash
+g2t-curate -m matrix.csv --template corrections.xlsx      # one row per specimen, pre-filled with current values
+# edit cells in corrections.xlsx; blank cells mean "no change"
+g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
+```
+
+- Rows are located by `accession` (any gene column, version optional) and/or `voucher` (any written form, e.g. `WS2585` finds `ZMMU_MSU_WS2585`); add `organism_match` when one voucher occurs in several species. Other columns are the values to set (`organism`, `lat_lon`, `geo_loc_name`, `collection_date`, `Ref1Title`, `curation_source`, … or any new column).
+- `curated.csv` gets a `curated_fields` column; `curated_curation_log.csv` lists every change (old → new, matched by); `curated_curation_problems.csv` lists rows that matched nothing, several specimens, or where accession and voucher point to different specimens — these are not applied. The input matrix is not changed.
+- Cells cannot be emptied through a correction (blank = keep).
 
 ### Python API
 

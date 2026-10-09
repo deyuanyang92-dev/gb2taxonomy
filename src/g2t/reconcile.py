@@ -51,6 +51,8 @@ GENE_TOKENS = (r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S
 GENE_PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 GENE_SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
 CORE = re.compile(r"(?:^|[^A-Za-z0-9])([A-Za-z]{0,6})[\s_\-]?((?:(?:1[89]|20)\d{2}[\s_.\-])?\d{2,8}[A-Za-z]?)$")
+ID_TOKEN = re.compile(r"[A-Za-z]{1,6}\d{3,8}[A-Za-z]?")
+GENE_FULL = re.compile(rf"(?:{GENE_TOKENS})", re.I)
 TRAILING = re.compile(r"(\s*\([^()]*\)|[\s.,;:]+)$")
 SPLIT = re.compile(r"\s*(?:[,;/]|\band\b)\s*")
 # same priority as the voucher step (g2t.voucher): specimen_voucher > isolate > culture_collection > clone > strain
@@ -99,7 +101,8 @@ def _core_of(part: str, min_len: int) -> str:
 def voucher_cores(raw: str, min_len: int = 4) -> list[str]:
     """Candidate keys of a voucher string: one core per listed identifier (gene names, trailing
     notes such as '(holotype)' and punctuation removed; a year-number pair such as 2014-1234 is kept
-    whole), plus a digits-only key ('#123456', >= 5 digits) so that 'USNM 123456' meets '123456'."""
+    whole), every letters+digits identifier inside a compound voucher (ZMMU_MSU_WS14906_XZ5507 -> XZ5507,
+    WS14906), plus a digits-only key ('#123456', >= 5 digits) so that 'USNM 123456' meets '123456'."""
     v = str(raw or "").strip()
     if not v or v.lower() == "nan":
         return []
@@ -108,6 +111,12 @@ def voucher_cores(raw: str, min_len: int = 4) -> list[str]:
         c = _core_of(part.strip(), min_len)
         if c and c not in out:
             out.append(c)
+        # compound vouchers carry several identifiers (ZMMU_MSU_WS14906_XZ5507): each one is a candidate key
+        for tok in re.split(r"[\s_:\-]+", part.strip()):
+            if ID_TOKEN.fullmatch(tok) and not GENE_FULL.fullmatch(tok):
+                t = tok.upper()
+                if len(t) >= min_len and t not in out:
+                    out.append(t)
     for c in list(out):
         digits = re.sub(r"^[A-Z]+", "", c)
         if digits.isdigit() and len(digits) >= 5 and f"#{digits}" not in out:

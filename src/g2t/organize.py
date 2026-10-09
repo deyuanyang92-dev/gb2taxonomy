@@ -64,6 +64,9 @@ class OrganizeConfig:
 
     extra_columns: List[str] = field(default_factory=list)
 
+    # voucher_standardized / voucher_as_submitted / voucher_note after the organism column
+    voucher_columns: bool = True
+
     mtgenome_prefer_nc: bool = False
     organize_18_28s: bool = True
     organize_mtgenome: bool = True
@@ -351,6 +354,24 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
     return result
 
 
+VOUCHER_COLUMNS = ["voucher_standardized", "voucher_as_submitted", "voucher_note"]
+
+
+def voucher_summary(group: pd.DataFrame) -> Dict[str, str]:
+    """voucher_as_submitted: every distinct specimen_voucher of the specimen as found in GenBank;
+    voucher_standardized: one normalised voucher (see g2t.curate.standardize_vouchers)."""
+    from g2t.curate import standardize_vouchers
+    submitted: List[str] = []
+    if "specimen_voucher" in group.columns:
+        for v in group["specimen_voucher"]:
+            v = "" if pd.isna(v) else str(v).strip()
+            if v and v.lower() != "nan" and v not in submitted:
+                submitted.append(v)
+    canon, consistent = standardize_vouchers(submitted)
+    note = "" if consistent else "voucher forms differ beyond gene prefixes/separators; check"
+    return {"voucher_standardized": canon, "voucher_as_submitted": "; ".join(submitted), "voucher_note": note}
+
+
 def process_group(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
 
@@ -360,6 +381,9 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, Any]
         out[config.second_col_name] = get_first_nonempty(group[config.second_col_name])
     else:
         out[config.second_col_name] = ""
+
+    if config.voucher_columns:
+        out.update(voucher_summary(group))
 
     gene_locusids = collect_locusids_per_gene(group, config)
     for gene in config.gene_order:
@@ -405,6 +429,8 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, Any]
 
 def build_header(config: OrganizeConfig, sample_row: Dict[str, Any]) -> List[str]:
     header = [config.first_col_name, config.second_col_name]
+    if config.voucher_columns:
+        header.extend(VOUCHER_COLUMNS)
     header.extend(config.gene_order)
 
     if config.metadata_mode == "all":

@@ -118,3 +118,14 @@ def test_r8_clone_before_strain():
     a = row("A1", "kA", "", "coi", clone="C1234", strain="S5678", Ref1Title="P")
     out, _ = reconcile_dataframe(pd.DataFrame([a]))
     assert out.loc[0, "voucher_core"] == "C1234"
+
+
+def test_compound_voucher_meets_its_parts():
+    a = row("A1", "kA", "COI_ZMMU_MSU_WS14906_XZ5507", "coi", Ref1Title="Paper X")
+    b = row("B1", "kB", "ZMMU MSU WS14906", "16s", Ref1Title="Paper X", lat_lon="69.43 N 170.17 E")
+    out, _ = reconcile_dataframe(pd.DataFrame([a, b]))
+    assert out["species_voucher_new"].nunique() == 1
+
+
+def test_compound_voucher_cores():
+    assert voucher_cores("COI_ZMMU_MSU_WS14906_XZ5507")[:2] == ["XZ5507", "WS14906"]
