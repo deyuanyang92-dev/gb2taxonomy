@@ -49,6 +49,13 @@ def fake(monkeypatch):
         return "".join(_rec(a) for a in kw["id"].split(","))
 
     monkeypatch.setattr(dl, "_call", _call)
+
+    def _efetch_text(ids):
+        def efetch():
+            pass
+        return _call(efetch, False, db="nuccore", id=",".join(ids), rettype="gbwithparts", retmode="text")
+
+    monkeypatch.setattr(dl, "_efetch_text", _efetch_text)
     monkeypatch.setattr(dl.time, "sleep", lambda s: None)
     return f
 
@@ -77,7 +84,7 @@ def test_unchanged_list_resumes_without_downloading(tmp_path, fake):
     fake.default = accs("AB", 400)
     download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
     res = download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
-    assert res.skipped == 2 and res.downloaded == 0
+    assert res.reused == 400 and res.fetched == 0 and res.batches == 0
 
 
 def test_different_queries_get_different_directories(tmp_path, fake):

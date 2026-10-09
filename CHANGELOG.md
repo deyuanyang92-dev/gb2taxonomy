@@ -1,5 +1,21 @@
 # 更新日志 / Changelog
 
+## 未发布 / Unreleased
+
+### 下载（g2t-download）
+- **默认跳过 >100 kb 的核基因组记录**（染色体级组装、基因组 scaffold、TSA 主记录、大片段克隆；`--include-large` 保留，显式 `--minlen/--maxlen` 时不加此限制）。**细胞器记录不受长度限制**（`mitochondrion[filter]`、`chloroplast[filter]` 或标题含 mitochondrion/mitochondrial/chloroplast/plastid）：环节动物线粒体基因组最大约 47.5 kb（*Glycera fallax* OZ210882），植物常 >100 kb。Polynoidae：248 条 “genome assembly, chromosome: N”（单条约 100 MB）使第 1 批达 5.8 GB、约 1 小时；跳过后每批约 6 秒，全类群约 3 分钟。预检报告新增 “nuclear > 100 kb” 条数。
+- **`--mitogenome` 修正**：原检索式写死 10–30 kb 且只认 “complete genome/mitogenome” 标题，漏掉 35–48 kb 的线粒体基因组和 Darwin Tree of Life 的 “genome assembly, organelle: mitochondrion”。现在 ≥10 kb 无上限，并接受 “mitochondrial genome”/“genome assembly” 标题。Annelida：634 → 733 条（新增 99 条均为 DToL 线粒体基因组，10.3–47.5 kb）；Polynoidae：18 → 31 条。
+- **失败批次自动二分**：一批反复失败（如某条超大记录导致传输中断）时拆半重试，直到定位到单条失败记录；其余记录照常入库，manifest 标记未完成。
+- **按记录增量下载**：新模块 `g2t/recstore.py`，记录按 `accession.version` 存入 SQLite（默认 `<out>/_records.sqlite`，`--store` 可多个类群共用）。只下载库中没有的记录；换选择、重叠类群直接复用；新版本（`.2`）才重新下载；旧版批文件自动导入。`<tag>/batch_NNNN.gb` 由库重写，下游不变。此前 NCBI 列表头部新增几条记录，其后所有批都要重下。
+- **变化记录**：与上次列表比较，新增/更新/撤下写入 `changes.tsv`，并追加到 `changes_history.tsv`；g2t 默认检索式变化时标注 "(query changed)"。
+- **传输提速**：efetch 改为 gzip 传输（实测 500 条 2.26 MB → 0.29 MB），60 s 无数据即放弃重试（原 Bio.Entrez 无超时，断线要等很久）；每批默认 500 条（实测与 200 条耗时相近，吞吐约 2.5 倍）。Polynoidae 全部 5858 条从零下载 138 s、20 MB。
+- **正式下载不再做统计检索**：类群构成与各基因条数需约 23 次 esearch（大类群每次 2–15 s；Nereididae 合计 86–380 s），下载本身用不到，现只在 `--dry-run` 或 `--report` 时做；下载后各基因条数由 pipeline 统计。所有 Entrez 请求加 60 s 超时。Nereididae 17,403 条全复用重跑 127 s → 37–100 s（波动来自 NCBI/网络）。
+- 并行请求 `-w/--workers`（默认 3），登录号清单分页也并行获取；`--dry-run` 报告已存/待下载条数；选择未变且无新记录时不重写批文件。
+- **大规模实测**（Phyllodocida，188,739 条）：复用此前 Nereididae 的 17,403 条，新下载 171,336 条用时 835 s（约 205 条/s），途中 40 次网络错误全部自动重试，0 失败；全程 18 min，内存 744 MB，记录库 314 MB。全部复用的重跑 86 s。
+- `DownloadResult` 字段改为按记录计数：`fetched`、`reused`、`to_fetch`、`new`、`updated`、`removed`、`query_changed`（原 `downloaded`/`skipped` 按批计数，已移除）。
+- 只有用 `--tag` 命名的目录在检索式变化时报错；自动命名的目录按新检索式重写。
+- 测试：新增 18 项，共 406 项通过。
+
 ## v0.03（2026-10-09）
 
 包内版本 `0.0.3`。本版新增统一凭证号和元数据校正（Step 5：NCBI 矩阵 A + 你自己的表 B → 校正后的矩阵 C）。

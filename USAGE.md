@@ -91,7 +91,7 @@ g2t -i /path/to/files -o /path/to/output --resume
 g2t-download -t Priapulidae -o gb_out --dry-run                # 类群构成 + 各基因条数 + 检索式
 g2t-download -t Priapulidae -o gb_out                          # gb_out/markers/
 g2t-download -t Priapulidae -o gb_out --mito                   # 线粒体记录
-g2t-download -t Priapulidae -o gb_out --mitogenome             # 完整线粒体基因组 (10–30 kb)
+g2t-download -t Priapulidae -o gb_out --mitogenome             # 完整线粒体基因组 (≥10 kb, 无上限; 含 "genome assembly, organelle: mitochondrion")
 g2t-download -t Priapulidae -o gb_out --gene COI,18S,28S       # 指定基因 (g2t/ncbi_genes.py)
 g2t-download -t Priapulidae -o gb_out --gene COI --minlen 500
 g2t-download -t Priapulidae -o gb_out --query 'Russia[Country]'

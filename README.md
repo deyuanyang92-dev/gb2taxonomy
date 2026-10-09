@@ -40,17 +40,20 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 | *(default)* | "markers": all records except WGS contigs, mRNA and RefSeq (predicted models and NC_/NR_ copies of INSDC records) |
 | `--all` | everything, including WGS/mRNA/RefSeq (can be very large) |
 | `--mito` | mitochondrial records |
-| `--mitogenome` | complete mitochondrial genomes (10–30 kb) |
+| `--mitogenome` | complete mitochondrial genomes (≥ 10 kb, no upper limit; includes "genome assembly, organelle: mitochondrion" records) |
 | `--gene COI,18S,28S` | given genes (COI COII COIII CYTB ND1 ND2 ND4 ND5 ATP6 12S 16S 18S 28S 5.8S ITS H3 EF1A RPB2; see `src/g2t/ncbi_genes.py`) |
 | `--minlen N --maxlen N` | length range (bp) |
 | `--query '…'` | any extra Entrez clause, e.g. `'Russia[Country]'` |
 | `--include-wgs` / `--include-mrna` / `--include-refseq` | add back an excluded class |
+| `--include-large` | keep records > 100 kb (skipped by default) |
 | `--dry-run` | only report taxon composition, records per gene and the query |
+| `--report` | also count composition and records per gene while downloading (about 23 extra searches, slow on big taxa; skipped by default) |
 
 - `-t` accepts a taxon name or an NCBI taxid. Each selection is saved in its own sub-directory, named after the options (`markers`, `mito`, `mitogenome`, `gene-COI_18S`, `incl-wgs`, `all-mito`, `custom-1a2b3c` for a `--query` (hash of the query), … or `--tag NAME`), together with `accessions.tsv` and `manifest.json` (query, date, accession-list checksum, completion status).
-- Re-running the same command resumes: the accession list is re-read from NCBI, a batch file is reused only if it holds exactly the accessions of that batch (so new or withdrawn records are picked up), failed batches are retried, and batch files left over from an earlier, larger run are deleted. A directory created for one query is never reused for another (error; use `--tag`). `--dry-run` writes nothing.
+- Records longer than 100 kb (chromosomes and genome scaffolds; a single one can be hundreds of MB) are skipped unless `--include-large` (or an explicit `--minlen/--maxlen`) is given; the pre-flight report shows how many there are.
+- **Record store, incremental updates.** Every record is kept by `accession.version` in a SQLite store (`<out>/_records.sqlite`, or `--store PATH` to share one store between taxa). Each run re-reads the accession list from NCBI and fetches only the accession.versions not in the store, so re-running a download, choosing another selection of the same taxon, or downloading an overlapping taxon (a family, then its order) reuses what is already there; a new version (`.2`) is fetched. Batch files written by older g2t versions are imported instead of re-fetched. `<out>/<tag>/batch_NNNN.gb` is then rewritten from the store, so the pipeline sees the usual files. Differences from the previous run (new / updated / removed records) go to `changes.tsv` and are appended to `changes_history.tsv`; if g2t's own default query changed, they are marked "(query changed)". `-w N` sets parallel requests (default 3); records are fetched 500 per request with gzip transfer and a 60 s stall timeout. A directory created for one query is never reused for another when it was named with `--tag` (error). `--dry-run` writes nothing and reports how many records are already stored.
 - NCBI asks for an e-mail address: `-e you@example.org` or the variable `NCBI_EMAIL`. With an API key (`-k` or `NCBI_API_KEY`) NCBI allows 10 instead of 3 requests per second.
-- `scripts/download_entrez.py` is a wrapper around `g2t-download`. Its options are compatible with the old script, but the default selection (markers instead of all records), the output location (`<out>/<tag>/`) and the batch size (200 instead of 500) changed; use `--all` for the old default.
+- `scripts/download_entrez.py` is a wrapper around `g2t-download`. Its options are compatible with the old script, but the default selection (markers instead of all records), the output location (`<out>/<tag>/`) and the batch size changed (500 again since the record store); use `--all` for the old default.
 
 ### Steps 1–4 — the pipeline (`g2t`)
 

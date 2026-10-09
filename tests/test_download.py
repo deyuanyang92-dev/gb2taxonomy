@@ -40,7 +40,7 @@ class TestBuildQuery:
         q, tag = build_query("1", DownloadOptions(mito=True))
         assert tag == "mito" and "mitochondrion[filter]" in q
         q, tag = build_query("1", DownloadOptions(mitogenome=True))
-        assert tag == "mitogenome" and "10000:30000[SLEN]" in q
+        assert tag == "mitogenome" and "10000:999999999[SLEN]" in q
 
     def test_gene_and_length(self):
         q, tag = build_query("1", DownloadOptions(gene="coi,18s", minlen=500))

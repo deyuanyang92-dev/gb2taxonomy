@@ -123,3 +123,7 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 3. **格式损坏的记录**：Biopython 解析失败后，同一文件中其后的记录不再读取；`extraction_report.json` 标为部分完成并给出应有/实际记录数，但不恢复。
 4. **矩阵元数据逐列取首个非空值**（organize `first_nonempty`）：地点、日期等可能来自同一标本的不同记录（L-09 只修了 Conflict 列）。
 5. **mtgenome / 18-28s 的列复制**不检查记录是否注释了该基因（默认行为保留；可用 `--mtgenome_includes` 限定）。
+
+## classify：超长记录通过全局长度过滤后报 "cannot reindex on an axis with duplicate labels"（2026-10-09 发现，未修）
+- 复现：两条 61,000 bp 记录（一条 `organelle=mitochondrion`、definition "genome assembly, organelle: mitochondrion"，一条 "chromosome 3, partial"），`MatchConfig(global_length_range="1:1000000")` → `Classify failed: cannot reindex on an axis with duplicate labels`。默认 150:50000 时两条都被过滤，不触发。
+- 影响：>50 kb 的线粒体基因组（环节动物最大约 47.5 kb，植物常 >100 kb）只能留在 filtered_records.csv，放宽 `--length_range2_all` 会使 classify 失败。
