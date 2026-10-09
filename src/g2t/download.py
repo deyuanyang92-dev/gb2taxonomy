@@ -1,31 +1,11 @@
 #!/usr/bin/env python3
-"""
-GenBank downloader (Step 0)
-===========================
-Download GenBank records for a taxon from NCBI nuccore, ready for ``g2t``.
+"""Download the GenBank records of a taxon from NCBI nuccore (g2t step 0).
 
-Compared with the original scripts/download_entrez.py:
-  - Default "markers" selection excludes WGS contigs, mRNA, and RefSeq (predicted
-    models and NC_/NR_ copies of INSDC records). In many taxa these make up >95%
-    of nuccore and are useless for a specimen x gene matrix. ``--all`` keeps them.
-  - Selections: ``--mito`` (mitochondrial records), ``--mitogenome`` (complete
-    mitochondrial genomes, 10-30 kb), ``--gene COI,18S,28S`` (see g2t.ncbi_genes),
-    ``--minlen/--maxlen``, ``--query`` (any extra Entrez clause).
-  - Pre-flight report: taxon composition (WGS / mRNA / RefSeq / mito) and number
-    of records per gene for the selection; ``--dry-run`` stops there.
-  - Downloads by an explicit accession list (WebEnv sessions expire), checks the
-    record count of every batch, retries with exponential back-off and resumes
-    automatically: re-running the same command skips finished batches.
-  - Each selection gets its own sub-directory (``<out>/<tag>/``) with
-    accessions.tsv and manifest.json (query, date, counts) for reproducibility.
-
-CLI:
-    g2t-download -t Priapulidae -o gb_out                     # markers
-    g2t-download -t Priapulidae -o gb_out --mitogenome
-    g2t-download -t Priapulidae -o gb_out --gene COI --minlen 500
-    g2t-download -t 37891 -o gb_out --dry-run
-Email / API key: -e/-k, or environment variables NCBI_EMAIL / NCBI_API_KEY (optional;
-with an API key NCBI allows 10 requests/s instead of 3).
+Default selection ("markers"): no WGS contigs, mRNA, RefSeq, or nuclear records > 100 kb.
+Records are kept by accession.version in a SQLite store (or only in the batch files with
+--no-store); a run fetches only records it does not have, --since limits the NCBI query to
+records modified since the last run. Output: <out>/<tag>/batch_NNNN.gb, accessions.tsv,
+manifest.json, changes.tsv.
 """
 
 from __future__ import annotations
@@ -51,17 +31,14 @@ from typing import Callable
 from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, canon, clause
 from g2t.recstore import DirStore, RecordStore, iter_records
 
-# Markers selections skip NUCLEAR records longer than LARGE_BP (chromosome-level assemblies, genome scaffolds,
-# TSA master records, large clones; one Polynoidae chromosome is ~100 MB) unless --include-large. Organelle records
-# are never length-capped: animal mitogenomes reach ~48 kb in Annelida (Glycera fallax OZ210882) and plant
-# mitogenomes are often > 100 kb. (plastid[filter] returns nothing in Entrez; mitochondri* wildcards are truncated.)
+# Nuclear records above LARGE_BP (chromosomes, scaffolds, TSA masters) are skipped unless --include-large.
+# Organelle records are never length-capped. plastid[filter] matches nothing and mitochondri* is truncated by Entrez.
 LARGE_BP = 100_000
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-TIMEOUT = 60          # seconds without data before a request is abandoned and retried
+TIMEOUT = 60          # s without data before a request is retried
 ORGANELLE = ("(mitochondrion[filter] OR chloroplast[filter] OR mitochondrion[Title] OR mitochondrial[Title] "
              "OR chloroplast[Title] OR plastid[Title])")
-# Complete mitogenomes: classic titles plus Darwin Tree of Life style "<species> genome assembly, organelle:
-# mitochondrion"; no upper length limit (the old 10-30 kb window missed 35-48 kb annelid mitogenomes).
+# also matches "<species> genome assembly, organelle: mitochondrion" (Darwin Tree of Life); no upper length
 MITOGENOME = ('AND (mitochondrion[filter] OR mitochondrion[Title] OR mitochondrial[Title]) AND (complete genome[Title] '
               'OR "complete mitochondrial genome"[Title] OR mitogenome[Title] OR "mitochondrial genome"[Title] '
               'OR "genome assembly"[Title]) AND 10000:999999999[SLEN]')
@@ -218,11 +195,7 @@ def _batch_complete(text: str, ids: list[str]) -> bool:
 
 
 def _efetch_text(ids: list[str]) -> str:
-    """One efetch POST with gzip transfer and a socket timeout (Bio.Entrez sends neither).
-
-    Measured on NCBI (Polynoidae, 500 records): 2.26 MB plain vs 0.29 MB gzip, same records; a request
-    that stalls is abandoned after TIMEOUT s instead of hanging.
-    """
+    """One efetch POST with gzip transfer and a timeout (Bio.Entrez does neither)."""
     from Bio import Entrez
     params = {"db": "nuccore", "id": ",".join(ids), "rettype": "gbwithparts", "retmode": "text", "tool": "g2t"}
     if Entrez.email:
@@ -276,7 +249,7 @@ def _changes(old: list[str], new: list[str]) -> list[tuple[str, str, str]]:
 
 
 def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
-    """accession.version list of a query; pages are fetched in parallel (Phyllodocida: 38 pages, ~4 s each)."""
+    """accession.version list of a query; pages are fetched in parallel."""
     from Bio import Entrez
     if total == 0:
         return []
@@ -299,7 +272,7 @@ def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
     return list(dict.fromkeys(a for p in sorted(pages) for a in pages[p]))
 
 
-SINCE_MARGIN_DAYS = 3   # NCBI indexes some records a few days after their modification date
+SINCE_MARGIN_DAYS = 3   # NCBI may index records a few days after their modification date
 
 
 def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: bool) -> str:
@@ -335,8 +308,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
               ("refseq_model", " AND srcdb_refseq_model[PROP]"), ("mito", " AND mitochondrion[filter]"),
               ("large", f" AND {LARGE_BP + 1}:999999999[SLEN] NOT {ORGANELLE}")]
     gene_q = [(g, f"({term}) AND {clause(g)}") for g in MITO_GENES + NUCLEAR_GENES]
-    # The composition / per-gene report costs ~23 searches (2-15 s each on large taxa; Nereididae 86-380 s) and is
-    # not needed to download, so it is made only for --dry-run or report=True; the pipeline counts genes itself.
+    # composition and per-gene counts are ~23 slow searches: only for dry runs or report=True
     jobs = ([(k, base + q) for k, q in comp_q] + gene_q) if (dry_run or report) else []
     counts: dict[str, int] = {}
     with ThreadPoolExecutor(max_workers=max(1, o.workers)) as ex:
@@ -414,9 +386,8 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             if progress:
                 print(f"   [{i}/{len(batches)}] {'OK' if txt else 'FAILED, will split'}  {time.time() - t0:.0f}s",
-                      flush=True)
-    # a batch that keeps failing (e.g. one very large record breaks the transfer) is split in halves until
-    # the failing records are isolated, so one bad record never blocks the others
+                      file=sys.stderr, flush=True)
+    # split failing batches until the failing records are isolated
     while retry:
         ids = retry.pop()
         if len(ids) == 1:
@@ -492,63 +463,75 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
 
 
 def describe(res: DownloadResult, dry_run: bool = False) -> list[str]:
-    c = res.composition
-    genes = ", ".join(f"{g} {n}" for g, n in res.per_gene.items()) or "not counted (use --dry-run or --report)"
     head = f"{res.name} (txid{res.taxid}, {res.rank}) selection '{res.tag}': {res.count} records"
     if dry_run:
-        head += " (dry run, nothing downloaded)"
-    if dry_run:
-        head += f"; already stored {res.reused}, to fetch {res.to_fetch}"
+        head += f" (dry run: stored {res.reused}, to fetch {res.to_fetch})"
     else:
-        head = (f"{res.name} (txid{res.taxid}, {res.rank}) selection '{res.tag}': {res.count} records "
-                f"(reused {res.reused}, fetched {res.fetched}, failed {res.failed}); "
-                f"since last run: new {res.new}, updated {res.updated}, removed {res.removed}"
-                + (" (query changed since last run: differences partly reflect the selection)"
-                   if res.query_changed else "")
-                + (f"; incremental since {res.since}: {res.candidates} records modified in NCBI "
-                   "(withdrawn records are only seen by a run without --since)" if res.since else ""))
-    comp = (f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
-            f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
-            f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}") if c else "taxon composition: not counted"
-    return [head,
-            comp,
-            f"per gene: {genes}",
-            f"query: {res.query}",
-            f"output: {res.out_dir}"]
+        head += f" (reused {res.reused}, fetched {res.fetched}, failed {res.failed})"
+        head += f"; since last run: new {res.new}, updated {res.updated}, removed {res.removed}"
+        if res.query_changed:
+            head += " (query changed)"
+        if res.since:
+            head += f"; modified in NCBI since {res.since}: {res.candidates}"
+    lines = [head]
+    c = res.composition
+    if c:
+        lines.append(f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
+                     f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
+                     f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}")
+    if res.per_gene:
+        lines.append("per gene: " + ", ".join(f"{g} {n}" for g, n in res.per_gene.items()))
+    return lines + [f"query: {res.query}", f"output: {res.out_dir}"]
+
+
+def _since_arg(v: str) -> str:
+    if v in ("", "auto"):
+        return v
+    try:
+        return date.fromisoformat(v.replace("/", "-")).isoformat()
+    except ValueError:
+        raise argparse.ArgumentTypeError("expected 'auto' or a date YYYY-MM-DD") from None
+
+
+def _positive(v: str) -> int:
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return n
 
 
 def add_selection_args(p: argparse.ArgumentParser) -> None:
-    g = p.add_argument_group("selection")
-    g.add_argument("--all", action="store_true", help="All records incl. WGS/mRNA/RefSeq (can be huge)")
-    g.add_argument("--mito", action="store_true", help="Mitochondrial records only")
-    g.add_argument("--mitogenome", action="store_true",
-                   help="Complete mitogenomes (>= 10 kb, incl. 'genome assembly, organelle: mitochondrion')")
-    g.add_argument("--gene", default="", help="Comma-separated genes, e.g. COI,18S,28S (see g2t/ncbi_genes.py)")
-    g.add_argument("--minlen", type=int)
-    g.add_argument("--maxlen", type=int)
-    g.add_argument("--query", default="", help="Extra Entrez clause, e.g. 'Russia[Country]'")
-    g.add_argument("--include-wgs", action="store_true")
-    g.add_argument("--include-mrna", action="store_true")
-    g.add_argument("--include-refseq", action="store_true")
+    """Selection, update and run options (shared with wrappers that supply taxon/output/credentials)."""
+    g = p.add_argument_group("selection (default: marker records, see README)")
+    g.add_argument("--all", action="store_true", help="all records, incl. WGS, mRNA and RefSeq")
+    g.add_argument("--mito", action="store_true", help="mitochondrial records only")
+    g.add_argument("--mitogenome", action="store_true", help="complete mitochondrial genomes only (>= 10 kb)")
+    g.add_argument("--gene", default="", metavar="LIST", help="genes, e.g. COI,18S,28S")
+    g.add_argument("--minlen", type=_positive, metavar="BP")
+    g.add_argument("--maxlen", type=_positive, metavar="BP")
+    g.add_argument("--query", default="", metavar="CLAUSE", help="extra Entrez clause, e.g. 'Russia[Country]'")
+    g.add_argument("--include-wgs", action="store_true", help="keep WGS contigs")
+    g.add_argument("--include-mrna", action="store_true", help="keep mRNA records")
+    g.add_argument("--include-refseq", action="store_true", help="keep RefSeq records")
     g.add_argument("--include-large", action="store_true",
-                   help=f"Keep nuclear records > {LARGE_BP} bp (chromosomes, genome scaffolds; skipped by default; "
-                        "organelle records are never length-capped)")
-    g.add_argument("--tag", default="", help="Name of the output sub-directory (default: from the selection)")
-    g.add_argument("--dry-run", action="store_true", help="Only report counts and query")
-    g.add_argument("--report", action="store_true",
-                   help="Also count taxon composition and records per gene while downloading (slow on big taxa)")
-    g.add_argument("-b", "--batch-size", type=int, default=500,
-                   help="Records per request and per batch file (default 500)")
-    g.add_argument("-w", "--workers", type=int, default=3, help="Parallel NCBI requests (default 3)")
-    g.add_argument("--since", default="", metavar="auto|YYYY-MM-DD",
-                   help="Incremental: only fetch records created/modified (NCBI [MDAT]) since the last download "
-                        f"('auto', minus {SINCE_MARGIN_DAYS} days) or a date. Cannot see withdrawn records; run "
-                        "without --since now and then for a full check")
-    g.add_argument("--no-store", action="store_true",
-                   help="No SQLite record store: the selection's batch files are the only copy; new records go to "
-                        "new batch files, superseded versions are removed")
-    g.add_argument("--store", default=None,
-                   help="Record store (SQLite) shared by runs/taxa (default: <output>/_records.sqlite)")
+                   help=f"keep nuclear records > {LARGE_BP // 1000} kb (organelle records are always kept)")
+    g.add_argument("--tag", default="", metavar="NAME", help="output sub-directory (default: from the selection)")
+
+    u = p.add_argument_group("update")
+    u.add_argument("--since", type=_since_arg, default="", metavar="auto|DATE",
+                   help="fetch only records modified since the last run or DATE (YYYY-MM-DD)")
+    x = u.add_mutually_exclusive_group()
+    x.add_argument("--store", default=None, metavar="FILE", help="record store (default: OUTPUT/_records.sqlite)")
+    x.add_argument("--no-store", action="store_true", help="keep records only in the batch files")
+
+    r = p.add_argument_group("run")
+    r.add_argument("-n", "--dry-run", action="store_true", help="report counts and records to fetch; write nothing")
+    r.add_argument("--report", action="store_true", help="also count records per gene (extra NCBI searches)")
+    r.add_argument("-b", "--batch-size", type=_positive, default=500, metavar="N",
+                   help="records per request and batch file (default: %(default)s)")
+    r.add_argument("-w", "--workers", type=_positive, default=3, metavar="N",
+                   help="parallel NCBI requests (default: %(default)s)")
+    r.add_argument("-q", "--quiet", action="store_true", help="no progress output")
 
 
 def options_from_args(a: argparse.Namespace) -> DownloadOptions:
@@ -558,21 +541,29 @@ def options_from_args(a: argparse.Namespace) -> DownloadOptions:
                            since=a.since, no_store=a.no_store, batch=a.batch_size, workers=a.workers, tag=a.tag)
 
 
+EPILOG = """examples:
+  g2t-download -t Polynoidae -o gb                 first download (markers)
+  g2t-download -t Polynoidae -o gb --since auto    later: only new or modified records
+  g2t-download -t Polynoidae -o gb -n              counts only
+  g2t-download -t 46593 -o gb --mitogenome
+
+Re-running skips records already downloaded. Exit status 1 if records failed."""
+
+
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Download GenBank records of a taxon from NCBI (markers by default)",
-                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("-t", "--taxon", required=True, help="Taxon name or NCBI taxid")
-    p.add_argument("-o", "--output", default=None,
-                   help="Output root (default: <taxon>_gb/); files go to <output>/<tag>/")
-    p.add_argument("-e", "--email", default=None, help="Email for NCBI (or env NCBI_EMAIL)")
-    p.add_argument("-k", "--api-key", default=None, help="NCBI API key (or env NCBI_API_KEY)")
-    p.add_argument("--resume", action="store_true", help="(kept for compatibility; resuming is automatic)")
-    p.add_argument("--validate", action="store_true", help="Parse downloaded files with Biopython afterwards")
+    p = argparse.ArgumentParser(prog="g2t-download", description="Download GenBank records of a taxon from NCBI.",
+                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog=EPILOG)
+    p.add_argument("-t", "--taxon", required=True, metavar="NAME|TAXID", help="taxon name or NCBI taxid")
+    p.add_argument("-o", "--output", metavar="DIR", help="output root; records go to DIR/TAG/ (default: <taxon>_gb)")
+    p.add_argument("-e", "--email", metavar="ADDR", help="e-mail for NCBI (default: $NCBI_EMAIL)")
+    p.add_argument("-k", "--api-key", metavar="KEY", help="NCBI API key (default: $NCBI_API_KEY)")
+    p.add_argument("--validate", action="store_true", help="parse the batch files with Biopython afterwards")
+    p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)   # resuming is automatic
     add_selection_args(p)
     a = p.parse_args(argv)
     out = a.output or f"{str(a.taxon).replace(' ', '_')}_gb"
     res = download(a.taxon, out, options_from_args(a), dry_run=a.dry_run, email=a.email, api_key=a.api_key,
-                   store=a.store, report=a.report)
+                   progress=not a.quiet, store=a.store, report=a.report)
     for line in describe(res, a.dry_run):
         print(line)
     if a.validate and not a.dry_run:

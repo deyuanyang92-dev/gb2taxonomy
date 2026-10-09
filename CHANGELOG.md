@@ -16,7 +16,8 @@
 - **大规模实测**（Phyllodocida，188,739 条）：复用此前 Nereididae 的 17,403 条，新下载 171,336 条用时 835 s（约 205 条/s），途中 40 次网络错误全部自动重试，0 失败；全程 18 min，内存 744 MB，记录库 314 MB。全部复用的重跑 86 s。
 - `DownloadResult` 字段改为按记录计数：`fetched`、`reused`、`to_fetch`、`new`、`updated`、`removed`、`query_changed`（原 `downloaded`/`skipped` 按批计数，已移除）。
 - 只有用 `--tag` 命名的目录在检索式变化时报错；自动命名的目录按新检索式重写。
-- 测试：新增 22 项，共 410 项通过。
+- 命令行整理：选项按 selection / update / run 分组，帮助文字简短；`--store` 与 `--no-store` 互斥；`--since`、`-w`、`-b`、`--minlen/--maxlen` 在解析时校验（错误退出码 2）；新增 `-n`（= `--dry-run`）、`-q`（不显示进度）；进度输出到 stderr；`--resume` 隐藏（续传自动）。
+- 测试：新增 24 项，共 412 项通过。
 
 ## v0.03（2026-10-09）
 

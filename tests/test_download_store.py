@@ -316,3 +316,23 @@ def test_no_store_with_since(tmp_path, fake):
     assert fake["fetched"] == ["EF000001.1"]
     assert any("2026/03/01:3000[MDAT]" in t for t in fake["terms"])
     assert len(ids_in(tmp_path / "markers")) == 9
+
+
+def test_cli_validates_arguments(capsys):
+    from g2t.download import main
+    for argv in (["-t", "X", "--since", "yesterday"], ["-t", "X", "--store", "s.db", "--no-store"],
+                 ["-t", "X", "-w", "0"], ["-t", "X", "--minlen", "-5"]):
+        with pytest.raises(SystemExit) as e:
+            main(argv)
+        assert e.value.code == 2
+    assert "auto" in capsys.readouterr().err
+
+
+def test_cli_quiet_and_since_date(tmp_path, fake, capsys):
+    from g2t.download import main
+    fake["list"] = accs("AB", 3)
+    assert main(["-t", "X", "-o", str(tmp_path), "-q"]) == 0
+    assert "[1/1]" not in capsys.readouterr().err
+    fake["mdat"] = []
+    assert main(["-t", "X", "-o", str(tmp_path), "--since", "2026/01/02", "-q"]) == 0
+    assert any("2026/01/02:3000[MDAT]" in t for t in fake["terms"])

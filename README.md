@@ -46,7 +46,7 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 | `--query '…'` | any extra Entrez clause, e.g. `'Russia[Country]'` |
 | `--include-wgs` / `--include-mrna` / `--include-refseq` | add back an excluded class |
 | `--include-large` | keep records > 100 kb (skipped by default) |
-| `--dry-run` | only report taxon composition, records per gene and the query |
+| `-n`, `--dry-run` | report taxon composition, records per gene, records to fetch; write nothing |
 | `--since auto` / `--since 2026-01-01` | incremental: only records created or modified in NCBI ([MDAT]) since the last download (minus 3 days) or the date; cannot see withdrawn records, so run without `--since` now and then |
 | `--no-store` | no SQLite store: the selection's batch files are the only copy (new records → new batch files, superseded versions removed) |
 | `--report` | also count composition and records per gene while downloading (about 23 extra searches, slow on big taxa; skipped by default) |
