@@ -146,7 +146,7 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
     ``baseline``: the values a pre-filled template was made from (rows joined on ``row_id``). With it,
     only cells the user edited count as corrections, so unedited template cells never overwrite values
     that GenBank updated later; an edited cell whose GenBank value also changed is reported, not applied."""
-    base_map: dict[str, dict] = {}
+    base_map: dict[str, pd.Series] = {}
     if baseline is not None and "row_id" in baseline.columns:
         base_map = {str(r["row_id"]).strip(): r for _, r in baseline.fillna("").astype(str).iterrows()}
     out = matrix.copy().astype(object)
@@ -379,7 +379,7 @@ def apply_user_table(matrix: pd.DataFrame, user: pd.DataFrame, key_column: str =
 def make_template(matrix: pd.DataFrame, gene_columns=None, fields=None) -> pd.DataFrame:
     """One row per specimen, pre-filled with the current values, for the user to correct."""
     genes = _gene_cols(matrix, gene_columns)
-    rows = []
+    rows: list[dict] = []
     for _, r in matrix.iterrows():
         acc = next((str(r[g]).split(";")[0].strip() for g in genes
                     if str(r[g]).strip() and str(r[g]).lower() != "nan"), "")
@@ -401,13 +401,23 @@ def _read(path: str, sheet=0) -> pd.DataFrame:
     return pd.read_csv(p, dtype=str, sep=sep, keep_default_na=False)
 
 
+def _as_text(ws) -> None:
+    """Data cells are text: openpyxl would store strings starting with '=' as formulas."""
+    for row in ws.iter_rows():
+        for c in row:
+            if c.data_type == "f":
+                c.data_type = "s"
+
+
 def write_template(template: pd.DataFrame, path: str) -> None:
     """xlsx: sheets 'corrections' + baseline; csv: <name>.csv + <name>.baseline.csv."""
     p = Path(path)
     if p.suffix.lower() == ".xlsx":
-        with pd.ExcelWriter(p) as w:
+        with pd.ExcelWriter(p, engine="openpyxl") as w:
             template.to_excel(w, sheet_name="corrections", index=False)
             template.to_excel(w, sheet_name=BASELINE_SHEET, index=False)
+            for ws in w.sheets.values():
+                _as_text(ws)
     else:
         template.to_csv(p, index=False)
         template.to_csv(p.with_name(p.stem + ".baseline.csv"), index=False)
@@ -453,7 +463,7 @@ def matrix_key_column(matrix: pd.DataFrame) -> str:
     for c in ("specimen_key", "species_voucher_new", "species_voucher"):
         if c in matrix.columns:
             return c
-    return matrix.columns[0]
+    return str(matrix.columns[0])
 
 
 def is_template(path: str) -> bool:
@@ -482,6 +492,7 @@ def write_curated_workbook(path: str, out: pd.DataFrame, log: pd.DataFrame, prob
         for name, df in sheets.items():
             (df if len(df.columns) else pd.DataFrame({"note": ["none"]})).to_excel(w, sheet_name=name, index=False)
             ws = w.sheets[name]
+            _as_text(ws)
             ws.freeze_panes = "B2"
             for j, c in enumerate(df.columns, 1):
                 width = max([len(str(c))] + [len(str(v)) for v in df[c].head(200)])

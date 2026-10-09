@@ -81,3 +81,15 @@ def test_cli_excel_a_plus_b_to_c(tmp_path):
     m = sheets["Matrix"]
     assert m.loc[0, "lat_lon"] == "66.55 N 33.10 E" and m.loc[0, "user:备注"] == "re-identified"
     assert sheets["Matrix (GenBank)"]["lat_lon"].isna().all()
+
+
+def test_values_starting_with_equals_are_written_as_text(tmp_path):
+    import openpyxl
+
+    from g2t.curate import write_curated_workbook, write_template
+    df = pd.DataFrame({"specimen_key": ["a"], "Ref1Title": ["=HYPERLINK(\"http://x\")"]})
+    write_curated_workbook(str(tmp_path / "c.xlsx"), df, pd.DataFrame(), pd.DataFrame(), df)
+    write_template(df, str(tmp_path / "t.xlsx"))
+    for f in ("c.xlsx", "t.xlsx"):
+        for ws in openpyxl.load_workbook(tmp_path / f).worksheets:
+            assert all(c.data_type != "f" for row in ws.iter_rows() for c in row)
