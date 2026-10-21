@@ -12,7 +12,7 @@ Usage (Python API):
     result = g2t.extract(["/path/to/gb"], "/path/to/out")
 """
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 # ``g2t.download``, ``g2t.extract`` ... are both submodules and the step functions. Loading a

@@ -1,6 +1,8 @@
 # 更新日志 / Changelog
 
-## 未发布 / Unreleased
+## v0.04（2026-10-22）
+
+包内版本 `0.0.4`。本版重写下载步骤（按记录增量、`--since`、`--no-store`），并修复全库代码审查发现的问题。
 
 ### 下载（g2t-download）
 - **默认跳过 >100 kb 的核基因组记录**（染色体级组装、基因组 scaffold、TSA 主记录、大片段克隆；`--include-large` 保留，显式 `--minlen/--maxlen` 时不加此限制）。**细胞器记录不受长度限制**（`mitochondrion[filter]`、`chloroplast[filter]` 或标题含 mitochondrion/mitochondrial/chloroplast/plastid）：环节动物线粒体基因组最大约 47.5 kb（*Glycera fallax* OZ210882），植物常 >100 kb。Polynoidae：248 条 “genome assembly, chromosome: N”（单条约 100 MB）使第 1 批达 5.8 GB、约 1 小时；跳过后每批约 6 秒，全类群约 3 分钟。预检报告新增 “nuclear > 100 kb” 条数。
