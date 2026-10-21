@@ -1,11 +1,13 @@
 """Tests for organize.py pure functions and integration."""
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 
 from g2t.organize import (
     OrganizeConfig,
+    _format_gene_values,
+    _propagate_locusids,
     build_header,
     check_columns,
     collect_locusids_per_gene,
@@ -17,8 +19,6 @@ from g2t.organize import (
     normalize_gene_name,
     organize,
     process_group,
-    _format_gene_values,
-    _propagate_locusids,
 )
 
 
@@ -425,3 +425,13 @@ class TestOrganizeIntegration:
         assert result.success is True
         df = pd.read_csv(output_csv)
         assert len(df) == 2
+
+
+class TestNonIdentifierColumnNames:
+    def test_per_gene_and_advanced_read_columns_with_spaces(self):
+        df = pd.DataFrame({"LocusID": ["L1", "L2"], "gene_type": ["coi", "16s"],
+                           "Depth (m)": ["10", "20"], "class": ["Mam", "Mam"]})
+        per = metadata_per_gene(df, ["coi", "16s"], ["Depth (m)", "class"])
+        assert "10" in per["Depth (m)"] and "20" in per["Depth (m)"] and "Mam" in per["class"]
+        adv = metadata_advanced(df, {"coi": "L1", "16s": "L2"}, ["Depth (m)", "class"])
+        assert "10" in adv["Depth (m)"] and "Mam" in adv["class"]

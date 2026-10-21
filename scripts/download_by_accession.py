@@ -60,6 +60,10 @@ def download_batch(accessions: list[str], output_path: Path) -> bool:
         handle.close()
         if not text.strip():
             return False
+        n = sum(1 for line in text.splitlines() if line.startswith("LOCUS"))
+        if n != len(accessions):
+            print(f"  Error: got {n} of {len(accessions)} records", file=sys.stderr)
+            return False
         with open(output_path, "w") as f:
             f.write(text)
         return True
@@ -83,17 +87,20 @@ def main():
     print(f"Output: {output_dir.resolve()}")
 
     progress = load_progress(output_dir)
+    num_batches = (len(accessions) + args.batch_size - 1) // args.batch_size
     if args.resume and progress:
         start_batch = progress.get("last_batch", -1) + 1
-        print(f"Resuming from batch {start_batch + 1}")
+        todo = sorted(set(progress.get("failed_batches", [])) | set(range(start_batch, num_batches)))
+        n_failed = len(progress.get("failed_batches", []))
+        print(f"Resuming from batch {start_batch + 1}" + (f", retrying {n_failed} failed" if n_failed else ""))
     else:
-        start_batch = 0
+        todo = list(range(num_batches))
 
-    num_batches = (len(accessions) + args.batch_size - 1) // args.batch_size
     delay = 0.1 if args.api_key else 0.34
     failed = 0
+    failed_batches: list[int] = []
 
-    for i in range(start_batch, num_batches):
+    for i in todo:
         start = i * args.batch_size
         end = min(start + args.batch_size, len(accessions))
         batch = accessions[start:end]
@@ -107,14 +114,18 @@ def main():
         else:
             print("FAILED")
             failed += 1
+            failed_batches.append(i)
+            progress.update({"failed_batches": failed_batches, "completed": False})
+            save_progress(output_dir, progress)
             if failed >= 3:
                 print("Too many failures. Use --resume to continue.")
-                progress.update({"last_batch": i - 1, "completed": False})
+                progress.update({"last_batch": i - 1})
                 save_progress(output_dir, progress)
                 sys.exit(1)
             continue
 
-        progress.update({"last_batch": i, "completed": i == num_batches - 1})
+        progress.update({"last_batch": max(i, progress.get("last_batch", -1)), "failed_batches": failed_batches,
+                         "completed": i == num_batches - 1 and not failed_batches})
         save_progress(output_dir, progress)
         time.sleep(delay)
 

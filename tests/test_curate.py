@@ -156,3 +156,32 @@ def test_csv_template_has_baseline(tmp_path, matrix):
     write_template(make_template(matrix, gene_columns=GENES), str(tmp_path / "c.csv"))
     upd, base = read_corrections(str(tmp_path / "c.csv"))
     assert base is not None and len(base) == len(upd) == 3
+
+
+def test_short_matrix_token_does_not_match_longer_user_voucher(matrix):
+    m = matrix.copy()
+    m.loc[0, "voucher_standardized"] = "12"
+    upd = pd.DataFrame([{"voucher": "MNHN-IU-2014-12", "lat_lon": "1 N 1 E"}])
+    out, log, problems = apply_updates(m, upd, gene_columns=GENES)
+    assert log.empty and "no matrix row" in " ".join(problems["problem"])
+
+
+def test_unknown_accession_with_matching_voucher_is_reported_as_unknown(matrix):
+    upd = pd.DataFrame([{"accession": "XX999999", "voucher": "WS399", "lat_lon": "1 N 1 E"}])
+    out, log, problems = apply_updates(matrix, upd, gene_columns=GENES)
+    assert log.empty and "accession not found" in " ".join(problems["problem"])
+
+
+def test_nan_curated_fields_does_not_leak_into_value(matrix):
+    import numpy as np
+    m = matrix.copy()
+    m["curated_fields"] = np.nan
+    upd = pd.DataFrame([{"accession": "ON792938", "lat_lon": "1 N 1 E"}])
+    out, _, _ = apply_updates(m, upd, gene_columns=GENES)
+    assert out.loc[0, "curated_fields"] == "lat_lon"
+
+
+def test_voucher_columns_are_never_gene_columns():
+    from g2t.curate import matrix_gene_columns
+    m = pd.DataFrame({"voucher_standardized": ["USNM123456"], "coi": ["ON792938.1"]})
+    assert matrix_gene_columns(m) == ["coi"]

@@ -116,11 +116,17 @@ gene_types:
   18-28s:
     synonyms:
       - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
+      - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
       - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
+      - 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
       - small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene
+      - small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene
       - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence
       - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene
       - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
+      - 18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence
       - 18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence
 
   its1-its2:

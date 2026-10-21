@@ -9,8 +9,9 @@ Usage:
     python scripts/merge_literature_metadata.py
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi/ceshi5")
 EXCEL = BASE / "zlae141_suppl_supplementary_tables_s1.xlsx"
@@ -87,35 +88,39 @@ def main():
     filled_gps = 0
     filled_date = 0
     filled_collector = 0
-    filled_habitat = 0
+
+    def _empty(v) -> bool:
+        return not v or str(v) in ("", "nan")
+
     for idx, row in final.iterrows():
-        # GPS
-        if (not row.get("lat_lon") or str(row["lat_lon"]) in ("", "nan")):
-            if row.get("lit_lat") and str(row["lit_lat"]) not in ("", "nan"):
-                lat = row["lit_lat"]
-                lon = row["lit_lon"]
-                final.at[idx, "lat_lon"] = f"{lat} {lon}"
+        # GPS, in the GenBank lat_lon format ("57.68 N 11.96 E") so the column stays uniform
+        if _empty(row.get("lat_lon")) and not _empty(row.get("lit_lat")) and not _empty(row.get("lit_lon")):
+            try:
+                lat, lon = float(row["lit_lat"]), float(row["lit_lon"])
+            except (TypeError, ValueError):
+                lat = lon = float("nan")
+            if lat == lat and lon == lon:   # not NaN
+                final.at[idx, "lat_lon"] = (f"{abs(lat):.4f} {'N' if lat >= 0 else 'S'} "
+                                            f"{abs(lon):.4f} {'E' if lon >= 0 else 'W'}")
                 filled_gps += 1
         # Collection date
-        if (not row.get("collection_date") or str(row["collection_date"]) in ("", "nan")):
-            if row.get("lit_coll_date") and str(row["lit_coll_date"]) not in ("", "nan"):
-                final.at[idx, "collection_date"] = row["lit_coll_date"]
-                filled_date += 1
+        if _empty(row.get("collection_date")) and not _empty(row.get("lit_coll_date")):
+            final.at[idx, "collection_date"] = row["lit_coll_date"]
+            filled_date += 1
         # Collector
-        if (not row.get("collected_by") or str(row["collected_by"]) in ("", "nan")):
-            if row.get("lit_leg") and str(row["lit_leg"]) not in ("", "nan"):
-                final.at[idx, "collected_by"] = row["lit_leg"]
-                filled_collector += 1
+        if _empty(row.get("collected_by")) and not _empty(row.get("lit_leg")):
+            final.at[idx, "collected_by"] = row["lit_leg"]
+            filled_collector += 1
 
     final.to_csv(OUTPUT, index=False)
 
     # Report
     print(f"\n{'=' * 60}")
-    print(f"合并结果")
+    print("合并结果")
     print(f"{'=' * 60}")
     print(f"匹配: {matched}/{len(final)} accessions 在文献中找到")
     print()
-    print(f"字段补充:")
+    print("字段补充:")
     print(f"  GPS 坐标 (lat_lon):       补充了 {filled_gps} 条")
     print(f"  采集日期 (collection_date): 补充了 {filled_date} 条")
     print(f"  采集人 (collected_by):     补充了 {filled_collector} 条")

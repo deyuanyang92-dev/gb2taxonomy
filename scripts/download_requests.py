@@ -20,7 +20,6 @@ from pathlib import Path
 
 import requests
 
-
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
@@ -137,10 +136,12 @@ def search_records(session: requests.Session, taxon_id: int,
 
 def download_batch(session: requests.Session, webenv: str, query_key: str,
                    retstart: int, batch_size: int, output_path: Path,
-                   api_key: str = None, timeout: int = 120) -> bool:
+                   api_key: str = None, timeout: int = 120, expected: int = None,
+                   email: str = None) -> bool:
     """Download one batch. Returns True on success."""
     params = {
         "db": "nuccore",
+        "tool": "g2t-download",
         "rettype": "gb",
         "retmode": "text",
         "retstart": retstart,
@@ -148,13 +149,21 @@ def download_batch(session: requests.Session, webenv: str, query_key: str,
         "webenv": webenv,
         "query_key": query_key,
     }
+    if email:
+        params["email"] = email
     if api_key:
         params["api_key"] = api_key
+    if expected is None:
+        expected = batch_size
 
     try:
         resp = fetch_with_retry(session, EFETCH_URL, params, timeout=timeout)
         text = resp.text
         if not text.strip():
+            return False
+        n = sum(1 for line in text.splitlines() if line.startswith("LOCUS"))
+        if n != expected:
+            print(f"  Error: got {n} of {expected} records", file=sys.stderr)
             return False
         with open(output_path, "w") as f:
             f.write(text)
@@ -207,7 +216,7 @@ def main():
 
         success = download_batch(
             session, webenv, query_key, retstart, args.batch_size,
-            batch_file, args.api_key, args.timeout
+            batch_file, args.api_key, args.timeout, expected=end - retstart, email=args.email,
         )
 
         if success:

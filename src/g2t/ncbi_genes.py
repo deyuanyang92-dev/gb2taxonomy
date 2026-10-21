@@ -21,8 +21,8 @@ GENES = {
     "ND5":   ['ND5[Gene]', 'NAD5[Gene]', '"NADH dehydrogenase subunit 5"[Title]'],
     "ATP6":  ['ATP6[Gene]', '"ATP synthase F0 subunit 6"[Title]', '"ATP synthase subunit 6"[Title]'],
     # mitochondrial rRNA
-    "12S":   ['12S[Title]', 'rrnS[Gene]', '"small subunit ribosomal RNA"[Title] AND mitochondrion[filter]'],
-    "16S":   ['16S[Title]', 'rrnL[Gene]', '"large subunit ribosomal RNA"[Title] AND mitochondrion[filter]'],
+    "12S":   ['12S[Title]', 'rrnS[Gene]', '("small subunit ribosomal RNA"[Title] AND mitochondrion[filter])'],
+    "16S":   ['16S[Title]', 'rrnL[Gene]', '("large subunit ribosomal RNA"[Title] AND mitochondrion[filter])'],
     # nuclear
     "18S":   ['18S[Title]', '"18S ribosomal RNA"[Title]',
               '("small subunit ribosomal RNA"[Title] NOT mitochondrion[filter])'],

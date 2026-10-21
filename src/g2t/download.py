@@ -254,6 +254,7 @@ def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
     if total == 0:
         return []
     r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
+    total = int(r.get("Count", total))    # page the set we actually hold, not an earlier count
     pages: dict[int, list[str]] = {}
 
     def _page(start: int) -> tuple[int, list[str]]:
@@ -323,9 +324,9 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     out = Path(out_root) / tag
     res = DownloadResult(taxid=tid, name=name, rank=rank, tag=tag, query=term, count=total, out_dir=str(out),
                          composition=comp, per_gene=per_gene)
-    if total == 0:
-        return res
     mfile = out / "manifest.json"
+    if total == 0 and not mfile.exists():
+        return res
     old_q = json.loads(mfile.read_text(encoding="utf-8")).get("query") if mfile.exists() else None
     res.query_changed = bool(old_q and old_q != term)
     if o.tag and res.query_changed:   # a user-named directory is never silently re-purposed
@@ -333,7 +334,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
                          f"current query:\n  {term}\nUse another --tag or output directory.")
     prev = json.loads(mfile.read_text(encoding="utf-8")) if mfile.exists() else {}
     prev_list = _previous_list(out)
-    since = _since_date(o.since, prev, prev_list, res.query_changed)
+    since = _since_date(o.since, prev, prev_list, res.query_changed) if total else ""
     if since:
         # only records created or modified since the last download (NCBI modification date, [MDAT])
         sterm = f"({term}) AND {since}:3000[MDAT]"
@@ -361,6 +362,13 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
         if legacy:
             st.import_files(legacy, set(missing))
             missing = st.missing(accs)
+    if since:
+        # a record modified since the last run may keep its accession.version (annotation-only update):
+        # it is stored already, but stale, so it is fetched again
+        stale = [a for a in cand if a in set(accs) and a not in set(missing)]
+        if stale and not dry_run and isinstance(st, DirStore):
+            st.prune(set(st.where) - set(stale))     # drop the old copies, or prune would keep both
+        missing += stale
     res.reused = len(accs) - len(missing)
     res.to_fetch = len(missing)
     if dry_run:
@@ -416,7 +424,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
         unchanged = (not failed_ids and prev.get("complete") and prev.get("query") == term
                      and prev.get("options", {}).get("batch") == o.batch
                      and prev.get("accessions_sha1") == hashlib.sha1("\n".join(accs).encode()).hexdigest()
-                     and len(list(out.glob("batch_*.gb"))) == nb)
+                     and sorted(f.name for f in out.glob("batch_*.gb")) == [f"batch_{b + 1:04d}.gb" for b in range(nb)])
         for b in range(0 if unchanged else nb):     # nothing new: keep the existing batch files
             f = out / f"batch_{b + 1:04d}.gb"
             tmp = f.with_suffix(".tmp")

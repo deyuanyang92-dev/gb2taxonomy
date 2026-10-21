@@ -11,8 +11,10 @@ Compares:
     - g2t organized_species_voucher.csv (with mtgenome propagation)
     - Reference: ceshi2/TableS1_Oct2024.xlsx (88 species x 7 gene types)
 """
+from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -206,7 +208,7 @@ def parse_args():
     p.add_argument("--ncbi-lookup", action="store_true",
                    help="Do NCBI reverse lookup for still-unmatched species")
     p.add_argument("--email", default="deyuanyang@example.com")
-    p.add_argument("--api-key", default="62733a242c3b7a3b0b93e6d65e108798b708")
+    p.add_argument("--api-key", default=os.environ.get("NCBI_API_KEY"))
     return p.parse_args()
 
 
@@ -299,7 +301,7 @@ def main():
 
         for glit in gene_labels:
             g2t_key = GENE_MAP[glit]
-            lit_acc = str(row.get(glit, "")).strip().strip("﻿﻿")
+            lit_acc = str(row.get(glit, "")).strip().strip("﻿")
             if lit_acc in ("-", "nan", ""):
                 lit_acc = ""
 
@@ -406,7 +408,7 @@ def main():
                     lit_count = 0
                     for glit in gene_labels:
                         g2t_key = GENE_MAP[glit]
-                        lit_acc = str(ref_df.loc[ref_df["Species"] == sp].iloc[0].get(glit, "")).strip().strip("﻿﻿")
+                        lit_acc = str(ref_df.loc[ref_df["Species"] == sp].iloc[0].get(glit, "")).strip().strip("﻿")
                         if lit_acc in ("-", "nan", ""):
                             lit_acc = ""
                         lit_acc = lit_acc.rstrip("*").strip()
@@ -483,20 +485,19 @@ def main():
     for _, r in result_df.iterrows():
         sp = r["species"]
         org = r["g2t_organism"]
-        mm = r["match_method"]
 
         # Species header
         name_note = ""
         if org != "NOT MATCHED" and normalize_species(sp) != normalize_species(org):
             name_note = f"  (g2t name: {org})"
-        report_lines.append(f"")
+        report_lines.append("")
         report_lines.append(f"{'='*70}")
         report_lines.append(f"{sp}{name_note}")
         report_lines.append(f"{'='*70}")
 
         for glit in gene_labels:
             g2t_key = GENE_MAP[glit]
-            lit_acc = str(r.get(f"lit_{glit}", "")).strip().strip("﻿﻿")
+            lit_acc = str(r.get(f"lit_{glit}", "")).strip().strip("﻿")
             if lit_acc in ("-", "nan", ""):
                 lit_acc = ""
             g2t_accs = str(r.get(f"g2t_{g2t_key}", "")).strip()
@@ -530,19 +531,19 @@ def main():
 
     # Summary header
     summary = []
-    summary.append(f"")
+    summary.append("")
     summary.append(f"{'#'*70}")
-    summary.append(f"# Comparison Report: 88 reference species vs g2t")
+    summary.append("# Comparison Report: 88 reference species vs g2t")
     summary.append(f"{'#'*70}")
-    summary.append(f"")
-    summary.append(f"Legend:")
-    summary.append(f"  OK   = literature accession found in g2t")
-    summary.append(f"  MISS = literature accession NOT found in g2t")
-    summary.append(f"  EXTRA = g2t has data but literature does not")
-    summary.append(f"")
+    summary.append("")
+    summary.append("Legend:")
+    summary.append("  OK   = literature accession found in g2t")
+    summary.append("  MISS = literature accession NOT found in g2t")
+    summary.append("  EXTRA = g2t has data but literature does not")
+    summary.append("")
     summary.append(f"Totals:  {total_ok} OK,  {total_miss} MISS,  {total_extra} EXTRA")
     summary.append(f"Match rate: {total_ok}/{total_ok+total_miss} ({total_ok/(total_ok+total_miss)*100:.1f}%)")
-    summary.append(f"")
+    summary.append("")
 
     # Print to terminal
     for line in summary:

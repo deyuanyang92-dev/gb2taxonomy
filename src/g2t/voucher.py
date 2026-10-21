@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Species Voucher Builder (refactored)
 ====================================
@@ -17,23 +16,27 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 import time
 import warnings
+
 import pandas as pd
-from typing import Dict, List, Optional
 
 from g2t.utils import (
-    str2bool, sanitize_string, safe_concat,
-    read_table, write_csv, col_key, build_col_lookup, resolve_col,
     StepResult,
+    build_col_lookup,
+    col_key,
+    read_table,
+    resolve_col,
+    safe_concat,
+    sanitize_string,
+    str2bool,
+    write_csv,
 )
-
 
 # Priority order of columns used to build the primary voucher (pse). Single source of truth for the
 # API, the g2t pipeline and the g2t-voucher CLI (other modules import this constant).
-DEFAULT_VOUCHER_COLUMNS: List[str] = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
+DEFAULT_VOUCHER_COLUMNS: list[str] = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
 
 # Whether an empty pse falls back to the haplotype column. Same default for API and CLI.
 DEFAULT_FILL_HAPLOTYPE: bool = False
@@ -43,7 +46,7 @@ def now_ts() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
-def log(msg: str, quiet: bool, log_file_path: Optional[str] = None) -> None:
+def log(msg: str, quiet: bool, log_file_path: str | None = None) -> None:
     line = f"[{now_ts()}] {msg}"
     if not quiet:
         print(line)
@@ -63,8 +66,8 @@ def normalize_columns_inplace(df: pd.DataFrame, lowercase: bool = True) -> None:
     preserved so required columns such as ``LocusID`` / ``ACCESSION`` survive for later steps (L-11).
     """
     new_cols = [col_key(c) if lowercase else str(c).strip().replace(" ", "_") for c in df.columns]
-    seen: Dict[str, int] = {}
-    fixed: List[str] = []
+    seen: dict[str, int] = {}
+    fixed: list[str] = []
     for c in new_cols:
         if c not in seen:
             seen[c] = 0
@@ -96,7 +99,7 @@ def build_species_vouchers(
     if_generate_sorted_group: bool = True,
     combine_order: str = "species_name+pse",
     if_write_haplotype: bool = DEFAULT_FILL_HAPLOTYPE,
-    columns_order: List[str] = None,
+    columns_order: list[str] | None = None,
     col_for_empty_fill: str = "ACCESSION",
     primary_voucher_column_name: str = "species_voucher_pse",
     name_updated: str = "species_voucher_new",
@@ -131,8 +134,8 @@ def build_species_vouchers(
     species_col = resolve_col(df, species_name_column, lookup)
     fallback_col = resolve_col(df, col_for_empty_fill, lookup)
 
-    resolved_order_cols: List[str] = []
-    missing_order_cols: List[str] = []
+    resolved_order_cols: list[str] = []
+    missing_order_cols: list[str] = []
     for c in columns_order:
         rc = resolve_col(df, c, lookup)
         if rc and rc not in resolved_order_cols:
@@ -141,7 +144,8 @@ def build_species_vouchers(
             missing_order_cols.append(c)
 
     log(f"pse priority columns (requested): {columns_order}", quiet, log_file_path)
-    log(f"pse priority columns (found): {resolved_order_cols if resolved_order_cols else '(none)'}", quiet, log_file_path)
+    log(f"pse priority columns (found): {resolved_order_cols if resolved_order_cols else '(none)'}",
+        quiet, log_file_path)
     if missing_order_cols:
         log(f"pse priority columns (missing/unresolved): {missing_order_cols}", quiet, log_file_path)
 
@@ -170,20 +174,20 @@ def build_species_vouchers(
         # so the fallback to the next column works; non-blank values are kept verbatim.
         tmp = pd.concat([_blank_to_na(df[c]).rename(c) for c in resolved_order_cols], axis=1)
         primary_voucher_series = tmp.bfill(axis=1).iloc[:, 0]
-        primary_voucher_series = primary_voucher_series.infer_objects(copy=False)
+        primary_voucher_series = primary_voucher_series.infer_objects()
         fill_from_priority = int(primary_voucher_series.notna().sum())
     else:
         log("WARNING: no priority columns found; pse starts as all-NA", quiet, log_file_path)
 
     if if_write_haplotype and hap_col and hap_col in df.columns:
         before = primary_voucher_series.notna().sum()
-        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[hap_col])).infer_objects(copy=False)
+        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[hap_col])).infer_objects()
         after = primary_voucher_series.notna().sum()
         fill_from_hap = int(after - before)
 
     if fallback_col and fallback_col in df.columns:
         before = primary_voucher_series.notna().sum()
-        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[fallback_col])).infer_objects(copy=False)
+        primary_voucher_series = primary_voucher_series.fillna(_blank_to_na(df[fallback_col])).infer_objects()
         after = primary_voucher_series.notna().sum()
         fill_from_fallback = int(after - before)
 
@@ -199,18 +203,20 @@ def build_species_vouchers(
         log(f"updated voucher = pse_only -> column '{name_updated}' created", quiet, log_file_path)
     else:
         if not species_col or species_col not in df.columns:
-            log(f"WARNING: species column unresolved/missing; updated voucher will use pse only", quiet, log_file_path)
+            log("WARNING: species column unresolved/missing; updated voucher will use pse only", quiet, log_file_path)
             df[name_updated] = df[primary_voucher_column_name].apply(sanitize_string)
         else:
             if combine_order == "species_name+pse":
                 df[name_updated] = [
                     safe_concat(species_name, voucher_value)
-                    for species_name, voucher_value in zip(df[species_col].tolist(), df[primary_voucher_column_name].tolist())
+                    for species_name, voucher_value in zip(df[species_col].tolist(),
+                                                           df[primary_voucher_column_name].tolist())
                 ]
             elif combine_order == "pse+species_name":
                 df[name_updated] = [
                     safe_concat(voucher_value, species_name)
-                    for species_name, voucher_value in zip(df[species_col].tolist(), df[primary_voucher_column_name].tolist())
+                    for species_name, voucher_value in zip(df[species_col].tolist(),
+                                                           df[primary_voucher_column_name].tolist())
                 ]
             else:
                 raise ValueError("combine_order must be: species_name+pse / pse+species_name / pse_only")
@@ -227,8 +233,8 @@ def build_species_vouchers(
     # 5) simple CSV
     if if_generate_simple_csv:
         want = [c.strip() for c in simple_csv_columns.split(",") if c.strip()]
-        resolved_simple: List[str] = []
-        missing_simple: List[str] = []
+        resolved_simple: list[str] = []
+        missing_simple: list[str] = []
         for c in want:
             rc = resolve_col(df, c, lookup)
             if rc is None and c in df.columns:
@@ -245,7 +251,8 @@ def build_species_vouchers(
             simple_df = df[resolved_simple].copy()
             simple_path = os.path.join(output_dir, "shorten_species_voucher.csv")
             write_csv(simple_df, simple_path)
-            log(f"Simple CSV written: cols={len(resolved_simple)} rows={len(simple_df)} -> {simple_path}", quiet, log_file_path)
+            log(f"Simple CSV written: cols={len(resolved_simple)} rows={len(simple_df)} -> {simple_path}",
+                quiet, log_file_path)
             if missing_simple:
                 log(f"Simple CSV missing columns (unresolved): {missing_simple}", quiet, log_file_path)
     else:
@@ -362,10 +369,7 @@ def main(argv=None):
 
     columns_order = [c.strip() for c in args.columns_to_combine.split(",") if c.strip()]
 
-    if not args.combine_species_name:
-        combine_order = "pse_only"
-    else:
-        combine_order = args.combine_order
+    combine_order = "pse_only" if not args.combine_species_name else args.combine_order
 
     log_file_path = args.log_file.strip()
     if not log_file_path:

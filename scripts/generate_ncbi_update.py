@@ -11,9 +11,8 @@ Usage:
     python scripts/generate_ncbi_update.py
 """
 
+import math
 import re
-import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -61,16 +60,16 @@ def normalize_date(raw: str) -> str:
     if m:
         day = m.group(1).zfill(2)
         mon_raw = m.group(2).rstrip(".").lower()
-        mon = MONTH_ABBR.get(mon_raw, mon_raw.capitalize())
+        mon = MONTH_ABBR.get(mon_raw[:3], mon_raw.capitalize())
         return f"{day}-{mon}-{m.group(3)}"
 
-    # Handle date ranges: "18-20 Apr 2012" → use first date
+    # Handle date ranges: "18-20 Apr 2012" → "18-Apr-2012 to 20-Apr-2012" (NCBI range form)
     m = re.match(r"^(\d{1,2})-(\d{1,2})\s+(\w+\.?)\s+(\d{4})$", raw)
     if m:
-        day = m.group(1).zfill(2)
+        d1, d2 = m.group(1).zfill(2), m.group(2).zfill(2)
         mon_raw = m.group(3).rstrip(".").lower()
-        mon = MONTH_ABBR.get(mon_raw, mon_raw.capitalize())
-        return f"{day}-{mon}-{m.group(4)}"
+        mon = MONTH_ABBR.get(mon_raw[:3], mon_raw.capitalize())
+        return f"{d1}-{mon}-{m.group(4)} to {d2}-{mon}-{m.group(4)}"
 
     # Handle "Mon-Mon YYYY" like "Jul-Aug 2012"
     m = re.match(r"^(\w{3})-(\w{3})\s+(\d{4})$", raw)
@@ -92,6 +91,8 @@ def format_geo_loc_name(country, state, municipality, locality) -> str:
         parts.append(str(locality).strip())
 
     country = str(country).strip()
+    if not country or country == "nan":
+        return ""
     if parts:
         return f"{country}: {', '.join(parts)}"
     return country
@@ -103,6 +104,8 @@ def format_lat_lon(n, e) -> str:
         lat = float(str(n).strip())
         lon = float(str(e).strip())
     except (ValueError, TypeError):
+        return ""
+    if math.isnan(lat) or math.isnan(lon):
         return ""
     lat_dir = "N" if lat >= 0 else "S"
     lon_dir = "E" if lon >= 0 else "W"
@@ -122,18 +125,14 @@ def format_voucher(voucher: str) -> str:
     if ":" in v:
         return v
 
+    # "RBINS IG 33953/09.132.01" → "RBINS:IG:33953/09.132.01" (institution:collection:id)
+    m = re.match(r"^([A-Z]+)\s+([A-Z]+)\s+(.+)$", v)
+    if m:
+        return f"{m.group(1)}:{m.group(2)}:{m.group(3)}"
+
     # "SMNH 211581" → "SMNH:211581"
     parts = v.split(None, 1)
     if len(parts) == 2 and parts[0].isalpha():
-        return f"{parts[0]}:{parts[1]}"
-
-    # "RBINS IG 33953/09.132.01" → "RBINS IG:33953/09.132.01"
-    m = re.match(r"^([A-Z]+)\s+([A-Z]+)\s+(.+)$", v)
-    if m:
-        return f"{m.group(1)} {m.group(2)}:{m.group(3)}"
-
-    # "NSMT An-1915-1917" → "NSMT:An-1915-1917"
-    if parts[0].isalpha():
         return f"{parts[0]}:{parts[1]}"
 
     return v
@@ -169,7 +168,7 @@ def load_literature() -> dict:
         for gene in ["12S", "16S", "18S", "28S", "COI"]:
             acc = str(row[gene]).strip()
             if acc and acc != "nan" and acc != "-":
-                specimens[acc] = meta
+                specimens.setdefault(acc, meta)     # first row wins (same rule as merge_literature_metadata.py)
 
     return specimens
 
@@ -187,7 +186,7 @@ def load_gb_state() -> dict:
             "geo_loc_name": row.get("geo_loc_name"),
             "specimen_voucher": row.get("specimen_voucher"),
             "isolate": row.get("isolate"),
-            "isolation_source": row.get("isolation_source", ""),
+            "isolation_source": row.get("isolation_source"),    # None when final.csv lacks the column
         }
     return lookup
 
@@ -229,7 +228,7 @@ def main():
                 lit_meta["municipality"], lit_meta["locality"],
             )
             if val:
-                row["Country (geo_loc_name)"] = val
+                row["geo_loc_name"] = val
                 any_update = True
                 stats["fields_filled"]["geo_loc_name"] += 1
 
@@ -266,7 +265,7 @@ def main():
                 stats["fields_filled"]["Specimen_voucher"] += 1
 
         # Isolation_source (habitat)
-        if is_empty(gb_meta.get("isolation_source")):
+        if gb_meta.get("isolation_source") is not None and is_empty(gb_meta["isolation_source"]):
             val = lit_meta["habitat"]
             if val and val != "nan":
                 row["Isolation_source"] = val
@@ -284,21 +283,21 @@ def main():
 
     # Report
     print(f"\n{'=' * 60}")
-    print(f"NCBI Source Modifiers 更新表")
+    print("NCBI Source Modifiers 更新表")
     print(f"{'=' * 60}")
     print(f"文献 → GB 匹配: {stats['matched']} accessions")
     print(f"需要更新: {stats['updated']} accessions")
     print()
-    print(f"各字段补充数量:")
+    print("各字段补充数量:")
     for col in ncbi_columns[1:]:
         print(f"  {col:30s} {stats['fields_filled'][col]:5d} 条")
     print()
     print(f"输出: {OUTPUT}")
-    print(f"格式: Tab-delimited, NCBI Source Modifiers Table")
+    print("格式: Tab-delimited, NCBI Source Modifiers Table")
 
     # Preview first 3 rows
     if len(out_df) > 0:
-        print(f"\n前 3 行预览:")
+        print("\n前 3 行预览:")
         for _, r in out_df.head(3).iterrows():
             print(f"  {r['acc. num.']}")
             for col in ncbi_columns[1:]:

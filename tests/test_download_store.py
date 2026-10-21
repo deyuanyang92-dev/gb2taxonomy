@@ -336,3 +336,63 @@ def test_cli_quiet_and_since_date(tmp_path, fake, capsys):
     fake["mdat"] = []
     assert main(["-t", "X", "-o", str(tmp_path), "--since", "2026/01/02", "-q"]) == 0
     assert any("2026/01/02:3000[MDAT]" in t for t in fake["terms"])
+
+
+def test_since_refetches_modified_record_with_same_version(tmp_path, fake):
+    """A record modified since the last run may keep its accession.version; it must be fetched again."""
+    fake["list"] = accs("AB", 5)
+    download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
+    _set_date(tmp_path / "markers", "2026-01-10")
+    fake["fetched"].clear()
+    fake["mdat"] = ["AB000002.1"]
+    res = download("Priapulidae", str(tmp_path), DownloadOptions(since="auto"), progress=False)
+    assert fake["fetched"] == ["AB000002.1"] and res.fetched == 1 and res.candidates == 1
+    assert sorted(ids_in(tmp_path / "markers")) == accs("AB", 5)
+
+
+def test_since_refetch_in_no_store_mode_keeps_one_copy(tmp_path, fake):
+    fake["list"] = accs("AB", 5)
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True), progress=False)
+    _set_date(tmp_path / "markers", "2026-01-10")
+    fake["fetched"].clear()
+    fake["mdat"] = ["AB000002.1"]
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, since="auto"), progress=False)
+    got = ids_in(tmp_path / "markers")
+    assert fake["fetched"] == ["AB000002.1"] and sorted(got) == accs("AB", 5) and len(got) == 5
+
+
+def test_emptied_selection_clears_the_directory(tmp_path, fake):
+    fake["list"] = accs("AB", 3)
+    download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
+    fake["list"] = []
+    res = download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
+    assert res.count == 0 and res.removed == 3
+    assert ids_in(tmp_path / "markers") == []
+    assert json.loads((tmp_path / "markers" / "manifest.json").read_text())["count"] == 0
+
+
+def test_unchanged_shortcut_checks_batch_file_names(tmp_path, fake):
+    """Gaps left by a --no-store prune must not make the store-backed run delete the last batch file."""
+    fake["list"] = accs("AB", 12)
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
+    fake["list"] = accs("AB", 10) + ["AB000011.2", "AB000012.2"]
+    download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
+    assert sorted(f.name for f in (tmp_path / "markers").glob("batch_*.gb")) != ["batch_0001.gb", "batch_0002.gb",
+                                                                                  "batch_0003.gb"]
+    download("Priapulidae", str(tmp_path), DownloadOptions(batch=5), progress=False)
+    assert sorted(ids_in(tmp_path / "markers")) == sorted(fake["list"])
+
+
+def test_gene_clauses_are_parenthesised():
+    from g2t.ncbi_genes import GENES
+    for g in ("12S", "16S"):
+        for clause in GENES[g]:
+            if " AND " in clause:
+                assert clause.startswith("(") and clause.endswith(")"), clause
+
+
+def test_pipeline_cli_returns_zero_on_success(monkeypatch, tmp_path):
+    from g2t import _cli, _pipeline
+    from g2t._pipeline import PipelineResult
+    monkeypatch.setattr(_pipeline, "run", lambda **kw: PipelineResult(success=True, output_dir=str(tmp_path)))
+    assert _cli.main_pipeline(["-i", "x", "-o", str(tmp_path), "--quiet"]) == 0

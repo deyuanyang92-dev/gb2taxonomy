@@ -8,7 +8,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pandas as pd
 
@@ -66,7 +66,7 @@ def sanitize_string(s: Any) -> str:
     s = s.replace(" ", "_")
     s = re.sub(r"[<>:./\\|?*]+", "_", s)
     s = re.sub(r"_+", "_", s).strip("_")
-    return s
+    return str(s)
 
 
 def safe_concat(a: Any, b: Any) -> str:
@@ -92,7 +92,7 @@ def write_csv(df: pd.DataFrame, path: str) -> None:
     df.to_csv(path, index=False, encoding="utf-8")
 
 
-def parse_interval(interval_str: str) -> Tuple[Optional[int], Optional[int]]:
+def parse_interval(interval_str: str) -> tuple[int | None, int | None]:
     """'150:50000' -> (150, 50000); '150:' / ':500' open-ended; '', 'none', 'all' -> (None, None).
     Raises ValueError for non-numeric bounds or lo > hi."""
     if interval_str is None or str(interval_str).strip().lower() in ("", "none", "all"):
@@ -120,12 +120,10 @@ def length_in_range(length_val: Any, range_str: str) -> bool:
         return True
     if lo is not None and val < lo:
         return False
-    if hi is not None and val > hi:
-        return False
-    return True
+    return not (hi is not None and val > hi)
 
 
-def is_valid_output(path: Union[str, Path]) -> bool:
+def is_valid_output(path: str | Path) -> bool:
     p = Path(path)
     return p.exists() and p.is_file() and p.stat().st_size > 0
 
@@ -134,7 +132,7 @@ def col_key(s: str) -> str:
     return s.lower().replace(" ", "_")
 
 
-def resolve_col(df: pd.DataFrame, name: str, lookup: Optional[Dict[str, str]] = None) -> Optional[str]:
+def resolve_col(df: pd.DataFrame, name: str, lookup: dict[str, str] | None = None) -> str | None:
     if name in df.columns:
         return name
     if lookup is None:
@@ -149,5 +147,5 @@ def resolve_col(df: pd.DataFrame, name: str, lookup: Optional[Dict[str, str]] = 
     return lookup.get(k2)
 
 
-def build_col_lookup(df: pd.DataFrame) -> Dict[str, str]:
+def build_col_lookup(df: pd.DataFrame) -> dict[str, str]:
     return {col_key(c): c for c in df.columns}

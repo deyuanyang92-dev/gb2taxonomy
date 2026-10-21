@@ -19,6 +19,18 @@
 - 命令行整理：选项按 selection / update / run 分组，帮助文字简短；`--store` 与 `--no-store` 互斥；`--since`、`-w`、`-b`、`--minlen/--maxlen` 在解析时校验（错误退出码 2）；新增 `-n`（= `--dry-run`）、`-q`（不显示进度）；进度输出到 stderr；`--resume` 隐藏（续传自动）。
 - 测试：新增 24 项，共 412 项通过。
 
+### 修复（2026-10-22 全库代码审查）
+- **`g2t` 成功时退出码为 1**：`main_pipeline` 返回了 `PipelineResult` 对象（`sys.exit(obj)` → 退出码 1 并把对象打印到 stderr）。现返回 0。BUGS.md 中 2026-05-12 的条目原因已更正。
+- **下载**：`--gene 12S/16S` 的 Entrez 子句缺少括号（`A OR B AND mitochondrion[filter]` 被解析为 `(A OR B) AND ...`，漏掉无 `/organelle` 的记录；Annelida 16S 少 276 条）；`--since` 只补缺失的 accession.version，记录内容更新但版本号未变（如补注文献、改正产地）时不重新下载，现重新下载；选择变为空时目录不刷新（旧批文件和 manifest 保留）；“未变化”快捷路径只数批文件个数不看文件名，`--no-store` 留下编号空洞后会误删最后一个批文件；分页用历史检索自身的 Count。
+- **分类**：`18-28s` 的 5 条同义词写成 “5.8S rRNA gene”，而 NCBI 标题是 “5.8S ribosomal RNA gene”，整段 rDNA 记录全部落到 `its1-its2`；核糖体冲突检查把 `12s,16s`/`18s,28s` 双匹配截成单个基因；只看 `/organelle` 分组，无 `/organelle` 但标题含 mitochondrial 的 16S 记录按核基因处理成 `28s`；`mtgenome` 长度区间设为 `none` 时仍强制 3000 bp，`_conflict_mito` 写死 3000；`.py` 词典键未小写；16S 甲基转移酶排除式不认 `16S rRNA (guanine(527)-N(7))-methyltransferase`。
+- **提取**：流式模式的列预扫描以系统编码打开文件，遇到一个 Latin-1 字节即静默放弃，lat_lon/collection_date/Ref* 等所有非基础列丢失而状态仍为 SUCCESS；同一记录出现在两个文件时装配表左连接使行数翻倍；`--log_interval 0` 除零；批处理在 spawn/forkserver 启动方式下子进程无分类学后端（Class/Order/Family/Genus 全空）；注释自由文本中同一行多个装配字段互相吞并；`os.walk` 子目录顺序随文件系统变化、非递归模式把子目录当文件。
+- **凭证**：`reconcile` 合并边的顺序随输入行序变化，冲突时得到不同的聚类；纯标点凭证（`..`、`-`）未像 `voucher` 那样回退到 isolate，导致永不参与合并；`organize` 的 `--metadata_columns` 含空格/括号/关键字的列名经 `itertuples` 改名后取不到值（输出空）；`curate` 中矩阵里很短的凭证（如 `12`）会匹配任何包含该 token 的用户凭证，校正写到错误的行；登录号不在矩阵中时错误信息误导；`curated_fields` 为 NaN 时写成 `nan; lat_lon`；凭证列（`USNM123456`）被当成基因列。
+- **pipeline**：`_find_fallback` 找到同名候选文件后什么都不做，下一步仍读固定路径失败；现直接报错并提示候选文件名。`g2t` 删除从未生效的 `--*_extra` 参数。
+- **scripts**：`download_edirect.sh` 用了 EDirect 不存在的 `-retstart/-retmax`（每批都失败），改用 `-start/-stop`；`generate_ncbi_update.py` 的 geo_loc_name 列键名错误（输出表永远为空）、空坐标写成 `nan S nan W`、空国家写成 `nan`、全称月份未缩写、日期区间丢掉结束日、单个词的凭证抛 IndexError、final.csv 无 isolation_source 列时对所有记录填充；`validate_against_excel.py` 准确率分母用错（出现 346/345 = 100.3%）、空凭证按 `"nan"` 比较；`download_by_accession.py` 失败批次不记录，`--resume` 永不重下；`download_requests.py`/`download_by_accession.py` 不校验批内记录数，截断响应被当成功；`download_requests.py` 不发送 email；`compare_phyllodocida.py` 在 Python 3.9 导入失败（运行时 `str | None`），并删除写死在源码里的 NCBI API key（改读 `NCBI_API_KEY`）；`build_gene_dict_v2.py` 不检查 SynGenes mt 目录。
+- 测试：新增 24 项回归测试，共 436 项通过。
+- 多版本验证：在 Python 3.9.23（pandas 2.3 / biopython 1.85）、3.10、3.12、3.13.16（pandas 3.0 / biopython 1.88）下 436 项测试全部通过，ruff 与 mypy 均通过。去掉 `infer_objects(copy=False)`（pandas <2.0 无此参数，3.0 起弃用）；dev 依赖加入 `types-PyYAML`（无它时 mypy 在 3.9 下报 yaml 缺 stub）。
+- 代码整理：`ruff check src/ tests/`（CI 的 lint 步骤）与 `mypy src/` 现在全部通过（原 354 条 lint、41 条类型错误）：类型注解统一为 PEP 585/604 写法（所有模块已有 `from __future__ import annotations`，Python 3.9 可用）、删除未用导入/变量、隐式 Optional 补全、Biopython 注解值统一 `str()`。删除从未可达的装配提取 “strategy 3”（`extract_assembly_from_raw_block`）和 `compare_results.py` 未调用的 `parse_docx`；`merge_literature_metadata.py` 经纬度改为 GenBank 的 `57.68 N 11.96 E` 格式；两脚本重复 accession 统一为首行优先；`format_voucher` 的 “RBINS IG 33953” 分支改为 `RBINS:IG:33953`（institution:collection:id）并置于通用分支之前。
+
 ## v0.03（2026-10-09）
 
 包内版本 `0.0.3`。本版新增统一凭证号和元数据校正（Step 5：NCBI 矩阵 A + 你自己的表 B → 校正后的矩阵 C）。

@@ -1,7 +1,5 @@
 import argparse
-import os
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -19,7 +17,6 @@ from g2t.utils import (
     str2bool,
     write_csv,
 )
-
 
 # --- StepResult ---
 

@@ -135,7 +135,12 @@ def _voucher_forms(row: pd.Series) -> set[str]:
 
 
 def _blank(v) -> bool:
-    return v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() == "" or str(v).lower() == "nan"
+    try:
+        if v is None or pd.isna(v):     # float NaN, pd.NA, NaT
+            return True
+    except (TypeError, ValueError):     # arrays / lists: not a scalar
+        pass
+    return str(v).strip() == "" or str(v).lower() == "nan"
 
 
 def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None,
@@ -189,11 +194,19 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
                 continue
             hit_a = found[0] if found else set()
         q = normalize_voucher(vou).upper()
-        hit_v = {i for i, f in forms.items() if any(_contains(x, q) or _contains(q, x) for x in f)} if vou else None
+        # a matrix form may be contained in the user's voucher (matrix has only the isolate "WS399"),
+        # but not when it is a tiny token such as "12", which is a substring of too many vouchers
+        hit_v = ({i for i, f in forms.items()
+                  if any(_contains(x, q) or ((len(_tokens(x)) > 1 or len(x) >= 4) and _contains(q, x)) for x in f)}
+                 if vou else None)
         if org:
             keep = {i for i in out.index if str(out.at[i, "organism"]).strip() == org} if "organism" in out else set()
             hit_a = hit_a & keep if hit_a is not None else None
             hit_v = hit_v & keep if hit_v is not None else None
+        if acc and not hit_a and hit_v:
+            problems.append({"update_row": rownum, "keys": keys,
+                             "problem": "accession not found in the matrix; not applied"})
+            continue
         if hit_a is not None and hit_v is not None and hit_a != hit_v:
             problems.append({"update_row": rownum, "keys": keys,
                              "problem": "accession and voucher point to different rows; not applied"})
@@ -232,7 +245,8 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
             if cur == new:
                 continue
             out.at[i, c] = new
-            done = [x for x in str(out.at[i, "curated_fields"]).split("; ") if x]
+            done = [] if _blank(out.at[i, "curated_fields"]) else \
+                [x for x in str(out.at[i, "curated_fields"]).split("; ") if x]
             if c not in done:
                 out.at[i, "curated_fields"] = "; ".join(done + [c])
             log.append({"specimen": out.at[i, key_column] if key_column in out else i, "field": c,
@@ -437,12 +451,16 @@ def read_corrections(path: str) -> tuple[pd.DataFrame, pd.DataFrame | None]:
 
 
 _ACC_CELL = re.compile(r"^[A-Z]{1,6}_?\d{5,}(\.\d+)?$")
+_NOT_GENE_COLUMNS = {"voucher_standardized", "voucher_as_submitted", "specimen_voucher", "isolate",
+                     "culture_collection", "clone", "strain", "LocusID", "ACCESSION"}
 
 
 def matrix_gene_columns(matrix: pd.DataFrame) -> list[str]:
     """Gene columns = columns whose filled cells are all accession(.version)s."""
     out = []
     for c in matrix.columns:
+        if c in _NOT_GENE_COLUMNS:      # a voucher like "USNM123456" looks like an accession
+            continue
         vals = [str(v).strip() for v in matrix[c] if not _blank(v)]
         if vals and all(_ACC_CELL.match(v) for v in vals):
             out.append(c)

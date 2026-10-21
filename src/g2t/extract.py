@@ -13,28 +13,31 @@ Refactored from gb_baseinformation_extractv16.7.py with:
 
 from __future__ import annotations
 
+import argparse
+import concurrent.futures
+import contextlib
+import csv
+import functools
+import importlib.util
+import json
+import logging
+import multiprocessing
 import os
 import re
-import sys
-import csv
-import json
 import shutil
-import argparse
-import functools
-import warnings
-import pandas as pd
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Callable
-from g2t.utils import StepResult
-from Bio import Entrez, SeqIO
-from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import SeqFeature
-import concurrent.futures
-import multiprocessing
-import importlib.util
+import sys
 import time
-import logging
+import warnings
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Callable, Optional
+
+import pandas as pd
+from Bio import Entrez, SeqIO
+from Bio.SeqFeature import SeqFeature
+from Bio.SeqRecord import SeqRecord
+
+from g2t.utils import StepResult
 
 # ===============================
 # Logging
@@ -66,7 +69,7 @@ class TaxonomyService:
         self.ete3_available: bool = False
         self.entrez_fallback: bool = False
         self.ncbi_taxa_cls = None
-        self.cache: Dict[str, Dict[str, str]] = {}
+        self.cache: dict[str, dict[str, str]] = {}
         self.errors_reported: set = set()
 
     def update_database(self) -> bool:
@@ -116,7 +119,7 @@ class TaxonomyService:
             f"for Class/Order/Family/Genus. Set NCBI_EMAIL / NCBI_API_KEY to identify yourself to NCBI.")
         return True
 
-    def get_lineage(self, tax_id_str: str) -> Dict[str, str]:
+    def get_lineage(self, tax_id_str: str) -> dict[str, str]:
         if tax_id_str in self.cache:
             return self.cache[tax_id_str]
         if not self.ete3_available or not self.ncbi_taxa_cls:
@@ -150,11 +153,11 @@ class TaxonomyService:
 
     # ---- Entrez fallback (L-05) -------------------------------------------
     @staticmethod
-    def _load_disk_cache(cache_path: Optional[str]) -> Dict[str, Dict[str, str]]:
+    def _load_disk_cache(cache_path: str | None) -> dict[str, dict[str, str]]:
         if not cache_path or not os.path.isfile(cache_path):
             return {}
         try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
+            with open(cache_path, encoding='utf-8') as f:
                 data = json.load(f)
             if not isinstance(data, dict):
                 raise ValueError("not a JSON object")
@@ -165,7 +168,7 @@ class TaxonomyService:
             return {}
 
     @staticmethod
-    def _save_disk_cache(cache_path: str, data: Dict[str, Dict[str, str]]) -> None:
+    def _save_disk_cache(cache_path: str, data: dict[str, dict[str, str]]) -> None:
         try:
             os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
             tmp = cache_path + ".tmp"
@@ -176,14 +179,14 @@ class TaxonomyService:
             logger.warning(f"Could not write taxonomy cache {cache_path}: {e}")
 
     @staticmethod
-    def _efetch_lineages(tax_ids: List[str]) -> Dict[str, Dict[str, str]]:
+    def _efetch_lineages(tax_ids: list[str]) -> dict[str, dict[str, str]]:
         """One Entrez request for ``tax_ids`` (at most ENTREZ_TAXONOMY_BATCH of them)."""
         email = os.environ.get("NCBI_EMAIL")
         api_key = os.environ.get("NCBI_API_KEY")
         if email:
-            Entrez.email = email
+            Entrez.email = email  # type: ignore[assignment]
         if api_key:
-            Entrez.api_key = api_key
+            Entrez.api_key = api_key  # type: ignore[assignment]
         saved = (Entrez.max_tries, Entrez.sleep_between_tries)
         Entrez.max_tries, Entrez.sleep_between_tries = 2, 2  # fail reasonably fast when offline
         try:
@@ -196,7 +199,7 @@ class TaxonomyService:
                     handle.close()
         finally:
             Entrez.max_tries, Entrez.sleep_between_tries = saved
-        out: Dict[str, Dict[str, str]] = {}
+        out: dict[str, dict[str, str]] = {}
         for rec in records:
             nodes = list(rec.get("LineageEx", []))
             nodes.append({"Rank": rec.get("Rank", ""), "ScientificName": rec.get("ScientificName", "")})
@@ -211,11 +214,11 @@ class TaxonomyService:
                     out[tid] = lineage
         return out
 
-    def prefetch_entrez(self, tax_ids, cache_path: Optional[str] = None) -> None:
+    def prefetch_entrez(self, tax_ids, cache_path: str | None = None) -> None:
         """Bulk-load Class/Order/Family/Genus for ``tax_ids`` via Entrez (no-op unless fallback is active)."""
         if not self.entrez_fallback:
             return
-        wanted: List[str] = []
+        wanted: list[str] = []
         seen = set()
         for t in tax_ids:
             t = str(t).strip()
@@ -261,14 +264,14 @@ GB_EXTENSIONS = (".gb", ".gbk", ".genbank", ".gbff")
 # ===============================
 # Assembly regex (pre-compiled)
 # ===============================
-_FLEX_AM = re.compile(r'Assembly\s+Method\s*::?\s*(.*?)(?:\n|$)', re.IGNORECASE)
-_FLEX_AN = re.compile(r'Assembly\s+Name\s*::?\s*(.*?)(?:\n|$)', re.IGNORECASE)
-_FLEX_ST = re.compile(r'Sequencing\s+Technology\s*::?\s*(.*?)(?:\n|$)', re.IGNORECASE)
-_FLEX_GC = re.compile(r'Genome\s+Coverage\s*::?\s*(.*?)(?:\n|$)', re.IGNORECASE)
-_FLEX_EL = re.compile(r'Expected\s+Final\s+Version\s*::?\s*(.*?)(?:\n|$)', re.IGNORECASE)
-_BLOCK_RE = re.compile(
-    r'##Assembly-Data-START##(.*?)##Assembly-Data-END##', re.DOTALL
-)
+# a value ends at the line end or at the next field label on the same line ("...: Illumina; Assembly Method: ...")
+_FLEX_END = (r'(.*?)(?=;\s*(?:Assembly\s+Method|Assembly\s+Name|Sequencing\s+Technology|Genome\s+Coverage|'
+             r'Expected\s+Final\s+Version)\s*::?|\n|$)')
+_FLEX_AM = re.compile(r'Assembly\s+Method\s*::?\s*' + _FLEX_END, re.IGNORECASE)
+_FLEX_AN = re.compile(r'Assembly\s+Name\s*::?\s*' + _FLEX_END, re.IGNORECASE)
+_FLEX_ST = re.compile(r'Sequencing\s+Technology\s*::?\s*' + _FLEX_END, re.IGNORECASE)
+_FLEX_GC = re.compile(r'Genome\s+Coverage\s*::?\s*' + _FLEX_END, re.IGNORECASE)
+_FLEX_EL = re.compile(r'Expected\s+Final\s+Version\s*::?\s*' + _FLEX_END, re.IGNORECASE)
 
 # ===============================
 # Data classes
@@ -314,11 +317,11 @@ class FileResult:
     assembly_no_data: int = 0
     assembly_failed: int = 0
     # Number of "//" record terminators found in the file (None = not counted).
-    records_expected: Optional[int] = None
+    records_expected: int | None = None
     error_message: str = ""
     elapsed_time: float = 0.0
-    record_errors: List[RecordError] = field(default_factory=list)
-    record_tracks: List[RecordTrack] = field(default_factory=list)
+    record_errors: list[RecordError] = field(default_factory=list)
+    record_tracks: list[RecordTrack] = field(default_factory=list)
 
     def add_record_error(self, error: RecordError):
         self.record_errors.append(error)
@@ -349,7 +352,7 @@ class ProcessingSummary:
     total_assembly_no_data: int = 0
     total_assembly_failed: int = 0
     total_elapsed_time: float = 0.0
-    file_results: List[FileResult] = field(default_factory=list)
+    file_results: list[FileResult] = field(default_factory=list)
 
     def add_result(self, result: FileResult):
         self.file_results.append(result)
@@ -370,11 +373,11 @@ class ProcessingSummary:
         self.total_assembly_no_data += result.assembly_no_data
         self.total_assembly_failed += result.assembly_failed
 
-    def get_failed_files(self) -> List[str]:
+    def get_failed_files(self) -> list[str]:
         return [r.file_path for r in self.file_results
                 if r.status in (FileStatus.FAILED, FileStatus.INVALID, FileStatus.EMPTY)]
 
-    def get_all_record_errors(self) -> List[RecordError]:
+    def get_all_record_errors(self) -> list[RecordError]:
         errs = []
         for r in self.file_results:
             errs.extend(r.record_errors)
@@ -449,7 +452,7 @@ class ProcessingSummary:
 
     def save_report(self, output_dir: str):
         report_path = os.path.join(output_dir, "extraction_report.json")
-        report = {
+        report: dict[str, Any] = {
             "summary": {
                 "total_files_found": self.total_files_found,
                 "gb_files_found": self.gb_files_found,
@@ -543,14 +546,16 @@ class ProcessingSummary:
 # ===============================
 # File discovery and validation
 # ===============================
-def discover_gb_files(input_paths: List[str], recursive: bool = True) -> Tuple[List[str], int, int]:
+def discover_gb_files(input_paths: list[str], recursive: bool = True) -> tuple[list[str], int, int]:
     gb_files = []
     total_files = 0
     skipped = 0
     for path in input_paths:
         if os.path.isdir(path):
-            walker = os.walk(path) if recursive else [(path, [], os.listdir(path))]
+            walker = (os.walk(path) if recursive
+                      else [(path, [], [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])])
             for root, dirs, files in walker:
+                dirs.sort()     # os.walk honours in-place sorting: same file order on every filesystem
                 for fn in sorted(files):
                     total_files += 1
                     if fn.lower().endswith(GB_EXTENSIONS):
@@ -570,7 +575,7 @@ def discover_gb_files(input_paths: List[str], recursive: bool = True) -> Tuple[L
 
 
 # P1-11: Combined validation + record counting in single file read
-def validate_and_estimate_records(file_path: str) -> Tuple[bool, str, int]:
+def validate_and_estimate_records(file_path: str) -> tuple[bool, str, int]:
     """Single-pass: validate file header AND count '//' delimiters."""
     try:
         if not os.path.exists(file_path):
@@ -580,12 +585,12 @@ def validate_and_estimate_records(file_path: str) -> Tuple[bool, str, int]:
             return False, "Empty file (0 bytes)", 0
 
         count = 0
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(file_path, encoding='utf-8', errors='replace') as f:
             header = f.read(min(2048, sz))
             if not header.strip():
                 return False, "File content empty", 0
             if not header.lstrip().startswith("LOCUS"):
-                return False, f"Does not start with LOCUS", 0
+                return False, "Does not start with LOCUS", 0
             # Continue reading for record count
             f.seek(0)
             for line in f:
@@ -607,7 +612,7 @@ def format_size(size_bytes) -> str:
     return f"{s:.1f} PB"
 
 
-def copy_failed_files(failed_files: List[str], output_dir: str):
+def copy_failed_files(failed_files: list[str], output_dir: str):
     if not failed_files:
         return
     failed_dir = os.path.join(output_dir, "failed_extract")
@@ -629,10 +634,10 @@ def copy_failed_files(failed_files: List[str], output_dir: str):
     logger.info(f"Archived {copied}/{len(failed_files)} failed files -> {failed_dir}")
 
 
-def get_memory_mb() -> Optional[float]:
+def get_memory_mb() -> float | None:
     if psutil:
         try:
-            return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
+            return float(psutil.Process(os.getpid()).memory_info().rss) / (1024 * 1024)
         except Exception:
             pass
     return None
@@ -649,16 +654,16 @@ def initialize_ncbi_taxa(interactive: bool = True) -> bool:
     return _taxonomy.initialize(interactive)
 
 
-def get_taxonomy_lineage(tax_id_str: str) -> Dict[str, str]:
+def get_taxonomy_lineage(tax_id_str: str) -> dict[str, str]:
     return _taxonomy.get_lineage(tax_id_str)
 
 
-def collect_taxon_ids(gb_files: List[str]) -> List[str]:
+def collect_taxon_ids(gb_files: list[str]) -> list[str]:
     """Unique ``/db_xref="taxon:<id>"`` values in the files (cheap line scan, no full parse)."""
-    ids: Dict[str, None] = {}
+    ids: dict[str, None] = {}
     for fp in gb_files:
         try:
-            with open(fp, 'r', encoding='utf-8', errors='replace') as f:
+            with open(fp, encoding='utf-8', errors='replace') as f:
                 for line in f:
                     if 'taxon:' in line:
                         for tid in _TAXON_XREF_RE.findall(line):
@@ -668,7 +673,7 @@ def collect_taxon_ids(gb_files: List[str]) -> List[str]:
     return list(ids)
 
 
-def prefetch_taxonomy(gb_files: List[str], output_dir: str, include_taxonomy: bool = True) -> None:
+def prefetch_taxonomy(gb_files: list[str], output_dir: str, include_taxonomy: bool = True) -> None:
     """Fill the taxonomy cache in bulk when the Entrez fallback is active (L-05)."""
     if not include_taxonomy or not _taxonomy.entrez_fallback:
         return
@@ -680,18 +685,19 @@ def prefetch_taxonomy(gb_files: List[str], output_dir: str, include_taxonomy: bo
 # ===============================
 # Metadata extraction (Biopython)
 # ===============================
-def parse_locus(record: SeqRecord) -> Dict[str, str]:
+def parse_locus(record: SeqRecord) -> dict[str, str]:
+    ann = record.annotations
     return {
-        "LocusID": record.id,
-        "Length": f"{len(record.seq)} bp",
-        "MoleculeType": record.annotations.get("molecule_type", "").title(),
-        "Topology": record.annotations.get("topology", "").capitalize(),
-        "Division": record.annotations.get("data_file_division", ""),
-        "Date": record.annotations.get("date", "")
+        "LocusID": str(record.id),
+        "Length": f"{len(record.seq) if record.seq is not None else 0} bp",
+        "MoleculeType": str(ann.get("molecule_type", "") or "").title(),
+        "Topology": str(ann.get("topology", "") or "").capitalize(),
+        "Division": str(ann.get("data_file_division", "") or ""),
+        "Date": str(ann.get("date", "") or "")
     }
 
 
-def parse_source_feature(feature: SeqFeature) -> Dict[str, str]:
+def parse_source_feature(feature: SeqFeature) -> dict[str, str]:
     data = {}
     for q, vals in feature.qualifiers.items():
         cleaned = [' '.join(v.replace('\n', ' ').split()) for v in vals]
@@ -711,7 +717,7 @@ def parse_source_feature(feature: SeqFeature) -> Dict[str, str]:
     return data
 
 
-def parse_references(refs: list) -> Dict[str, str]:
+def parse_references(refs: list) -> dict[str, str]:
     d = {}
     for i, ref in enumerate(refs, 1):
         p = f"Ref{i}"
@@ -723,17 +729,18 @@ def parse_references(refs: list) -> Dict[str, str]:
     return d
 
 
-def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> Dict[str, str]:
-    metadata = {}
+def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> dict[str, str]:
+    ann: dict[str, Any] = record.annotations
+    metadata: dict[str, str] = {}
     metadata.update(parse_locus(record))
-    metadata["ACCESSION"] = record.annotations.get("accessions", [""])[0]
-    metadata["Version"] = record.annotations.get("sequence_version", "")
+    metadata["ACCESSION"] = str((ann.get("accessions") or [""])[0])
+    metadata["Version"] = str(ann.get("sequence_version", "") or "")
     metadata["Definition"] = record.description
-    metadata["Keywords"] = "; ".join(record.annotations.get("keywords", []))
-    metadata["Organism"] = record.annotations.get("organism", "")
-    tax = record.annotations.get("taxonomy", [])
+    metadata["Keywords"] = "; ".join(map(str, ann.get("keywords") or []))
+    metadata["Organism"] = str(ann.get("organism", "") or "")
+    tax = ann.get("taxonomy") or []
     if tax:
-        metadata["Taxonomy"] = "; ".join(tax)
+        metadata["Taxonomy"] = "; ".join(map(str, tax))
 
     sources = [feat for feat in record.features if feat.type == "source"]
     if len(sources) > 1:
@@ -752,7 +759,7 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> Dict[s
         for rank in ("Class", "Order", "Family", "Genus"):
             metadata[rank] = info.get(rank, "")
 
-    metadata.update(parse_references(record.annotations.get("references", [])))
+    metadata.update(parse_references(ann.get("references") or []))
     return metadata
 
 
@@ -769,8 +776,8 @@ def _clean_value(v) -> str:
     return ' '.join(str(v).replace('\n', ' ').split()).strip()
 
 
-def extract_assembly_from_structured_comment(record: SeqRecord) -> Tuple[Optional[Dict[str, str]], str]:
-    sc = record.annotations.get("structured_comment", {})
+def extract_assembly_from_structured_comment(record: SeqRecord) -> tuple[dict[str, str] | None, str]:
+    sc: Any = record.annotations.get("structured_comment", {})
     asm_data = None
     for key in ("Assembly-Data", "Assembly-data", "assembly-data",
                 "Genome-Assembly-Data", "Genome-assembly-data"):
@@ -810,8 +817,8 @@ def extract_assembly_from_structured_comment(record: SeqRecord) -> Tuple[Optiona
     return None, ""
 
 
-def extract_assembly_from_comment_regex(record: SeqRecord) -> Tuple[Optional[Dict[str, str]], str]:
-    comment = record.annotations.get("comment", "")
+def extract_assembly_from_comment_regex(record: SeqRecord) -> tuple[dict[str, str] | None, str]:
+    comment = str(record.annotations.get("comment", "") or "")
     if not comment:
         return None, ""
     result = {}
@@ -833,42 +840,13 @@ def extract_assembly_from_comment_regex(record: SeqRecord) -> Tuple[Optional[Dic
     return None, ""
 
 
-def extract_assembly_from_raw_block(record_text: str) -> Tuple[Optional[Dict[str, str]], str]:
-    block = _BLOCK_RE.search(record_text)
-    if not block:
-        return None, ""
-    content = block.group(1)
-    result = {}
-    patterns = {
-        "Assembly Method": _FLEX_AM,
-        "Assembly Name": _FLEX_AN,
-        "Sequencing Technology": _FLEX_ST,
-        "Genome Coverage": _FLEX_GC,
-        "Expected Final Version": _FLEX_EL,
-    }
-    for field_name, pat in patterns.items():
-        m = pat.search(content)
-        if m:
-            val = m.group(1).strip().rstrip(';').strip()
-            if val:
-                result[field_name] = val
-    if result:
-        return result, "regex_block"
-    return None, ""
-
-
-def extract_assembly_from_record(record: SeqRecord) -> Tuple[Optional[Dict[str, str]], str]:
+def extract_assembly_from_record(record: SeqRecord) -> tuple[dict[str, str] | None, str]:
     asm, src = extract_assembly_from_structured_comment(record)
     if asm:
         return asm, src
     asm, src = extract_assembly_from_comment_regex(record)
     if asm:
         return asm, src
-    comment = record.annotations.get("comment", "")
-    if comment:
-        asm, src = extract_assembly_from_raw_block(comment)
-        if asm:
-            return asm, src
     return None, ""
 
 
@@ -890,13 +868,13 @@ ASSEMBLY_CSV_COLUMNS = [
 ]
 
 
-def get_ordered_fieldnames(row: Dict, base: List[str]) -> List[str]:
+def get_ordered_fieldnames(row: dict, base: list[str]) -> list[str]:
     ordered = list(base)
     extra = [c for c in row if c not in ordered]
     return ordered + extra
 
 
-def canonical_metadata_columns(present) -> List[str]:
+def canonical_metadata_columns(present) -> list[str]:
     """Column order shared by every output path: BASE columns, then extras sorted.
 
     Identical to what ``prescan_fieldnames`` returns when ``present`` holds the
@@ -906,29 +884,30 @@ def canonical_metadata_columns(present) -> List[str]:
     return list(BASE_METADATA_COLUMNS) + sorted(c for c in set(present) if c not in base)
 
 
-def prescan_fieldnames(gb_files: List[str]) -> List[str]:
+def prescan_fieldnames(gb_files: list[str]) -> list[str]:
     """Pre-scan all GB files to collect every unique source qualifier key."""
     from Bio import SeqIO
     all_keys = set()
     for fp in gb_files:
         try:
-            for record in SeqIO.parse(fp, "genbank"):
-                for feat in record.features:
-                    if feat.type == "source":
-                        for q in feat.qualifiers:
-                            if q == "db_xref":
-                                all_keys.add("TaxonID")
-                            else:
-                                all_keys.add(q)
-                        break
-                # References keys
-                refs = record.annotations.get("references", [])
-                for i in range(1, len(refs) + 1):
-                    p = f"Ref{i}"
-                    for suffix in ("Authors", "Title", "Journal", "PubMed", "Remark"):
-                        all_keys.add(f"{p}{suffix}")
-        except Exception:
-            pass
+            with open(fp, encoding='utf-8', errors='replace') as handle:
+                for record in SeqIO.parse(handle, "genbank"):
+                    for feat in record.features:
+                        if feat.type == "source":
+                            for q in feat.qualifiers:
+                                if q == "db_xref":
+                                    all_keys.add("TaxonID")
+                                else:
+                                    all_keys.add(q)
+                            break
+                    # References keys
+                    refs = record.annotations.get("references", [])
+                    for i in range(1, len(refs) + 1):
+                        p = f"Ref{i}"
+                        for suffix in ("Authors", "Title", "Journal", "PubMed", "Remark"):
+                            all_keys.add(f"{p}{suffix}")
+        except Exception as e:
+            logger.warning(f"Pre-scan of {fp} stopped early: {e}; some columns may be missing")
     # Build ordered list: BASE first, then discovered extras
     ordered = list(BASE_METADATA_COLUMNS)
     for k in sorted(all_keys):
@@ -945,7 +924,7 @@ def process_record_unified(
     include_taxonomy: bool = True,
     do_metadata: bool = True,
     do_assembly: bool = True,
-) -> Tuple[Optional[Dict[str, str]], Optional[Dict[str, str]], str, bool]:
+) -> tuple[dict[str, str] | None, dict[str, str] | None, str, bool]:
     metadata = None
     assembly_data = None
     assembly_source = ""
@@ -957,10 +936,10 @@ def process_record_unified(
     if do_assembly:
         assembly_data, assembly_source = extract_assembly_from_record(record)
         has_asm = assembly_data is not None
-        if assembly_data is not None:
-            if "ACCESSION" not in assembly_data:
-                acc = record.annotations.get("accessions", [""])[0] or record.id
-                assembly_data["ACCESSION"] = acc
+        if assembly_data is not None and "ACCESSION" not in assembly_data:
+            accs: Any = record.annotations.get("accessions") or [""]
+            acc = str(accs[0] or record.id)
+            assembly_data["ACCESSION"] = acc
 
     return metadata, assembly_data, assembly_source, has_asm
 
@@ -968,7 +947,7 @@ def process_record_unified(
 # ===============================
 # P1-7: Shared record processing loop
 # ===============================
-def count_record_terminators(file_path: str) -> Optional[int]:
+def count_record_terminators(file_path: str) -> int | None:
     """Number of lines that are exactly "//" (GenBank record terminators); None if unreadable."""
     count = 0
     try:
@@ -981,7 +960,7 @@ def count_record_terminators(file_path: str) -> Optional[int]:
     return count
 
 
-RecordCallback = Callable[[Optional[Dict[str, str]], Optional[Dict[str, str]],
+RecordCallback = Callable[[Optional[dict[str, str]], Optional[dict[str, str]],
                            str, bool, RecordTrack, 'FileResult'], None]
 
 
@@ -1021,7 +1000,7 @@ def _process_record_loop(
     record_idx = 0
     parse_error = ""
     try:
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as handle:
+        with open(file_path, encoding='utf-8', errors='replace') as handle:
             for record in SeqIO.parse(handle, "genbank"):
                 record_idx += 1
                 accession = ""
@@ -1068,7 +1047,7 @@ def _process_record_loop(
 
                 # Progress logging
                 done = result.metadata_extracted + result.metadata_failed
-                if done > 0 and done % log_interval == 0:
+                if log_interval > 0 and done > 0 and done % log_interval == 0:
                     elapsed = time.time() - start
                     speed = done / elapsed if elapsed > 0 else 0
                     mem = get_memory_mb()
@@ -1133,8 +1112,8 @@ def _process_record_loop(
 # ===============================
 def stream_process_single_file(
     file_path: str,
-    metadata_csv_path: Optional[str],
-    assembly_csv_path: Optional[str],
+    metadata_csv_path: str | None,
+    assembly_csv_path: str | None,
     include_taxonomy: bool = True,
     do_extract_metadata: bool = True,  # P1-20: renamed from extract_metadata
     do_extract_assembly: bool = True,
@@ -1150,9 +1129,9 @@ def stream_process_single_file(
 
     try:
         if do_extract_metadata and metadata_csv_path:
-            metadata_fh = open(metadata_csv_path, 'w', newline='', encoding='utf-8')
+            metadata_fh = open(metadata_csv_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
         if do_extract_assembly and assembly_csv_path:
-            assembly_fh = open(assembly_csv_path, 'w', newline='', encoding='utf-8')
+            assembly_fh = open(assembly_csv_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
             assembly_writer = csv.DictWriter(
                 assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS,
                 delimiter=assembly_delimiter, extrasaction='ignore'
@@ -1209,7 +1188,7 @@ def memory_process_single_file(
     include_taxonomy: bool = True,
     do_extract_assembly: bool = True,
     do_extract_metadata: bool = True,  # P1-20: renamed
-) -> Tuple[FileResult, List[Dict], List[Dict]]:
+) -> tuple[FileResult, list[dict], list[dict]]:
     md_rows = []
     asm_rows = []
 
@@ -1252,6 +1231,7 @@ def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delim
     if asm_df is not None and "ACCESSION" in md_df.columns and "ACCESSION" in asm_df.columns:
         md_df["ACCESSION"] = md_df["ACCESSION"].astype(str).str.strip()
         asm_df["ACCESSION"] = asm_df["ACCESSION"].astype(str).str.strip()
+        asm_df = asm_df.drop_duplicates(subset="ACCESSION", keep="first")
         final = pd.merge(md_df, asm_df, how="left", on="ACCESSION").fillna("")
     else:
         final = md_df
@@ -1260,7 +1240,7 @@ def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delim
     logger.info(f"Merged: {out_file} ({len(final)} records, {time.time()-start:.1f}s)")
 
 
-def _write_metadata_frame(rows: List[Dict], path: str, delimiter: str) -> pd.DataFrame:
+def _write_metadata_frame(rows: list[dict], path: str, delimiter: str) -> pd.DataFrame:
     """Write metadata rows with the same column set/order as the stream writer (L-20)."""
     df = pd.DataFrame(rows)
     df = df.reindex(columns=canonical_metadata_columns(df.columns)).fillna("")
@@ -1268,7 +1248,7 @@ def _write_metadata_frame(rows: List[Dict], path: str, delimiter: str) -> pd.Dat
     return df
 
 
-def _write_assembly_frame(rows: List[Dict], path: str, delimiter: str) -> pd.DataFrame:
+def _write_assembly_frame(rows: list[dict], path: str, delimiter: str) -> pd.DataFrame:
     """Write assembly rows (header-only when empty, like the stream writer)."""
     df = pd.DataFrame(rows)
     for c in ASSEMBLY_CSV_COLUMNS:
@@ -1283,7 +1263,7 @@ def _write_assembly_frame(rows: List[Dict], path: str, delimiter: str) -> pd.Dat
 # Main flow: non-batch
 # ===============================
 def process_all_files(
-    gb_files: List[str], output_dir: str,
+    gb_files: list[str], output_dir: str,
     metadata_output: str = "metadata.csv",
     assembly_output: str = "assembly.csv",
     final_output: str = "final.csv",
@@ -1318,9 +1298,9 @@ def process_all_files(
         assembly_writer = None
         try:
             if do_metadata:
-                metadata_fh = open(metadata_path, 'w', newline='', encoding='utf-8')
+                metadata_fh = open(metadata_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
             if do_assembly:
-                assembly_fh = open(assembly_path, 'w', newline='', encoding='utf-8')
+                assembly_fh = open(assembly_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
                 assembly_writer = csv.DictWriter(
                     assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS,
                     delimiter=assembly_delimiter, extrasaction='ignore'
@@ -1422,12 +1402,20 @@ def process_all_files(
 # ===============================
 # Batch mode
 # ===============================
-def _init_worker(cache_dict):
-    """Worker initializer for shared taxonomy cache."""
+def _init_worker(cache_dict, ete3_available=False, entrez_fallback=False):
+    """Worker initializer: shared taxonomy cache and backend state (not inherited under spawn/forkserver)."""
     _taxonomy.cache = dict(cache_dict)
+    _taxonomy.entrez_fallback = entrez_fallback
+    if ete3_available and not _taxonomy.ete3_available:
+        try:
+            from ete3 import NCBITaxa
+            _taxonomy.ncbi_taxa_cls = NCBITaxa
+            _taxonomy.ete3_available = True
+        except Exception as e:
+            logger.warning(f"ete3 unavailable in worker: {e}")
 
 
-def _unique_batch_names(gb_files: List[str]) -> List[str]:
+def _unique_batch_names(gb_files: list[str]) -> list[str]:
     """One output-directory stem per input file; same-named files get a numeric suffix (L-01)."""
     used = set()
     names = []
@@ -1442,7 +1430,7 @@ def _unique_batch_names(gb_files: List[str]) -> List[str]:
     return names
 
 
-def _batch_paths(output_dir: str, base: str) -> Tuple[str, str, str, str]:
+def _batch_paths(output_dir: str, base: str) -> tuple[str, str, str, str]:
     sub = os.path.join(output_dir, base + "_metadata")
     return (sub, os.path.join(sub, base + "_metadata.csv"),
             os.path.join(sub, base + "_assembly.csv"),
@@ -1481,18 +1469,18 @@ def _process_single_file_batch(
             except Exception as e:
                 logger.error(f"Save error: {e}")
 
-    if do_metadata and do_assembly and metadata_path and assembly_path:
-        if os.path.exists(metadata_path) and os.path.getsize(metadata_path) > 0:
-            try:
-                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
-                                           metadata_delimiter, assembly_delimiter)
-            except Exception as e:
+    if (do_metadata and do_assembly and metadata_path and assembly_path
+            and os.path.exists(metadata_path) and os.path.getsize(metadata_path) > 0):
+        try:
+            combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
+                                       metadata_delimiter, assembly_delimiter)
+        except Exception as e:
                 logger.error(f"Merge error: {e}")
 
     return fr
 
 
-def _read_text_csv(path: str, sep: str) -> Optional[pd.DataFrame]:
+def _read_text_csv(path: str, sep: str) -> pd.DataFrame | None:
     """Read a CSV as text (L-04); None when missing/empty."""
     try:
         return pd.read_csv(path, sep=sep, dtype=str, keep_default_na=False, low_memory=False)
@@ -1504,7 +1492,7 @@ def _read_text_csv(path: str, sep: str) -> Optional[pd.DataFrame]:
 
 
 def _merge_batch_outputs(
-    names: List[str], output_dir: str,
+    names: list[str], output_dir: str,
     metadata_output: str, assembly_output: str, final_output: str,
     do_metadata: bool, do_assembly: bool,
     metadata_delimiter: str, assembly_delimiter: str, final_delimiter: str,
@@ -1548,7 +1536,7 @@ def _merge_batch_outputs(
 
 
 def process_batch_mode(
-    gb_files: List[str], output_dir: str,
+    gb_files: list[str], output_dir: str,
     max_tasks: int = 4, stream_mode: bool = False,
     only_assembly: bool = False, only_except_assembly: bool = False,
     include_taxonomy: bool = True,
@@ -1586,19 +1574,17 @@ def process_batch_mode(
     logger.info(f"Batch mode: {len(gb_files)} files, concurrency {max_tasks}, "
                 f"stream={'yes' if stream_mode else 'no'}")
 
-    results: Dict[int, FileResult] = {}
+    results: dict[int, FileResult] = {}
     try:
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=max(1, max_tasks),
             initializer=_init_worker,
-            initargs=(shared_cache,)
+            initargs=(shared_cache, _taxonomy.ete3_available, _taxonomy.entrez_fallback)
         ) as ex:
             future_to_idx = {ex.submit(worker, f, names[i]): i for i, f in enumerate(gb_files)}
-            done = 0
-            for fut in concurrent.futures.as_completed(future_to_idx):
+            for done, fut in enumerate(concurrent.futures.as_completed(future_to_idx), 1):
                 idx = future_to_idx[fut]
                 f = gb_files[idx]
-                done += 1
                 try:
                     fr = fut.result()
                     icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
@@ -1708,10 +1694,8 @@ def extract(
         final_path = os.path.join(output_dir, final_name)
         rows = 0
         if os.path.exists(final_path):
-            try:
+            with contextlib.suppress(Exception):
                 rows = len(pd.read_csv(final_path, dtype=str, keep_default_na=False))
-            except Exception:
-                pass
 
         n_ok = summary.files_succeeded + summary.files_partial
         problems = [r for r in summary.file_results if r.status != FileStatus.SUCCESS]

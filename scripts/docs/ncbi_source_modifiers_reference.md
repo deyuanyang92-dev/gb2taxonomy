@@ -129,7 +129,7 @@ Pathovar, Pop_variant, Serogroup, Subclone, Subtype, Substrain, Type
 ```
 acc. num.	geo_loc_name	Lat_Lon	Collection_date	Collected_by	Specimen_voucher	Isolation_source
 AB123456	Norway: Hordaland, Bergen	60.39 N 5.33 E	08-Nov-2005	Smith, J.	SMNH:211581	freshwater sediment
-AB123457	China: Sichuan, Chengdu	30.57 N 104.07 E	1993	Wang, L.		personal:Li Wang:2020-001	soil
+AB123457	China: Sichuan, Chengdu	30.57 N 104.07 E	1993	Wang, L.	personal:Li Wang:2020-001	soil
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 import pytest
 
-from g2t.utils import G2TError, UnsupportedFormatError, PipelineStepError
+from g2t.utils import G2TError, PipelineStepError, UnsupportedFormatError
 
 
 class TestExceptionHierarchy:
@@ -22,7 +22,7 @@ class TestExceptionHierarchy:
 class TestClassifyNoSysExit:
     def test_process_prematch_unsupported_format_raises(self, tmp_path):
         """Verify classify.py raises UnsupportedFormatError instead of sys.exit."""
-        from g2t.classify import process_prematch, MatchConfig
+        from g2t.classify import MatchConfig, process_prematch
 
         json_file = tmp_path / "test.json"
         json_file.write_text('{"a": 1}')
@@ -44,7 +44,7 @@ class TestClassifyNoSysExit:
 
     def test_process_recheck_unsupported_format_raises(self, tmp_path):
         """Verify recheck raises UnsupportedFormatError instead of sys.exit."""
-        from g2t.classify import process_recheck, MatchConfig
+        from g2t.classify import MatchConfig, process_recheck
 
         json_file = tmp_path / "test.json"
         json_file.write_text('{"a": 1}')

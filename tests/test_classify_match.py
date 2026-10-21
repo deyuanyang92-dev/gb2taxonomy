@@ -3,14 +3,13 @@
 import pytest
 
 from g2t.classify import (
-    MatchConfig,
     _BUILTIN_GENE_DICT,
+    MatchConfig,
     any_match,
     categorize_unmatched_definition,
     clean_length,
     conflict_check_and_reassign,
     first_round_match,
-    init_gene_groups,
     match_mito_genes,
     match_nuclear_genes,
     recheck_match_row,

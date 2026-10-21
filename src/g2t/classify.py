@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-import re
-import pandas as pd
 import argparse
+import contextlib
+import importlib.util
 import logging
 import os
+import re
 import sys
 import warnings
-import importlib.util
 from dataclasses import dataclass, field
-from typing import Tuple, Optional, Dict, Any, List, Set
-from g2t.utils import StepResult, parse_interval, length_in_range, UnsupportedFormatError
+from typing import Any
+
+import pandas as pd
+
+from g2t.utils import StepResult, UnsupportedFormatError, length_in_range, parse_interval
 from g2t.utils import read_table as utils_read_table
+
 
 # =========================
 # Logging configuration
@@ -41,7 +45,7 @@ logger = logging.getLogger(__name__)
 # =========================
 # GENE_DICT: load from YAML or use built-in fallback
 # =========================
-def _load_gene_dict_yaml(yaml_path: Optional[str] = None) -> Optional[Dict[str, List[str]]]:
+def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]] | None:
     """Load gene dictionary from YAML file. Returns None if unavailable."""
     if yaml_path is None:
         try:
@@ -53,7 +57,7 @@ def _load_gene_dict_yaml(yaml_path: Optional[str] = None) -> Optional[Dict[str, 
         return None
     try:
         import yaml
-        with open(yaml_path, 'r', encoding='utf-8') as f:
+        with open(yaml_path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
         result = {}
         for k, v in data.get('gene_types', {}).items():
@@ -66,7 +70,7 @@ def _load_gene_dict_yaml(yaml_path: Optional[str] = None) -> Optional[Dict[str, 
 
 
 # Built-in fallback dictionary (kept for backward compatibility)
-_BUILTIN_GENE_DICT: Dict[str, List[str]] = {
+_BUILTIN_GENE_DICT: dict[str, list[str]] = {
     'coi': list({s.lower() for s in [
         'cytochrome oxidase I',
         'cytochrome oxidase subunit 1 gene',
@@ -149,12 +153,18 @@ _BUILTIN_GENE_DICT: Dict[str, List[str]] = {
         'COX2', 'CO2', 'COXII'
     ]}),
     '18-28s': list({s.lower() for s in [
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',
-        'small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene',
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence',
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',
+        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
+        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
+        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
+        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
+        'small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene',  # noqa: E501
+        'small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
+        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
         '18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence'
     ]}),
     'its1-its2': list({s.lower() for s in [
@@ -162,7 +172,7 @@ _BUILTIN_GENE_DICT: Dict[str, List[str]] = {
         'internal transcribed spacer',  # P0-2a: fixed "trancribed" -> "transcribed"
         'ITS1', 'ITS2',
         'internal transcribed spacer 1 intergenic spacer',
-        'internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence',
+        'internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence',  # noqa: E501
         'ITS'
     ]}),
     '28s': list({s.lower() for s in [
@@ -207,7 +217,7 @@ _BUILTIN_GENE_DICT: Dict[str, List[str]] = {
 }
 
 # Initialize from YAML (preferred) or built-in
-GENE_DICT: Dict[str, List[str]] = _load_gene_dict_yaml() or _BUILTIN_GENE_DICT
+GENE_DICT: dict[str, list[str]] = _load_gene_dict_yaml() or _BUILTIN_GENE_DICT
 
 # P2-21: Gene sets are now managed in MatchConfig, not as module-level mutable globals
 # We keep these as defaults for init_gene_groups backward compatibility
@@ -218,12 +228,12 @@ _DEFAULT_NUCLEAR_GENES = {"18-28s", "its1-its2", "ef-1", "28s", "18s", "h3"}
 # =========================
 # P1-9: Pre-compiled regex patterns
 # =========================
-_COMPILED_PATTERNS: Dict[str, re.Pattern] = {}
+_COMPILED_PATTERNS: dict[str, re.Pattern] = {}
 
 
 def _precompile_patterns():
     """Pre-compile all keyword patterns at module load time."""
-    for gene, keywords in GENE_DICT.items():
+    for keywords in GENE_DICT.values():
         for phrase in keywords:
             key = phrase.lower()
             if key in _COMPILED_PATTERNS:
@@ -243,7 +253,7 @@ def _reset_patterns():
     _precompile_patterns()
 
 
-def init_gene_groups(mtgenes_list: List[str], ntgenes_list: List[str]) -> Tuple[Set[str], Set[str]]:
+def init_gene_groups(mtgenes_list: list[str], ntgenes_list: list[str]) -> tuple[set[str], set[str]]:
     """Initialize mitochondrial/nuclear gene sets. Returns (mito_genes, nuclear_genes)."""
     mito_genes = {g.strip().lower() for g in mtgenes_list}
     nuclear_genes = {g.strip().lower() for g in ntgenes_list}
@@ -276,7 +286,7 @@ class MatchConfig:
     length2_ntgenes: str = "150:50000"
     global_length_range: str = "150:50000"
 
-    gene_length_ranges: Dict[str, str] = field(default_factory=lambda: {
+    gene_length_ranges: dict[str, str] = field(default_factory=lambda: {
         "mtgenome": "3000:500000",
         "18-28s": "5000:15000",
         "coi": "none", "its1-its2": "none", "cob": "none",
@@ -288,8 +298,8 @@ class MatchConfig:
     record_conflict_reasons: bool = True
 
     # P2-21: Gene sets as config fields instead of mutable globals
-    mito_genes: Set[str] = field(default_factory=lambda: _DEFAULT_MITO_GENES.copy())
-    nuclear_genes: Set[str] = field(default_factory=lambda: _DEFAULT_NUCLEAR_GENES.copy())
+    mito_genes: set[str] = field(default_factory=lambda: _DEFAULT_MITO_GENES.copy())
+    nuclear_genes: set[str] = field(default_factory=lambda: _DEFAULT_NUCLEAR_GENES.copy())
 
     def get_gene_length_range(self, gene: str) -> str:
         return self.gene_length_ranges.get(gene.lower(), "none")
@@ -305,19 +315,21 @@ def load_path_dict(path_dict: str) -> None:
         return
 
     ext = os.path.splitext(path_dict)[1].lower()
-    new_dict: Dict[str, List[str]] = {}
+    new_dict: dict[str, list[str]] = {}
 
     try:
         if ext == ".py":
             spec = importlib.util.spec_from_file_location("ext_dict", path_dict)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"cannot load {path_dict}")
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             if hasattr(mod, "gene_dict"):
-                new_dict = mod.gene_dict
+                new_dict = {str(k).strip().lower(): [str(x).lower() for x in v] for k, v in mod.gene_dict.items()}
             else:
                 logger.error("Python file missing 'gene_dict' variable")
         elif ext == ".txt":
-            with open(path_dict, "r", encoding="utf-8") as f:
+            with open(path_dict, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line and ":" in line:
@@ -365,7 +377,7 @@ def smart_match(phrase: str, text: str) -> bool:
     return pat.search(text) is not None
 
 
-def any_match(word_list: List[str], text: str) -> bool:
+def any_match(word_list: list[str], text: str) -> bool:
     return any(smart_match(w, text) for w in word_list)
 
 
@@ -382,8 +394,9 @@ def clean_length(length_str: str) -> int:
 
 
 # Words that look like gene keywords but are not marker genes (review item L-06).
-NEGATIVE_CONTEXT: Dict[str, re.Pattern] = {
-    "16s": re.compile(r"16s\s+r?rna\s+(?:\(\S+\)\s+)?(?:methyl|methylase|methyltransferase)", re.I),
+NEGATIVE_CONTEXT: dict[str, re.Pattern] = {
+    "16s": re.compile(r"16s\s+r?rna\s+(?:\((?:[^()]|\([^()]*\))*\)[\s-]*)?"
+                      r"(?:methyl|methylase|methyltransferase)", re.I),
     "12s": re.compile(r"12s\s+r?rna\s+(?:methyl|methylase|methyltransferase)", re.I),
     "h3": re.compile(r"(?:histone\s+)?h3\s*(?:k\d+|lysine|\S*(?:demethylase|methyltransferase|acetyltransferase|"
                      r"deacetylase|kinase|chaperone))", re.I),
@@ -430,7 +443,7 @@ STATUS_FILE = "record_status.csv"
 _FILTER_COLS = ["input_row", "ACCESSION", "LocusID", "Organism", "Length", "Definition", "step", "reason"]
 
 
-def _write_filtered(output_dir: str, rows: List[Dict], append: bool) -> None:
+def _write_filtered(output_dir: str, rows: list[dict], append: bool) -> None:
     """Write records removed by a filter, with the reason, so nothing disappears silently."""
     path = os.path.join(output_dir, FILTERED_FILE)
     df = pd.DataFrame(rows, columns=_FILTER_COLS)
@@ -439,7 +452,7 @@ def _write_filtered(output_dir: str, rows: List[Dict], append: bool) -> None:
     df.to_csv(path, index=False)
 
 
-def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> List[Dict]:
+def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> list[dict]:
     out = []
     for _, r in removed.iterrows():
         out.append({
@@ -454,7 +467,7 @@ def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> List[Dict]:
 
 
 def _filter_dataframe_logged(df: pd.DataFrame, moleculetype: str, mol_type: str,
-                             length_filter: str, organelle_filter: str, removed: List[Dict]) -> pd.DataFrame:
+                             length_filter: str, organelle_filter: str, removed: list[dict]) -> pd.DataFrame:
     """filter_dataframe, but every removed row is appended to `removed` with its reason."""
     def apply(d, keep, reason):
         removed.extend(_filtered_rows(d[~keep], "classify round 1", reason))
@@ -486,7 +499,7 @@ CLASSIFY_OUTPUTS = ["assigned_genes_type.csv", "assigned_genes_types2.csv", "ass
                     FILTERED_FILE, STATUS_FILE]
 
 
-def _clean_outputs(output_dir: str, extra: Optional[List[str]] = None) -> None:
+def _clean_outputs(output_dir: str, extra: list[str] | None = None) -> None:
     """Remove the products of a previous run, so stale files are never read back (L-10, C2)."""
     for name in CLASSIFY_OUTPUTS + list(extra or []):
         path = os.path.join(output_dir, name)
@@ -500,10 +513,8 @@ def _write_all(output_dir: str, prematch_output: str) -> str:
     for name in (prematch_output, "assigned_genes_types2.csv"):
         path = os.path.join(output_dir, name)
         if os.path.exists(path) and os.path.getsize(path) > 0:
-            try:
+            with contextlib.suppress(pd.errors.EmptyDataError):
                 frames.append(pd.read_csv(path, dtype=str))
-            except pd.errors.EmptyDataError:
-                pass
     merged = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=DIAG_COLUMNS + ["LocusID"])
     if "LocusID" in merged.columns:
         merged = merged.drop_duplicates(subset=["LocusID"])
@@ -530,15 +541,15 @@ def _match_gene_loop(
     definition: str,
     length_val: int,
     config: MatchConfig,
-    gene_set: Set[str],
-    skip_genes: Set[str],
-    priority_genes: List[str],
+    gene_set: set[str],
+    skip_genes: set[str],
+    priority_genes: list[str],
     global_range: str,
     extra_priority_check=None,
-) -> Tuple[Set[str], List[str]]:
+) -> tuple[set[str], list[str]]:
     """Shared matching loop for both mitochondrial and nuclear gene sets."""
-    matched = set()
-    notes = []
+    matched: set[str] = set()
+    notes: list[str] = []
 
     if not length_in_range(length_val, global_range):
         notes.append(f"Length {length_val} outside range {global_range}")
@@ -552,8 +563,8 @@ def _match_gene_loop(
             range_str = config.get_gene_length_range(pg)
             if length_in_range(length_val, range_str):
                 # Extra check for mtgenome
-                mt_min = parse_interval(config.get_gene_length_range("mtgenome"))[0] or 3000
-                if pg == "mtgenome" and length_val < mt_min:
+                mt_min = _mtgenome_min(config)
+                if pg == "mtgenome" and mt_min is not None and length_val < mt_min:
                     notes.append(f"mtgenome: keyword matched but Length={length_val}<{mt_min}")
                     continue
                 matched.add(pg)
@@ -593,7 +604,7 @@ def _match_gene_loop(
 
 
 def match_mito_genes(definition: str, length_val: int, molecule_type: str,
-                     config: MatchConfig) -> Tuple[Set[str], List[str]]:
+                     config: MatchConfig) -> tuple[set[str], list[str]]:
     """Mitochondrial gene matching: mtgenome priority, then other mito genes."""
     return _match_gene_loop(
         definition, length_val, config,
@@ -605,7 +616,7 @@ def match_mito_genes(definition: str, length_val: int, molecule_type: str,
 
 
 def match_nuclear_genes(definition: str, length_val: int,
-                        config: MatchConfig) -> Tuple[Set[str], List[str]]:
+                        config: MatchConfig) -> tuple[set[str], list[str]]:
     """Nuclear gene matching: 18-28s priority, then its1-its2, then other nuclear genes."""
     return _match_gene_loop(
         definition, length_val, config,
@@ -616,12 +627,24 @@ def match_nuclear_genes(definition: str, length_val: int,
     )
 
 
-def first_round_match(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
+def _record_group(organelle: str, definition: str) -> str:
+    """'mito' when /organelle says so or the DEFINITION mentions mitochondri(al/on); else 'nuclear'."""
+    if "mitochondrion" in organelle or "mitochondri" in definition.lower():
+        return "mito"
+    return "nuclear"
+
+
+def _mtgenome_min(config: MatchConfig) -> int | None:
+    """Configured lower bound of the mtgenome length range; None means no bound."""
+    return parse_interval(config.get_gene_length_range("mtgenome"))[0]
+
+
+def first_round_match(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
     definition = clean_definition(row.get("Definition", ""))
     organelle = str(row.get("organelle", "")).lower().strip()
     length_val = clean_length(row.get("Length", "0"))
 
-    group = "mito" if "mitochondrion" in organelle else "nuclear"
+    group = _record_group(organelle, definition)
     logger.info(f"Round 1 LocusID={row.get('LocusID', 'NA')}, group={group}")
     logger.debug(f"  Definition: {definition[:120]}")
 
@@ -640,7 +663,7 @@ def first_round_match(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any
 # =========================
 # Round 1.5: Conflict check
 # =========================
-def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> Optional[Dict]:
+def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> dict | None:
     if gene == "12s" and re.search(r'large subunit ribosomal', definition, re.IGNORECASE):
         return {
             "resolved": {"12s"},  # P0-4: preserve original (consistent with 18s/28s now)
@@ -664,7 +687,8 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> Op
         else:
             return {
                 "resolved": {gene},  # P0-4: no more '?' suffix — consistent with 12s/16s
-                "reason": f"{gene} in definition with 'mitochondrial' and length {length_val}<=800, flagged as uncertain",
+                "reason": f"{gene} in definition with 'mitochondrial' and length {length_val}<=800, "
+                          "flagged as uncertain",
                 "conflict_reason": f"{gene} conflicts with mitochondrial annotation, short length"
             }
     return None
@@ -672,7 +696,7 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> Op
 
 def conflict_check_and_reassign(gene_type_str: str, definition: str,
                                 topology: str, group: str,
-                                length_val: int) -> Dict[str, Any]:
+                                length_val: int, mt_min: int | None = 3000) -> dict[str, Any]:
     genes = {g.strip().lower() for g in gene_type_str.split(",") if g.strip()}
     original = gene_type_str
     notes = []
@@ -688,7 +712,7 @@ def conflict_check_and_reassign(gene_type_str: str, definition: str,
 
     if group.lower() == "mito":
         resolved, conflict, conflict_reason, notes = _conflict_mito(
-            genes, definition, length_val, notes)
+            genes, definition, length_val, notes, mt_min)
     else:
         resolved, conflict, conflict_reason, notes = _conflict_nuclear(
             genes, definition, length_val, notes)
@@ -709,19 +733,19 @@ def conflict_check_and_reassign(gene_type_str: str, definition: str,
                          conflict_reason=conflict_reason)
 
 
-def _conflict_mito(genes: Set[str], definition: str, length_val: int,
-                   notes: List[str]) -> Tuple[Set[str], bool, str, List[str]]:
+def _conflict_mito(genes: set[str], definition: str, length_val: int,
+                   notes: list[str], mt_min: int | None = 3000) -> tuple[set[str], bool, str, list[str]]:
     conflict = False
     conflict_reason = ""
     resolved = set(genes)
 
     if len(genes) > 2:
-        if length_val > 3000:
+        if mt_min is None or length_val >= mt_min:
             resolved = {"mtgenome"}
-            notes.append(f"Mitochondrial multi-match ({len(genes)}) + Length>3000 -> reassigned to mtgenome")
+            notes.append(f"Mitochondrial multi-match ({len(genes)}) + Length>={mt_min} -> reassigned to mtgenome")
         else:
             conflict = True
-            conflict_reason = f"Mitochondrial multi-match ({len(genes)}) but length {length_val}<3000"
+            conflict_reason = f"Mitochondrial multi-match ({len(genes)}) but length {length_val}<{mt_min}"
             notes.append("Mitochondrial multi-match but insufficient length, kept original + flagged")
         return resolved, conflict, conflict_reason, notes
 
@@ -738,7 +762,6 @@ def _conflict_mito(genes: Set[str], definition: str, length_val: int,
     for gene in sorted(genes):
         result = _check_ribosomal_conflict(gene, definition, length_val)
         if result:
-            resolved = result["resolved"]
             conflict = True
             conflict_reason = result["conflict_reason"]
             notes.append(result["reason"])
@@ -747,8 +770,8 @@ def _conflict_mito(genes: Set[str], definition: str, length_val: int,
     return resolved, conflict, conflict_reason, notes
 
 
-def _conflict_nuclear(genes: Set[str], definition: str, length_val: int,
-                      notes: List[str]) -> Tuple[Set[str], bool, str, List[str]]:
+def _conflict_nuclear(genes: set[str], definition: str, length_val: int,
+                      notes: list[str]) -> tuple[set[str], bool, str, list[str]]:
     conflict = False
     conflict_reason = ""
     resolved = set(genes)
@@ -756,7 +779,6 @@ def _conflict_nuclear(genes: Set[str], definition: str, length_val: int,
     for gene in sorted(genes):
         result = _check_ribosomal_conflict(gene, definition, length_val)
         if result:
-            resolved = result["resolved"]
             conflict = True
             conflict_reason = result["conflict_reason"]
             notes.append(result["reason"])
@@ -768,7 +790,7 @@ def _conflict_nuclear(genes: Set[str], definition: str, length_val: int,
 # =========================
 # Round 2: Recheck unmatched
 # =========================
-def recheck_match_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
+def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
     definition = clean_definition(row.get("Definition", ""))
     organelle = str(row.get("organelle", "")).strip()
     molecule_type = str(row.get("MoleculeType", "")).lower().strip()
@@ -798,8 +820,8 @@ def recheck_match_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any
                 continue
 
             if gene == "mtgenome":
-                mt_min = parse_interval(config.get_gene_length_range("mtgenome"))[0] or 3000
-                if (length_val >= mt_min and molecule_type == "dna"
+                mt_min = _mtgenome_min(config)
+                if ((mt_min is None or length_val >= mt_min) and molecule_type == "dna"
                         and (has_mito_def or has_mito_org)):
                     candidates.add("mtgenome")
                     notes.append(f"mtgenome: keyword + Length>={mt_min} + DNA + mitochondrial features")
@@ -850,9 +872,9 @@ def recheck_match_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any
 # =========================
 # Result builder
 # =========================
-def _build_result(gene_type: str, match_source: str, notes: List[str],
+def _build_result(gene_type: str, match_source: str, notes: list[str],
                   original: str = "", conflict: bool = False,
-                  conflict_reason: str = "") -> Dict[str, Any]:
+                  conflict_reason: str = "") -> dict[str, Any]:
     return {
         "gene_type": gene_type,
         "match_source": match_source,
@@ -866,7 +888,7 @@ def _build_result(gene_type: str, match_source: str, notes: List[str],
 # =========================
 # Row processing
 # =========================
-def process_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
+def process_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
     prelim = first_round_match(row, config)
     gene_type_str = prelim["gene_type"]
 
@@ -874,10 +896,11 @@ def process_row(row: Dict[str, Any], config: MatchConfig) -> Dict[str, Any]:
         return prelim
 
     definition = clean_definition(row.get("Definition", ""))
-    group = "mito" if "mitochondrion" in str(row.get("organelle", "")).lower() else "nuclear"
+    group = _record_group(str(row.get("organelle", "")).lower(), definition)
     length_val = clean_length(row.get("Length", "0"))
 
-    final = conflict_check_and_reassign(gene_type_str, definition, "", group, length_val)
+    final = conflict_check_and_reassign(gene_type_str, definition, "", group, length_val,
+                                        mt_min=_mtgenome_min(config))
 
     if final["match_source"] == "reassign_mode":
         match_source = "first_match -> conflict_check"
@@ -921,7 +944,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True).str.replace(",", "")
     df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
     df["g2t_input_row"] = range(len(df))
-    removed: List[Dict] = []
+    removed: list[dict] = []
 
     missing = df["Length"].isna()
     removed.extend(_filtered_rows(df[missing], "classify round 1", "length missing or not numeric"))
@@ -1083,10 +1106,10 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
     return res_df
 
 
-def extract_genes(df: pd.DataFrame, gene_types: Optional[List[str]],
+def extract_genes(df: pd.DataFrame, gene_types: list[str] | None,
                   output_dir: str) -> None:
     if not gene_types:
-        all_genes: Set[str] = set()
+        all_genes: set[str] = set()
         for gt in df["gene_type"].dropna():
             all_genes.update(s.strip() for s in str(gt).split(",") if s.strip())
         gene_types = sorted(all_genes)
@@ -1094,7 +1117,7 @@ def extract_genes(df: pd.DataFrame, gene_types: Optional[List[str]],
 
     for gene in gene_types:
         subset = df[df["gene_type"].apply(
-            lambda x: gene in [s.strip() for s in str(x).split(",")] if x else False)]
+            lambda x, g=gene: g in [s.strip() for s in str(x).split(",")] if x else False)]
         if subset.empty:
             logger.warning(f"No records for gene type '{gene}'")
             continue
@@ -1332,7 +1355,6 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
         assigned = read(prematch_output)
     gene_of = dict(zip(assigned.get("LocusID", []), assigned.get("gene_type", [])))
     reason_of = dict(zip(assigned.get("LocusID", []), assigned.get("Assignment_reason", [""] * len(assigned))))
-    un1 = read(unmatched_output)
     recheck_ran = if_recheck and os.path.exists(os.path.join(output_dir, "unmatched_sequences2.csv"))
     un2 = read("unmatched_sequences2.csv") if recheck_ran else pd.DataFrame()
     un2_ids = set(un2.get("LocusID", []))
@@ -1366,12 +1388,12 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
 def classify(
     input_file: str,
     output_dir: str,
-    config: MatchConfig = None,
+    config: MatchConfig | None = None,
     prematch_output: str = "assigned_genes_type.csv",
     unmatched_output: str = "unmatched_sequences.csv",
     if_recheck: bool = True,
     apply_length_filter_recheck: bool = True,
-    extract_gene_types: list = None,
+    extract_gene_types: list | None = None,
 ) -> StepResult:
     """Classify gene types from metadata CSV. Returns StepResult."""
     import time
@@ -1431,7 +1453,7 @@ def classify(
         return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Gene Type Classifier: GenBank metadata -> gene_type labels",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

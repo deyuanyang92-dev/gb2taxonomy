@@ -157,3 +157,36 @@ def test_l14_column_names_with_spaces_kept(tmp_path):
                  "mitochondrion", **{"Assembly Method": "SPAdes"})]
     classify(str(_write(tmp_path, rows)), str(out), MatchConfig())
     assert "Assembly Method" in pd.read_csv(out / "assigned_genes_types_all.csv").columns
+
+
+def _pr(definition, length, organelle="mitochondrion", mt="DNA"):
+    r = process_row({"LocusID": "X", "Definition": definition, "Length": length, "organelle": organelle,
+                     "MoleculeType": mt}, MatchConfig())
+    return r["gene_type"], r.get("conflict")
+
+
+def test_full_rdna_cistron_with_ncbi_wording_is_18_28s():
+    d = ("X 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, "
+         "and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence")
+    assert _pr(d, 8000, "")[0] == "18-28s"
+
+
+def test_ribosomal_conflict_keeps_both_matched_genes():
+    d = "X mitochondrial small subunit ribosomal RNA and large subunit ribosomal RNA genes, partial sequence"
+    assert _pr(d, 900) == ("12s,16s", True)
+
+
+def test_definition_mitochondrial_routes_to_mito_genes_without_organelle():
+    assert _pr("X large subunit ribosomal RNA gene, partial sequence; mitochondrial", 550, "")[0] == "16s"
+
+
+def test_16s_methyltransferase_with_parenthesised_product_is_excluded():
+    assert _pr("Homo sapiens 16S rRNA (guanine(527)-N(7))-methyltransferase gene, complete cds", 900)[0] == ""
+
+
+def test_mtgenome_range_none_means_no_minimum():
+    cfg = MatchConfig()
+    cfg.gene_length_ranges["mtgenome"] = "none"
+    r = process_row({"LocusID": "X", "Definition": "X mitochondrion, complete genome", "Length": 2500,
+                     "organelle": "mitochondrion", "MoleculeType": "DNA"}, cfg)
+    assert r["gene_type"] == "mtgenome"

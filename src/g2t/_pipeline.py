@@ -7,7 +7,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any
 
 from g2t.utils import is_valid_output
 
@@ -19,7 +19,7 @@ class PipelineResult:
     steps_completed: int = 0
     final_output: str = ""
     elapsed: float = 0.0
-    log: List[str] = field(default_factory=list)
+    log: list[str] = field(default_factory=list)
 
 
 def _run_step(
@@ -32,10 +32,10 @@ def _run_step(
     func_name: str,
     kwargs: dict,
     quiet: bool,
-    log_lines: List[str],
-    fallback_dir: Optional[Path] = None,
-    fallback_glob: Optional[str] = None,
-) -> Optional[str]:
+    log_lines: list[str],
+    fallback_dir: Path | None = None,
+    fallback_glob: str | None = None,
+) -> str | None:
     """Run a single pipeline step.
 
     Returns an error message string on failure, None on success.
@@ -69,7 +69,7 @@ def _run_step(
 
 
 def run(
-    input_files: List[str],
+    input_files: list[str],
     output_dir: str,
     stream: bool = True,
     batch: bool = False,
@@ -83,10 +83,10 @@ def run(
     skip_reconcile: bool = False,
     reconcile_min_confidence: str = "medium",
     normalize_columns: bool = False,
-    extract_extra: dict = None,
-    classify_extra: dict = None,
-    voucher_extra: dict = None,
-    organize_extra: dict = None,
+    extract_extra: dict | None = None,
+    classify_extra: dict | None = None,
+    voucher_extra: dict | None = None,
+    organize_extra: dict | None = None,
 ) -> PipelineResult:
     """Run the full g2t pipeline: extract -> classify -> voucher -> reconcile -> organize.
 
@@ -98,7 +98,7 @@ def run(
     Returns a PipelineResult with status and output paths.
     """
     start_time = time.time()
-    log_lines: List[str] = []
+    log_lines: list[str] = []
     steps_completed = 0
 
     out_root = Path(output_dir).expanduser().resolve()
@@ -166,7 +166,7 @@ def run(
         steps_completed += 1
 
     # --- Step 3: Voucher ---
-    step3_kwargs = dict(
+    step3_kwargs: dict[str, Any] = dict(
         file_path=str(out_assigned_all),
         output_dir=str(voucher_dir),
     )
@@ -246,12 +246,12 @@ def run(
 
 
 def _find_fallback(directory: Path, pattern: str, target: Path, step_name: str):
-    """If the expected output doesn't exist, search for a fallback."""
+    """Raise when the expected output is missing; name a look-alike file when one exists.
+
+    The next step reads ``target`` by its fixed name, so a look-alike cannot be used in its place.
+    """
     if is_valid_output(target):
         return
     candidates = sorted(directory.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
-    if candidates and candidates[0].stat().st_size > 0:
-        return
-    raise FileNotFoundError(
-        f"{step_name}: no valid output found matching {pattern} in {directory}"
-    )
+    hint = f" (found {candidates[0].name}; rename it to {target.name})" if candidates else ""
+    raise FileNotFoundError(f"{step_name}: no valid output at {target}{hint}")

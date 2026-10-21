@@ -619,3 +619,43 @@ class TestL24AssemblyFailed:
         summary = ex.process_all_files([fp], str(out), include_taxonomy=False, stream_mode=False)
         assert summary.total_assembly_extracted == 1
         assert summary.total_assembly_failed == 0
+
+
+class TestReviewFixes:
+    def test_stream_prescan_survives_latin1_byte(self, tmp_path, isolated_taxonomy):
+        rec = make_record("ENC000001", quals={"lat_lon": "1 N 1 E", "collection_date": "2020"})
+        p = tmp_path / "enc.gb"
+        p.write_bytes(rec.replace("Priapulus", "Pri\xe4pulus").encode("latin-1"))
+        out = tmp_path / "o"
+        out.mkdir()
+        ex.process_all_files([str(p)], str(out), include_taxonomy=False, stream_mode=True)
+        df = read_str_csv(out / "final.csv")
+        assert "lat_lon" in df.columns and df.loc[0, "lat_lon"] == "1 N 1 E"
+
+    def test_duplicate_record_in_two_files_does_not_multiply_rows(self, tmp_path, isolated_taxonomy):
+        rec = make_record("DUP000001", assembly={"Assembly Method": "SPAdes v. 3"})
+        f1 = write(tmp_path / "a.gb", rec)
+        f2 = write(tmp_path / "b.gb", rec)
+        out = tmp_path / "o"
+        out.mkdir()
+        ex.process_all_files([f1, f2], str(out), include_taxonomy=False, stream_mode=True)
+        assert len(read_str_csv(out / "final.csv")) == 2
+
+    def test_log_interval_zero_is_allowed(self, tmp_path, isolated_taxonomy):
+        fp = write(tmp_path / "a.gb", make_record("LOG000001"), make_record("LOG000002"))
+        out = tmp_path / "o"
+        out.mkdir()
+        summary = ex.process_all_files([fp], str(out), include_taxonomy=False, stream_mode=True, log_interval=0)
+        assert summary.file_results[0].status == ex.FileStatus.SUCCESS
+
+    def test_free_text_assembly_fields_on_one_line(self):
+        rec = parse_one(make_record("ASM000001").replace(
+            "FEATURES", "COMMENT     Sequencing Technology: Illumina; Assembly Method: SPAdes\nFEATURES", 1))
+        result, source = ex.extract_assembly_from_comment_regex(rec)
+        assert result == {"Sequencing Technology": "Illumina", "Assembly Method": "SPAdes"}
+
+    def test_non_recursive_listing_skips_directories(self, tmp_path):
+        (tmp_path / "sub.gb").mkdir()
+        write(tmp_path / "a.gb", make_record("DIR000001"))
+        files, _, _ = ex.discover_gb_files([str(tmp_path)], recursive=False)
+        assert [os.path.basename(f) for f in files] == ["a.gb"]

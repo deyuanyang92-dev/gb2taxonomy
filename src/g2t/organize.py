@@ -14,28 +14,29 @@ Improvements:
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
+import time
 import warnings
-import pandas as pd
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Optional, Any
-import logging
-import time
+from typing import Any
 
-from g2t.utils import read_table, write_csv, StepResult
+import pandas as pd
+
+from g2t.utils import StepResult, read_table
 
 logger = logging.getLogger(__name__)
 
 # Default parent -> children propagation map (single source of truth for API and CLI).
-_DEFAULT_GENE_INCLUDES: Dict[str, List[str]] = {
+_DEFAULT_GENE_INCLUDES: dict[str, list[str]] = {
     "18-28s": ["18s", "28s", "its1-its2"],
     "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
 }
 
 
-def _default_gene_includes() -> Dict[str, List[str]]:
+def _default_gene_includes() -> dict[str, list[str]]:
     return {k: list(v) for k, v in _DEFAULT_GENE_INCLUDES.items()}
 
 
@@ -45,14 +46,14 @@ class OrganizeConfig:
     first_col_name: str = "species_voucher_new"
     second_col_name: str = "organism"
 
-    gene_order: List[str] = field(default_factory=lambda: [
+    gene_order: list[str] = field(default_factory=lambda: [
         "mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3",
         "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"
     ])
 
     metadata_mode: str = "first_nonempty"
 
-    meta_columns: List[str] = field(default_factory=lambda: [
+    meta_columns: list[str] = field(default_factory=lambda: [
         "Conflict", "match_source", "Original_match", "Conflict_reason",
         "Assignment_reason", "Class", "Order", "Family", "Genus",
         "PCR_primers", "geo_loc_name", "lat_lon", "collected_by",
@@ -62,7 +63,7 @@ class OrganizeConfig:
         "clone", "strain", "note",
     ])
 
-    extra_columns: List[str] = field(default_factory=list)
+    extra_columns: list[str] = field(default_factory=list)
 
     # voucher_standardized / voucher_as_submitted / voucher_note after the organism column
     voucher_columns: bool = True
@@ -71,23 +72,23 @@ class OrganizeConfig:
     organize_18_28s: bool = True
     organize_mtgenome: bool = True
 
-    gene_includes: Dict[str, List[str]] = field(default_factory=_default_gene_includes)
+    gene_includes: dict[str, list[str]] = field(default_factory=_default_gene_includes)
 
-    tail_columns: List[str] = field(default_factory=lambda: [
+    tail_columns: list[str] = field(default_factory=lambda: [
         "TaxonID", "geo_loc_name", "lat_lon",
         "Ref1Authors", "Ref1Title", "Ref1Journal",
         "match_basis", "match_confidence", "match_evidence",
     ])
 
-    def get_mito_genes(self) -> List[str]:
+    def get_mito_genes(self) -> list[str]:
         known_mito = {"coi", "16s", "12s", "cob", "cox2", "cox3",
                       "nd1", "nd2", "nd3", "nd4", "nd4l", "nd5", "nd6",
                       "atp6", "atp8", "cytb"}
         return [g for g in self.gene_order if g in known_mito]
 
 
-def check_columns(df: pd.DataFrame, mandatory: List[str],
-                   optional: List[str] = None) -> bool:
+def check_columns(df: pd.DataFrame, mandatory: list[str],
+                   optional: list[str] | None = None) -> bool:
     missing = [c for c in mandatory if c not in df.columns]
     if missing:
         logger.error(f"Missing required columns: {', '.join(missing)}")
@@ -110,9 +111,9 @@ def normalize_gene_name(gene: str) -> str:
     return gene.rstrip('#?')
 
 
-def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, str]:
+def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, str]:
     gene_order = config.gene_order
-    gene_ids: Dict[str, List[str]] = {g: [] for g in gene_order}
+    gene_ids: dict[str, list[str]] = {g: [] for g in gene_order}
 
     for row in group.itertuples(index=False):
         if pd.isna(row.gene_type) or pd.isna(row.LocusID):
@@ -142,7 +143,7 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> Di
     return {gene: ";".join(ids) for gene, ids in gene_ids.items()}
 
 
-def _mtgenome_children(config: OrganizeConfig) -> List[str]:
+def _mtgenome_children(config: OrganizeConfig) -> list[str]:
     """Columns that receive mtgenome LocusIDs.
 
     A user-supplied ``gene_includes["mtgenome"]`` (e.g. ``--mtgenome_includes coi``) is honoured.
@@ -155,8 +156,8 @@ def _mtgenome_children(config: OrganizeConfig) -> List[str]:
     return list(given)
 
 
-def _propagate_locusids(gene_ids: Dict[str, List[str]], parent: str,
-                        children: List[str]) -> None:
+def _propagate_locusids(gene_ids: dict[str, list[str]], parent: str,
+                        children: list[str]) -> None:
     parent_ids = gene_ids.get(parent, [])
     if not parent_ids:
         return
@@ -172,7 +173,7 @@ def _propagate_locusids(gene_ids: Dict[str, List[str]], parent: str,
             gene_ids[child] = list(dict.fromkeys(original + extras))
 
 
-def _format_gene_values(gene_vals: Dict[str, Set[str]]) -> str:
+def _format_gene_values(gene_vals: dict[str, set[str]]) -> str:
     active = {g: vs for g, vs in gene_vals.items() if vs}
     if not active:
         return ""
@@ -229,7 +230,7 @@ def _join_with_locusid(group: pd.DataFrame, col: str, sep: str = " | ") -> str:
     Example: ``"A1.1: coi | A2.1;A3.1: 16s,cox2"``. Without a LocusID column the bare values are joined.
     """
     lids = group["LocusID"] if "LocusID" in group.columns else None
-    by_value: Dict[str, List[str]] = {}
+    by_value: dict[str, list[str]] = {}
     for pos, v in enumerate(group[col]):
         if pd.isna(v):
             continue
@@ -245,8 +246,8 @@ def _join_with_locusid(group: pd.DataFrame, col: str, sep: str = " | ") -> str:
     return sep.join(f"{';'.join(ids)}: {val}" if ids else val for val, ids in by_value.items())
 
 
-def metadata_first_nonempty(group: pd.DataFrame, columns: List[str]) -> Dict[str, str]:
-    result: Dict[str, str] = {}
+def metadata_first_nonempty(group: pd.DataFrame, columns: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
     for col in columns:
         if col not in group.columns:
             result[col] = ""
@@ -259,7 +260,7 @@ def metadata_first_nonempty(group: pd.DataFrame, columns: List[str]) -> Dict[str
     return result
 
 
-def metadata_all(group: pd.DataFrame, columns: List[str]) -> Dict[str, str]:
+def metadata_all(group: pd.DataFrame, columns: list[str]) -> dict[str, str]:
     result = {}
     for col in columns:
         if col not in group.columns:
@@ -276,22 +277,22 @@ def metadata_all(group: pd.DataFrame, columns: List[str]) -> Dict[str, str]:
     return result
 
 
-def metadata_per_gene(group: pd.DataFrame, gene_order: List[str],
-                      columns: List[str]) -> Dict[str, str]:
+def metadata_per_gene(group: pd.DataFrame, gene_order: list[str],
+                      columns: list[str]) -> dict[str, str]:
     result = {}
     for col in columns:
         if col not in group.columns:
             result[col] = ""
             continue
-        gene_vals: Dict[str, Set[str]] = {g: set() for g in gene_order}
-        for row in group.itertuples(index=False):
-            if pd.isna(row.gene_type):
+        gene_vals: dict[str, set[str]] = {g: set() for g in gene_order}
+        # column access by name: itertuples() renames columns that are not identifiers ("Depth (m)", "class")
+        for gene_type, val in zip(group["gene_type"], group[col]):
+            if pd.isna(gene_type):
                 continue
-            val = getattr(row, col, None)
             if pd.isna(val) or not str(val).strip():
                 continue
             val_str = str(val).strip()
-            genes = [normalize_gene_name(g.strip()) for g in str(row.gene_type).split(',')]
+            genes = [normalize_gene_name(g.strip()) for g in str(gene_type).split(',')]
             for gene in genes:
                 if gene in gene_vals:
                     gene_vals[gene].add(val_str)
@@ -299,16 +300,16 @@ def metadata_per_gene(group: pd.DataFrame, gene_order: List[str],
     return result
 
 
-def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
-                      columns: List[str]) -> Dict[str, str]:
+def metadata_advanced(group: pd.DataFrame, gene_locusids: dict[str, str],
+                      columns: list[str]) -> dict[str, str]:
     result = {}
-    col_locusid_val: Dict[str, Dict[str, str]] = {col: {} for col in columns}
-    for row in group.itertuples(index=False):
-        locusid = str(row.LocusID).strip() if pd.notna(row.LocusID) else ""
+    col_locusid_val: dict[str, dict[str, str]] = {col: {} for col in columns}
+    for _, row in group.iterrows():
+        locusid = str(row["LocusID"]).strip() if pd.notna(row["LocusID"]) else ""
         if not locusid:
             continue
         for col in columns:
-            val = getattr(row, col, None)
+            val = row[col] if col in group.columns else None
             if pd.isna(val) or not str(val).strip():
                 continue
             val_str = str(val).strip()
@@ -323,11 +324,11 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
             result[col] = ""
             continue
 
-        gene_value_map: Dict[str, Set[str]] = {}
+        gene_value_map: dict[str, set[str]] = {}
         for gene, locusids_str in gene_locusids.items():
             if not locusids_str:
                 continue
-            vals_for_gene: Set[str] = set()
+            vals_for_gene: set[str] = set()
             for lid in locusids_str.split(";"):
                 lid = lid.strip()
                 if lid in this_col_data:
@@ -337,11 +338,11 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
             if vals_for_gene:
                 gene_value_map[gene] = vals_for_gene
 
-        mapped_lids = set()
+        mapped_lids: set[str] = set()
         for locusids_str in gene_locusids.values():
             if locusids_str:
                 mapped_lids.update(lid.strip() for lid in locusids_str.split(";"))
-        orphan_vals: Set[str] = set()
+        orphan_vals: set[str] = set()
         for lid, val_str in this_col_data.items():
             if lid not in mapped_lids:
                 orphan_vals.update(v.strip() for v in val_str.split(";") if v.strip())
@@ -357,11 +358,11 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: Dict[str, str],
 VOUCHER_COLUMNS = ["voucher_standardized", "voucher_as_submitted", "voucher_note"]
 
 
-def voucher_summary(group: pd.DataFrame) -> Dict[str, str]:
+def voucher_summary(group: pd.DataFrame) -> dict[str, str]:
     """voucher_as_submitted: every distinct specimen_voucher of the specimen as found in GenBank;
     voucher_standardized: one normalised voucher (see g2t.curate.standardize_vouchers)."""
     from g2t.curate import standardize_vouchers
-    submitted: List[str] = []
+    submitted: list[str] = []
     if "specimen_voucher" in group.columns:
         for v in group["specimen_voucher"]:
             v = "" if pd.isna(v) else str(v).strip()
@@ -372,8 +373,8 @@ def voucher_summary(group: pd.DataFrame) -> Dict[str, str]:
     return {"voucher_standardized": canon, "voucher_as_submitted": "; ".join(submitted), "voucher_note": note}
 
 
-def process_group(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
+def process_group(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, Any]:
+    out: dict[str, Any] = {}
 
     out[config.first_col_name] = group[config.group_column].iloc[0]
 
@@ -427,7 +428,7 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> Dict[str, Any]
     return out
 
 
-def build_header(config: OrganizeConfig, sample_row: Dict[str, Any]) -> List[str]:
+def build_header(config: OrganizeConfig, sample_row: dict[str, Any]) -> list[str]:
     header = [config.first_col_name, config.second_col_name]
     if config.voucher_columns:
         header.extend(VOUCHER_COLUMNS)
@@ -447,7 +448,7 @@ def build_header(config: OrganizeConfig, sample_row: Dict[str, Any]) -> List[str
     return list(dict.fromkeys(header))
 
 
-def _count_unlisted_genes(df: pd.DataFrame, gene_order: List[str]) -> Dict[str, int]:
+def _count_unlisted_genes(df: pd.DataFrame, gene_order: list[str]) -> dict[str, int]:
     """Count records (rows) per gene type that is not a column of *gene_order* (and so would be dropped)."""
     known = set(gene_order)
     counts: Counter = Counter()
@@ -460,7 +461,7 @@ def _count_unlisted_genes(df: pd.DataFrame, gene_order: List[str]) -> Dict[str, 
     return dict(counts)
 
 
-def organize(input_file: str, output_file: str, config: OrganizeConfig = None) -> StepResult:
+def organize(input_file: str, output_file: str, config: OrganizeConfig | None = None) -> StepResult:
     """Run Step 4: organize genes by species."""
     if config is None:
         config = OrganizeConfig()
@@ -529,7 +530,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig = None) -
     return StepResult(success=True, output_file=output_file, rows=len(out_df), elapsed=elapsed)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Species-Gene Organizer: group gene assignments by species",
         formatter_class=argparse.RawDescriptionHelpFormatter

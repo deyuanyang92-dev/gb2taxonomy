@@ -50,7 +50,6 @@ class TestNormalizeColumnsInplace:
         assert "last_name" in df.columns
 
     def test_deduplication(self):
-        df = pd.DataFrame({"col": [1], "col": [2]})
         # When two columns have the same name after normalization
         df = pd.DataFrame({"Col": [1], "col": [2]})
         normalize_columns_inplace(df)

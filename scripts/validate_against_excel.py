@@ -6,8 +6,9 @@ Usage:
     python scripts/validate_against_excel.py
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi/ceshi5")
 EXPECTED = BASE / "expected_mapping.tsv"
@@ -85,7 +86,8 @@ def main():
 
             gene_match = (g2t_gene == expected_gene)
             sp_match = normalize(g2t_species).startswith(normalize(expected_species.split()[0]))
-            v_match = (not str(row["voucher"]).strip()) or (normalize(str(row["voucher"])) in normalize(g2t_voucher))
+            lit_v = "" if pd.isna(row["voucher"]) else str(row["voucher"]).strip()
+            v_match = (not lit_v) or (normalize(lit_v) in normalize(g2t_voucher))
 
             if gene_match:
                 gene_ok += 1
@@ -140,30 +142,32 @@ def main():
 
     total = len(exp)
     classified_total = len(assigned)
+    compared = gene_ok + gene_mismatch or 1      # literature accessions that g2t classified
+    covered = total - missing_count
 
     print(f"\n{'=' * 60}")
-    print(f"g2t 验证报告：Haplotaxis 文献数据")
+    print("g2t 验证报告：Haplotaxis 文献数据")
     print(f"{'=' * 60}")
     print(f"文献: {exp['accession'].nunique()} unique accession, {total} 条记录")
     print(f"g2t:  提取 {len(final)} 条 → 分类 {classified_total} 条")
     print()
-    print(f"基因分类准确性:")
-    print(f"  OK 基因分类正确: {gene_ok}/{classified_total} ({gene_ok / classified_total * 100:.1f}%)")
+    print("基因分类准确性:")
+    print(f"  OK 基因分类正确: {gene_ok}/{compared} ({gene_ok / compared * 100:.1f}%)")
     print(f"  GENE_MISMATCH 分类错误: {gene_mismatch}")
     print()
-    print(f"Accession 覆盖率:")
-    print(f"  分类成功: {classified_total}/{total} ({classified_total / total * 100:.1f}%)")
+    print("Accession 覆盖率:")
+    print(f"  分类成功: {covered}/{total} ({covered / total * 100:.1f}%)")
     print(f"  缺失（长度过滤）: {missing_count}")
     print()
-    print(f"物种名一致性:")
+    print("物种名一致性:")
     print(f"  物种名一致: {total - sp_diff - missing_count}/{total - missing_count}")
     print(f"  物种名不同: {sp_diff}（均为文献用新名/临时名，非 g2t 错误）")
 
     # Categorize species mismatches
     if sp_diff > 0:
-        sp_mm = res_df[res_df["species_match"] == False]
+        sp_mm = res_df[not res_df["species_match"]]
         reasons = sp_mm["reason"].value_counts()
-        print(f"\n  物种名差异原因:")
+        print("\n  物种名差异原因:")
         for reason, count in reasons.items():
             print(f"    {reason}: {count} 条")
 
@@ -182,19 +186,19 @@ def main():
             print(f"  {r['accession']} ({r['expected_gene']}) - {r['expected_species']}")
 
     # Per-gene summary
-    print(f"\n按基因统计:")
+    print("\n按基因统计:")
     print(f"  {'Gene':5s} {'Expected':>8s} {'g2t OK':>7s} {'Match%':>7s} {'Miss':>5s} {'Drop':>5s}")
     for gene in ["12s", "16s", "18s", "28s", "coi"]:
         n_exp = len(exp[exp["gene"].map(gene_map) == gene])
-        n_ok = len(res_df[(res_df["expected_gene"] == gene) & (res_df["gene_match"] == True)])
+        n_ok = len(res_df[(res_df["expected_gene"] == gene) & (res_df["gene_match"])])
         n_mm = len(res_df[(res_df["expected_gene"] == gene) & (res_df["status"] == "GENE_MISMATCH")])
         n_mi = len(res_df[(res_df["expected_gene"] == gene) & (res_df["status"].isin(["MISSING", "UNCLASSIFIED"]))])
         pct = n_ok / n_exp * 100 if n_exp > 0 else 0
         print(f"  {gene:5s} {n_exp:8d} {n_ok:7d} {pct:6.1f}% {n_mm:5d} {n_mi:5d}")
 
     print(f"\n{'=' * 60}")
-    print(f"结论: g2t 基因分类准确率 {gene_ok}/{classified_total} = {gene_ok / classified_total * 100:.1f}%")
-    print(f"      Accession 覆盖率 {classified_total}/{total} = {classified_total / total * 100:.1f}%")
+    print(f"结论: g2t 基因分类准确率 {gene_ok}/{compared} = {gene_ok / compared * 100:.1f}%")
+    print(f"      Accession 覆盖率 {covered}/{total} = {covered / total * 100:.1f}%")
     print(f"      仅 {missing_count} 条因长度过滤缺失，{gene_mismatch} 条基因分类错误")
     print(f"{'=' * 60}")
     print(f"\n详细结果: {OUTPUT}")

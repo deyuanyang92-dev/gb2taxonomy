@@ -34,23 +34,23 @@ def check_dependencies():
 
     # Required dependencies
     try:
-        import pandas
+        import pandas  # noqa: F401
     except ImportError:
         missing_required.append("pandas")
 
     try:
-        import Bio
+        import Bio  # noqa: F401
     except ImportError:
         missing_required.append("biopython")
 
     # Optional dependencies
     try:
-        import yaml
+        import yaml  # noqa: F401
     except ImportError:
         missing_optional.append("pyyaml (optional, for custom gene dictionaries)")
 
     try:
-        import ete3
+        import ete3  # noqa: F401
     except ImportError:
         missing_optional.append("ete3 (optional, for NCBI taxonomy lookup)")
 
@@ -105,11 +105,6 @@ def main_pipeline(argv=None):
                     help="Evidence needed to merge voucher variants (default: medium)")
     ap.add_argument("--normalize_columns", action="store_true",
                     help="Normalize column names (spaces to underscores)")
-    ap.add_argument("--extract_extra", default="", help="Extra args for extract step")
-    ap.add_argument("--classify_extra", default="", help="Extra args for classify step")
-    ap.add_argument("--voucher_extra", default="", help="Extra args for voucher step")
-    ap.add_argument("--organize_extra", default="", help="Extra args for organize step")
-
     args = ap.parse_args(argv)
 
     from g2t._pipeline import run
@@ -136,12 +131,12 @@ def main_pipeline(argv=None):
         raise SystemExit(1)
 
     if not args.quiet:
-        print(f"\nAll steps complete!")
+        print("\nAll steps complete!")
         print(f"  Output: {result.output_dir}")
         print(f"  Steps:  {result.steps_completed}")
         print(f"  Time:   {result.elapsed:.1f}s")
 
-    return result
+    return 0
 
 
 def main_download(argv=None):

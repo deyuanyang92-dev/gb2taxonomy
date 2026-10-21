@@ -51,7 +51,7 @@ if [ -z "$TAXON" ] || [ -z "$EMAIL" ]; then
 fi
 
 # Check edirect tools
-for cmd in esearch efetch; do
+for cmd in esearch efetch xtract; do
     if ! command -v "$cmd" &>/dev/null; then
         echo "Error: '$cmd' not found. Install edirect first:"
         echo "  sh -c \"\$(curl -fsSL ftp://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/install-edirect.sh)\""
@@ -107,7 +107,7 @@ for BATCH_IDX in $(seq $START_BATCH $((NUM_BATCHES - 1))); do
     printf "  Batch %d/%d (%d-%d/%d)... " "$BATCH_NUM" "$NUM_BATCHES" "$((RETSTART + 1))" "$END" "$COUNT"
 
     if esearch -db nuccore -query "txid${TAXON}[Organism]" $API_PARAM -email "$EMAIL" 2>/dev/null \
-        | efetch -format gb -retstart "$RETSTART" -retmax "$RETMAX" \
+        | efetch -format gb -start "$((RETSTART + 1))" -stop "$END" \
         > "$BATCH_FILE" 2>/dev/null; then
 
         SIZE=$(stat -f%z "$BATCH_FILE" 2>/dev/null || stat -c%s "$BATCH_FILE" 2>/dev/null || echo "0")

@@ -14,12 +14,12 @@ Outputs:
     - gene_dict_v2.yaml (hierarchical YAML with category/scope fields)
 """
 
-import os
-import sys
 import argparse
 import csv
-from pathlib import Path
+import os
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 # Try to import yaml, fall back to manual output
 try:
@@ -90,7 +90,7 @@ def read_g2t_gene_dict(yaml_path):
         return {}
 
     if HAS_YAML:
-        with open(yaml_path, 'r', encoding='utf-8') as f:
+        with open(yaml_path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
         result = {}
         for k, v in data.get('gene_types', {}).items():
@@ -105,9 +105,9 @@ def read_g2t_gene_dict(yaml_path):
 def read_syngenes_tsv(tsv_path):
     """Read a SynGenes TSV file and return list of Full Name synonyms."""
     synonyms = []
-    with open(tsv_path, 'r', encoding='utf-8') as f:
+    with open(tsv_path, encoding='utf-8') as f:
         reader = csv.reader(f, delimiter='\t')
-        header = next(reader, None)  # skip header
+        next(reader, None)  # skip header
         for row in reader:
             if len(row) >= 1 and row[0].strip():
                 name = row[0].strip()
@@ -121,9 +121,7 @@ def classify_existing_genes(gene_key):
     mito_genes = {"coi", "16s", "12s", "cob", "mtgenome", "cox2", "cox3"}
     nuclear_genes = {"18-28s", "its1-its2", "ef-1", "28s", "18s", "h3"}
 
-    if gene_key == "mtgenome":
-        return "mitochondrial", ["metazoa", "fungi"]
-    elif gene_key in mito_genes:
+    if gene_key == "mtgenome" or gene_key in mito_genes:
         return "mitochondrial", ["metazoa", "fungi"]
     elif gene_key in nuclear_genes:
         return "nuclear", ["metazoa", "viridiplantae", "fungi"]
@@ -228,16 +226,16 @@ def write_v2_yaml(v2_dict, output_path):
             yaml.dump(output, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         else:
             # Manual YAML output as fallback
-            f.write(f"version: \"2.0\"\n")
-            f.write(f"metadata:\n")
-            f.write(f"  source: \"g2t v2.0 + SynGenes integration\"\n")
-            f.write(f"  description: \"Unified gene dictionary with organism-aware scope\"\n")
-            f.write(f"gene_types:\n")
+            f.write("version: \"2.0\"\n")
+            f.write("metadata:\n")
+            f.write("  source: \"g2t v2.0 + SynGenes integration\"\n")
+            f.write("  description: \"Unified gene dictionary with organism-aware scope\"\n")
+            f.write("gene_types:\n")
             for gene_key, info in output["gene_types"].items():
                 f.write(f"  {gene_key}:\n")
                 f.write(f"    category: {info['category']}\n")
                 f.write(f"    scope: {info['scope']}\n")
-                f.write(f"    synonyms:\n")
+                f.write("    synonyms:\n")
                 for syn in info["synonyms"]:
                     # Quote strings that contain special YAML characters
                     if any(c in syn for c in ':{}[],&*?|->!%@`#'):
@@ -251,7 +249,7 @@ def write_v2_yaml(v2_dict, output_path):
 def print_stats(v2_dict):
     """Print statistics about the v2 dictionary."""
     by_category = defaultdict(lambda: {"count": 0, "synonyms": 0})
-    for gene_key, info in v2_dict.items():
+    for info in v2_dict.values():
         cat = info["category"]
         by_category[cat]["count"] += 1
         by_category[cat]["synonyms"] += len(info["synonyms"])
@@ -283,11 +281,10 @@ def main():
     mt_dir = syngenes_root / "data Names" / "mt"
     cp_dir = syngenes_root / "data Names" / "cp"
 
-    if args.output:
-        output_path = Path(args.output)
-    else:
-        output_path = g2t_root / "src" / "g2t" / "data" / "gene_dict_v2.yaml"
+    output_path = Path(args.output) if args.output else g2t_root / "src" / "g2t" / "data" / "gene_dict_v2.yaml"
 
+    if not mt_dir.exists():
+        sys.exit(f"SynGenes mt directory not found: {mt_dir}")
     print(f"Reading g2t v1 dictionary: {g2t_yaml}")
     print(f"Reading SynGenes mt data:  {mt_dir}")
     print(f"Reading SynGenes cp data:  {cp_dir}")

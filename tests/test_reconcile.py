@@ -139,3 +139,26 @@ class TestReconcile:
         assert out.loc[0, "match_basis"] == "exact"
         assert out.loc[0, "species_voucher_new"] == "k1"
         assert report.empty
+
+
+class TestRowOrderIndependence:
+    def test_same_clusters_for_any_row_order(self):
+        rows = [
+            rec("A", "P c", "coi", "COI_WS399", "kA", Ref1Title=PAPER, Ref2Title="Other paper"),
+            rec("B", "P c", "28s", "28S_WS399", "kB", Ref1Title=PAPER, geo_loc_name="Russia"),
+            rec("C", "P c", "16s", "16S_WS399", "kC", Ref1Title="Other paper", geo_loc_name="Norway"),
+        ]
+        results = set()
+        for order in ([0, 1, 2], [1, 0, 2], [2, 1, 0], [1, 2, 0]):
+            out, _ = reconcile_dataframe(pd.DataFrame([rows[i] for i in order]))
+            key = out.set_index("ACCESSION")["species_voucher_new"]
+            results.add(frozenset(frozenset(key.index[key == v]) for v in key.unique()))
+        assert len(results) == 1
+
+    def test_punctuation_only_voucher_falls_back_to_isolate(self):
+        df = pd.DataFrame([
+            rec("A", "P c", "coi", "..", "Pc_WS399", isolate="WS399", Ref1Title=PAPER),
+            rec("B", "P c", "28s", "28S_ZMMU_WS399", "Pc_28S_ZMMU_WS399", Ref1Title=PAPER),
+        ])
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1

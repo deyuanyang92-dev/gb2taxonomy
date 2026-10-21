@@ -4,7 +4,6 @@
   python scripts/compare_results.py
 """
 import re
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -73,29 +72,6 @@ def compare_ophelidae():
 GENE_MAP = {"COI": "coi", "16S": "16s", "18S": "18s", "28S": "28s"}
 
 
-def parse_docx(path):
-    """解析 zlag028_supplementary_data.docx，返回 DataFrame[species, gene, accession]"""
-    doc = Document(path)
-    table = doc.tables[0]
-
-    data = []
-    for row in table.rows[1:]:  # 跳过表头
-        cells = [c.text.strip() for c in row.cells]
-        species_raw = cells[0]
-        refs = cells[5] if len(cells) > 5 else ""
-        for i, gene_label in enumerate(["COI", "16S", "18S", "28S"]):
-            accession = cells[i + 1].strip() if len(cells) > i + 1 else ""
-            if accession == "–" or accession == "-" or accession == "":
-                accession = ""
-            data.append(dict(
-                species_raw=species_raw,
-                gene=gene_label,
-                literature_accession=accession,
-                references=refs,
-            ))
-    return pd.DataFrame(data)
-
-
 def normalize_species(name):
     """将物种名标准化为 lowercase，去除 author/year 等"""
     name = name.strip()
@@ -120,7 +96,8 @@ def match_species(lit_species, g2t_organisms):
     lit_prefix = re.sub(r"\s+sp\.?\s*[A-Z]?$", "", lit_norm).strip()
     for org in g2t_organisms:
         org_prefix = re.sub(r"\s+sp\.?\s*[A-Z]?$", "", normalize_species(org)).strip()
-        if lit_prefix and org_prefix and (lit_prefix == org_prefix or lit_prefix in org_prefix or org_prefix in lit_prefix):
+        if lit_prefix and org_prefix and (lit_prefix == org_prefix or lit_prefix in org_prefix
+                                           or org_prefix in lit_prefix):
             return org
     # 尝试属名+种名前几个字符
     lit_parts = lit_norm.split()

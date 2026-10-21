@@ -265,7 +265,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     def raw_voucher(row) -> str:
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if v and v.lower() != "nan":
+            if any(ch.isalnum() for ch in v) and v.lower() != "nan":   # same rule as voucher.py (L-22)
                 return v
         return ""
 
@@ -304,7 +304,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     for core, keys in cores.items():
         for i in range(len(keys)):
             for j in range(i + 1, len(keys)):
-                ka, kb = keys[i], keys[j]
+                ka, kb = sorted((keys[i], keys[j]))     # edge order independent of input row order
                 if frozenset((ka, kb)) in seen_pairs:
                     continue
                 seen_pairs.add(frozenset((ka, kb)))

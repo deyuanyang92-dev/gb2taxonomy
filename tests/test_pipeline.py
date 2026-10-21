@@ -1,7 +1,7 @@
 """Tests for _pipeline.py: PipelineResult and _find_fallback."""
 
+
 import pytest
-from pathlib import Path
 
 from g2t._pipeline import PipelineResult, _find_fallback
 
@@ -53,3 +53,10 @@ class TestFindFallback:
         target = tmp_path / "out.csv"
         with pytest.raises(FileNotFoundError):
             _find_fallback(tmp_path, "*.csv", target, "TestStep")
+
+
+class TestFindFallbackNamesLookAlike:
+    def test_look_alike_is_named_but_still_raises(self, tmp_path):
+        (tmp_path / "final_v2.csv").write_text("col\nval\n")
+        with pytest.raises(FileNotFoundError, match="final_v2.csv"):
+            _find_fallback(tmp_path, "*final*.csv", tmp_path / "final.csv", "Step 1")
