@@ -32,7 +32,8 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0"]
-dev = ["pytest", "pytest-cov", "ruff", "mypy", "types-PyYAML", "pre-commit"]
+xlsx = ["openpyxl>=3.0"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "types-PyYAML", "openpyxl>=3.0", "pre-commit"]
 
 [project.urls]
 Homepage = "https://github.com/deyuanyang92-dev/gb2taxonomy"

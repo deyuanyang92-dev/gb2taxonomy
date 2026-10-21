@@ -11,11 +11,11 @@ g2t downloads the GenBank records of a taxon from NCBI and turns them into a **s
 ```bash
 git clone https://github.com/deyuanyang92-dev/gb2taxonomy.git
 cd gb2taxonomy
-pip install -e ".[yaml]"
+pip install -e ".[yaml,xlsx]"
 g2t --help
 ```
 
-Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80; pyyaml for custom gene dictionaries. The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so.
+Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80; pyyaml for custom gene dictionaries; openpyxl for the Excel files of Step 5 (`g2t-curate`). The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so.
 
 ## Quick start
 
