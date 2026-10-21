@@ -15,6 +15,7 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 
 **可选依赖**:
 - pyyaml: 支持自定义基因词典
+- openpyxl: Step 5（`g2t-curate`）读写 Excel 文件
 - ete3: NCBI 分类学查询（用于 Class/Order/Family/Genus；不可用时——如 Python 3.13——改为按 TaxonID 从 NCBI Taxonomy 在线获取一次并缓存到 `gb_metadata/taxonomy_cache.json`；无网络时这几列为空并给出警告）
 - pytest: 开发测试
 
