@@ -31,8 +31,8 @@ def _origin(n: int) -> str:
     seq = ("acgt" * (n // 4 + 1))[:n]
     lines = []
     for i in range(0, n, 60):
-        chunk = seq[i:i + 60]
-        blocks = " ".join(chunk[j:j + 10] for j in range(0, len(chunk), 10))
+        chunk = seq[i : i + 60]
+        blocks = " ".join(chunk[j : j + 10] for j in range(0, len(chunk), 10))
         lines.append(f"{i + 1:>9} {blocks}")
     return "\n".join(lines)
 
@@ -146,16 +146,18 @@ class FakeEntrez:
             if tid not in self.lineages:
                 continue  # NCBI silently omits unknown ids
             ancestors, own = self.lineages[tid]
-            recs.append({
-                "TaxId": tid,
-                "ScientificName": own[1],
-                "Rank": own[0],
-                "AkaTaxIds": [],
-                "LineageEx": [
-                    {"TaxId": str(i), "ScientificName": name, "Rank": rank}
-                    for i, (rank, name) in enumerate(ancestors, 1)
-                ],
-            })
+            recs.append(
+                {
+                    "TaxId": tid,
+                    "ScientificName": own[1],
+                    "Rank": own[0],
+                    "AkaTaxIds": [],
+                    "LineageEx": [
+                        {"TaxId": str(i), "ScientificName": name, "Rank": rank}
+                        for i, (rank, name) in enumerate(ancestors, 1)
+                    ],
+                }
+            )
         return recs
 
 
@@ -177,8 +179,9 @@ def isolated_taxonomy(monkeypatch):
     # Reproduce Python 3.13: ete3 is installed (spec found) but `import ete3` fails (no `cgi`).
     monkeypatch.setitem(sys.modules, "ete3", None)  # `import ete3` -> ModuleNotFoundError
     real_find_spec = importlib.util.find_spec
-    monkeypatch.setattr(importlib.util, "find_spec",
-                        lambda name, *a, **k: object() if name == "ete3" else real_find_spec(name, *a, **k))
+    monkeypatch.setattr(
+        importlib.util, "find_spec", lambda name, *a, **k: object() if name == "ete3" else real_find_spec(name, *a, **k)
+    )
     monkeypatch.setattr(Entrez, "efetch", _blocked)
     monkeypatch.setattr(Entrez, "email", None)
     monkeypatch.setattr(Entrez, "api_key", None)
@@ -211,11 +214,11 @@ class TestL01Batch:
             make_record("TST000003", quals={"strain": "S3", "lat_lon": "1 N 2 E"}, pubmed="12345"),
         )
         out_b = tmp_path / "batch"
-        summary = ex.process_batch_mode(
-            [f1, f2], str(out_b), max_tasks=2, stream_mode=stream, include_taxonomy=False)
+        summary = ex.process_batch_mode([f1, f2], str(out_b), max_tasks=2, stream_mode=stream, include_taxonomy=False)
         statuses = [(os.path.basename(os.path.dirname(r.file_path)), r.status) for r in summary.file_results]
-        assert all(s == ex.FileStatus.SUCCESS for _, s in statuses), \
-            [(r.file_path, r.status, r.error_message) for r in summary.file_results]
+        assert all(s == ex.FileStatus.SUCCESS for _, s in statuses), [
+            (r.file_path, r.status, r.error_message) for r in summary.file_results
+        ]
         assert summary.total_metadata_extracted == 3
 
         out_n = tmp_path / "plain"
@@ -332,8 +335,7 @@ class TestL02Failures:
         (fr,) = report["files"]
         assert fr["status"] == "partial"
         assert fr["record_errors"]
-        assert any(r.levelno >= logging.WARNING and "partial" in r.getMessage().lower()
-                   for r in caplog.records)
+        assert any(r.levelno >= logging.WARNING and "partial" in r.getMessage().lower() for r in caplog.records)
 
     def test_extract_all_files_failed_returns_failure_but_writes_report(self, tmp_path):
         d = tmp_path / "in"
@@ -356,16 +358,21 @@ class TestL04NumericText:
         md = tmp_path / "metadata.csv"
         asm = tmp_path / "assembly.csv"
         out = tmp_path / "final.csv"
-        pd.DataFrame({
-            "ACCESSION": ["A1", "A2", "A3"],
-            "specimen_voucher": ["007", "0123", "45"],
-            "strain": ["1E5", "2E5", ""],
-            "isolate": ["NA", "", "null"],
-            "Ref1PubMed": ["32671913", "", "12345678901234567890"],
-        }).to_csv(md, index=False)
-        pd.DataFrame({
-            "ACCESSION": ["A1", "A3"], "Assembly Name": ["0042", "007"],
-        }).to_csv(asm, index=False, sep="\t")
+        pd.DataFrame(
+            {
+                "ACCESSION": ["A1", "A2", "A3"],
+                "specimen_voucher": ["007", "0123", "45"],
+                "strain": ["1E5", "2E5", ""],
+                "isolate": ["NA", "", "null"],
+                "Ref1PubMed": ["32671913", "", "12345678901234567890"],
+            }
+        ).to_csv(md, index=False)
+        pd.DataFrame(
+            {
+                "ACCESSION": ["A1", "A3"],
+                "Assembly Name": ["0042", "007"],
+            }
+        ).to_csv(asm, index=False, sep="\t")
         ex.combine_and_save_final_csv(str(md), str(asm), str(out))
         got = read_str_csv(out)
         assert list(got["specimen_voucher"]) == ["007", "0123", "45"]
@@ -396,8 +403,13 @@ class TestL04NumericText:
 # ---------------------------------------------------------------------------
 PRIAP = {
     "6232": (
-        [("phylum", "Priapulida"), ("class", "Priapulimorpha"), ("order", "Priapulimorphida"),
-         ("family", "Priapulidae"), ("genus", "Priapulus")],
+        [
+            ("phylum", "Priapulida"),
+            ("class", "Priapulimorpha"),
+            ("order", "Priapulimorphida"),
+            ("family", "Priapulidae"),
+            ("genus", "Priapulus"),
+        ],
         ("species", "Priapulus caudatus"),
     ),
 }
@@ -441,10 +453,7 @@ class TestL05EntrezFallback:
 
     def test_requests_are_batched_at_most_200(self, tmp_path, monkeypatch):
         n = 450
-        lineages = {
-            str(5000 + i): ([("class", "C"), ("genus", f"G{i}")], ("species", f"S{i}"))
-            for i in range(n)
-        }
+        lineages = {str(5000 + i): ([("class", "C"), ("genus", f"G{i}")], ("species", f"S{i}")) for i in range(n)}
         fake = install_fake_entrez(monkeypatch, FakeEntrez(lineages))
         recs = [make_record(f"TST{200 + i:06d}", taxon=str(5000 + i), organism=f"Sp {i}") for i in range(n)]
         fp = write(tmp_path / "in" / "many.gb", *recs)
@@ -473,8 +482,9 @@ class TestL05EntrezFallback:
 
     def test_ete3_not_installed_falls_back_without_prompt(self, tmp_path, monkeypatch):
         real_find_spec = importlib.util.find_spec
-        monkeypatch.setattr(importlib.util, "find_spec",
-                            lambda name, *a, **k: None if name == "ete3" else real_find_spec(name, *a, **k))
+        monkeypatch.setattr(
+            importlib.util, "find_spec", lambda name, *a, **k: None if name == "ete3" else real_find_spec(name, *a, **k)
+        )
 
         def no_prompt(*a, **k):
             raise AssertionError("must not prompt when the Entrez fallback is available")
@@ -538,8 +548,17 @@ class TestL20ColumnParity:
             frames[mode] = read_str_csv(out / "final.csv")
         assert list(frames[True].columns) == list(frames[False].columns)
         # columns that no record has are still present (e.g. for downstream --organelle filters)
-        for col in ("organelle", "host", "db_xref", "culture_collection", "clone", "Class",
-                    "Genus", "Assembly Method", "Expected Final Version"):
+        for col in (
+            "organelle",
+            "host",
+            "db_xref",
+            "culture_collection",
+            "clone",
+            "Class",
+            "Genus",
+            "Assembly Method",
+            "Expected Final Version",
+        ):
             assert col in frames[False].columns
         pd.testing.assert_frame_equal(frames[True], frames[False])
 
@@ -559,9 +578,13 @@ class TestL20ColumnParity:
 # ---------------------------------------------------------------------------
 class TestL21SourceFeature:
     def test_multiple_sources_use_first_and_warn(self, caplog):
-        rec = parse_one(make_record(
-            "TST000501", quals={"specimen_voucher": "ZMMU:WS30980"},
-            extra_sources=[{"organism": "Symbiont sp.", "specimen_voucher": "SYM1", "db_xref": "taxon:999"}]))
+        rec = parse_one(
+            make_record(
+                "TST000501",
+                quals={"specimen_voucher": "ZMMU:WS30980"},
+                extra_sources=[{"organism": "Symbiont sp.", "specimen_voucher": "SYM1", "db_xref": "taxon:999"}],
+            )
+        )
         with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
             md = ex.extract_metadata(rec, include_taxonomy=False)
         assert md["specimen_voucher"] == "ZMMU:WS30980"
@@ -649,8 +672,11 @@ class TestReviewFixes:
         assert summary.file_results[0].status == ex.FileStatus.SUCCESS
 
     def test_free_text_assembly_fields_on_one_line(self):
-        rec = parse_one(make_record("ASM000001").replace(
-            "FEATURES", "COMMENT     Sequencing Technology: Illumina; Assembly Method: SPAdes\nFEATURES", 1))
+        rec = parse_one(
+            make_record("ASM000001").replace(
+                "FEATURES", "COMMENT     Sequencing Technology: Illumina; Assembly Method: SPAdes\nFEATURES", 1
+            )
+        )
         result, source = ex.extract_assembly_from_comment_regex(rec)
         assert result == {"Sequencing Technology": "Illumina", "Assembly Method": "SPAdes"}
 

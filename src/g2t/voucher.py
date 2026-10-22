@@ -123,8 +123,11 @@ def build_species_vouchers(
 
     if normalize_column_names:
         normalize_columns_inplace(df, lowercase=False)
-        log("normalize_column_names=ON: column-name spaces -> underscores, case preserved (and deduped)",
-            quiet, log_file_path)
+        log(
+            "normalize_column_names=ON: column-name spaces -> underscores, case preserved (and deduped)",
+            quiet,
+            log_file_path,
+        )
     else:
         log("normalize_column_names=OFF: keeping original column names", quiet, log_file_path)
 
@@ -144,8 +147,11 @@ def build_species_vouchers(
             missing_order_cols.append(c)
 
     log(f"pse priority columns (requested): {columns_order}", quiet, log_file_path)
-    log(f"pse priority columns (found): {resolved_order_cols if resolved_order_cols else '(none)'}",
-        quiet, log_file_path)
+    log(
+        f"pse priority columns (found): {resolved_order_cols if resolved_order_cols else '(none)'}",
+        quiet,
+        log_file_path,
+    )
     if missing_order_cols:
         log(f"pse priority columns (missing/unresolved): {missing_order_cols}", quiet, log_file_path)
 
@@ -192,8 +198,12 @@ def build_species_vouchers(
         fill_from_fallback = int(after - before)
 
     still_empty = int(primary_voucher_series.isna().sum())
-    log(f"pse filled: from_priority={fill_from_priority}, +haplotype={fill_from_hap}, "
-        f"+fallback={fill_from_fallback}, still_empty={still_empty}", quiet, log_file_path)
+    log(
+        f"pse filled: from_priority={fill_from_priority}, +haplotype={fill_from_hap}, "
+        f"+fallback={fill_from_fallback}, still_empty={still_empty}",
+        quiet,
+        log_file_path,
+    )
 
     df[primary_voucher_column_name] = primary_voucher_series
 
@@ -209,14 +219,16 @@ def build_species_vouchers(
             if combine_order == "species_name+pse":
                 df[name_updated] = [
                     safe_concat(species_name, voucher_value)
-                    for species_name, voucher_value in zip(df[species_col].tolist(),
-                                                           df[primary_voucher_column_name].tolist())
+                    for species_name, voucher_value in zip(
+                        df[species_col].tolist(), df[primary_voucher_column_name].tolist()
+                    )
                 ]
             elif combine_order == "pse+species_name":
                 df[name_updated] = [
                     safe_concat(voucher_value, species_name)
-                    for species_name, voucher_value in zip(df[species_col].tolist(),
-                                                           df[primary_voucher_column_name].tolist())
+                    for species_name, voucher_value in zip(
+                        df[species_col].tolist(), df[primary_voucher_column_name].tolist()
+                    )
                 ]
             else:
                 raise ValueError("combine_order must be: species_name+pse / pse+species_name / pse_only")
@@ -251,8 +263,11 @@ def build_species_vouchers(
             simple_df = df[resolved_simple].copy()
             simple_path = os.path.join(output_dir, "shorten_species_voucher.csv")
             write_csv(simple_df, simple_path)
-            log(f"Simple CSV written: cols={len(resolved_simple)} rows={len(simple_df)} -> {simple_path}",
-                quiet, log_file_path)
+            log(
+                f"Simple CSV written: cols={len(resolved_simple)} rows={len(simple_df)} -> {simple_path}",
+                quiet,
+                log_file_path,
+            )
             if missing_simple:
                 log(f"Simple CSV missing columns (unresolved): {missing_simple}", quiet, log_file_path)
     else:
@@ -313,41 +328,83 @@ def main(argv=None):
     parser.add_argument("--quiet", action="store_true", help="Quiet mode (suppress console output)")
     parser.add_argument("--log_file", default="", help="Log file path")
 
-    parser.add_argument("--normalize_column_names", type=str2bool, default=False,
-                        help="Replace column name spaces with underscores; case is preserved (default False)")
-    parser.add_argument("--fill_haplotype", "--if_write_haplotype_into_new_species_voucher",
-                        type=str2bool, default=DEFAULT_FILL_HAPLOTYPE,
-                        help=f"Fill empty primary_voucher with haplotype (default {DEFAULT_FILL_HAPLOTYPE})")
-    parser.add_argument("--columns_to_combine", "--which_columes_want_combine",
-                        default=",".join(DEFAULT_VOUCHER_COLUMNS),
-                        help="Columns used to generate primary_voucher, in priority order")
-    parser.add_argument("--fallback_column", "--which_volumn_write2_still_empty_species_voucher",
-                        default="ACCESSION",
-                        help="Fallback column to fill empty primary_voucher")
-    parser.add_argument("--combine_species_name", "--if_species_voucher_combine_species_name",
-                        type=str2bool, default=True,
-                        help="Combine species name with primary_voucher")
-    parser.add_argument("--primary_voucher_column_name", "--name_of_pse_species_voucher",
-                        default="species_voucher_pse",
-                        help="Column name for the primary voucher identifier")
-    parser.add_argument("--updated_voucher_column_name", "--name_of_upated_speces_voucher",
-                        default="species_voucher_new",
-                        help="Column name for the updated voucher identifier")
-    parser.add_argument("--species_name_column", "--which_colum_is_species_name",
-                        default="organism",
-                        help="Column containing species names")
-    parser.add_argument("--simple_csv_columns", "--which_volumns_you_want_for_simple_csv",
-                        default="LocusID,Length,Definition,organism,TaxonID,specimen_voucher,species_voucher_new,species_voucher_pse,isolate,strain",
-                        help="Columns to include in the simple output CSV")
-    parser.add_argument("--generate_simple_csv", "--if_generate_simple_csv",
-                        type=str2bool, default=True,
-                        help="Generate simple CSV output")
-    parser.add_argument("--generate_frequency_groups", "--if_generate_sorted_group",
-                        type=str2bool, default=True,
-                        help="Generate frequency group files (occurrences 2-8)")
-    parser.add_argument("--combine_order", "--set_combine_order_for_species_voucher_new",
-                        default="species_name+pse", choices=["species_name+pse", "pse+species_name"],
-                        help="How to combine species name with voucher")
+    parser.add_argument(
+        "--normalize_column_names",
+        type=str2bool,
+        default=False,
+        help="Replace column name spaces with underscores; case is preserved (default False)",
+    )
+    parser.add_argument(
+        "--fill_haplotype",
+        "--if_write_haplotype_into_new_species_voucher",
+        type=str2bool,
+        default=DEFAULT_FILL_HAPLOTYPE,
+        help=f"Fill empty primary_voucher with haplotype (default {DEFAULT_FILL_HAPLOTYPE})",
+    )
+    parser.add_argument(
+        "--columns_to_combine",
+        "--which_columes_want_combine",
+        default=",".join(DEFAULT_VOUCHER_COLUMNS),
+        help="Columns used to generate primary_voucher, in priority order",
+    )
+    parser.add_argument(
+        "--fallback_column",
+        "--which_volumn_write2_still_empty_species_voucher",
+        default="ACCESSION",
+        help="Fallback column to fill empty primary_voucher",
+    )
+    parser.add_argument(
+        "--combine_species_name",
+        "--if_species_voucher_combine_species_name",
+        type=str2bool,
+        default=True,
+        help="Combine species name with primary_voucher",
+    )
+    parser.add_argument(
+        "--primary_voucher_column_name",
+        "--name_of_pse_species_voucher",
+        default="species_voucher_pse",
+        help="Column name for the primary voucher identifier",
+    )
+    parser.add_argument(
+        "--updated_voucher_column_name",
+        "--name_of_upated_speces_voucher",
+        default="species_voucher_new",
+        help="Column name for the updated voucher identifier",
+    )
+    parser.add_argument(
+        "--species_name_column",
+        "--which_colum_is_species_name",
+        default="organism",
+        help="Column containing species names",
+    )
+    parser.add_argument(
+        "--simple_csv_columns",
+        "--which_volumns_you_want_for_simple_csv",
+        default="LocusID,Length,Definition,organism,TaxonID,specimen_voucher,species_voucher_new,species_voucher_pse,isolate,strain",
+        help="Columns to include in the simple output CSV",
+    )
+    parser.add_argument(
+        "--generate_simple_csv",
+        "--if_generate_simple_csv",
+        type=str2bool,
+        default=True,
+        help="Generate simple CSV output",
+    )
+    parser.add_argument(
+        "--generate_frequency_groups",
+        "--if_generate_sorted_group",
+        type=str2bool,
+        default=True,
+        help="Generate frequency group files (occurrences 2-8)",
+    )
+    parser.add_argument(
+        "--combine_order",
+        "--set_combine_order_for_species_voucher_new",
+        default="species_name+pse",
+        choices=["species_name+pse", "pse+species_name"],
+        help="How to combine species name with voucher",
+    )
 
     args = parser.parse_args(argv)
 

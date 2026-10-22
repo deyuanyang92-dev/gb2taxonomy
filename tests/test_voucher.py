@@ -137,10 +137,7 @@ class TestBuildSpeciesVouchersIntegration:
 
     def test_normalize_columns(self, tmp_path):
         csv_path = tmp_path / "input.csv"
-        csv_path.write_text(
-            "organism,gene type,Locus ID,ACCESSION\n"
-            "Org1,coi,L1,A1\n"
-        )
+        csv_path.write_text("organism,gene type,Locus ID,ACCESSION\nOrg1,coi,L1,A1\n")
         out_dir = tmp_path / "output"
         result = build_species_vouchers(
             file_path=str(csv_path),
@@ -152,10 +149,7 @@ class TestBuildSpeciesVouchersIntegration:
 
     def test_fallback_to_accession(self, tmp_path):
         csv_path = tmp_path / "input.csv"
-        csv_path.write_text(
-            "organism,gene_type,LocusID,ACCESSION\n"
-            "Org1,coi,L1,ACC_FALLBACK\n"
-        )
+        csv_path.write_text("organism,gene_type,LocusID,ACCESSION\nOrg1,coi,L1,ACC_FALLBACK\n")
         out_dir = tmp_path / "output"
         build_species_vouchers(
             file_path=str(csv_path),

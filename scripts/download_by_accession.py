@@ -124,8 +124,13 @@ def main():
                 sys.exit(1)
             continue
 
-        progress.update({"last_batch": max(i, progress.get("last_batch", -1)), "failed_batches": failed_batches,
-                         "completed": i == num_batches - 1 and not failed_batches})
+        progress.update(
+            {
+                "last_batch": max(i, progress.get("last_batch", -1)),
+                "failed_batches": failed_batches,
+                "completed": i == num_batches - 1 and not failed_batches,
+            }
+        )
         save_progress(output_dir, progress)
         time.sleep(delay)
 

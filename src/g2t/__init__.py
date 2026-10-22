@@ -23,8 +23,12 @@ import importlib as _importlib  # noqa: E402
 import types as _types  # noqa: E402
 
 _STEP_FUNCTIONS = {
-    "download": "download", "extract": "extract", "classify": "classify",
-    "voucher": "build_species_vouchers", "reconcile": "reconcile", "organize": "organize",
+    "download": "download",
+    "extract": "extract",
+    "classify": "classify",
+    "voucher": "build_species_vouchers",
+    "reconcile": "reconcile",
+    "organize": "organize",
 }
 
 
@@ -39,6 +43,7 @@ for _name in _STEP_FUNCTIONS:
 
 def run(*args, **kwargs):
     from g2t._pipeline import run as _run
+
     return _run(*args, **kwargs)
 
 

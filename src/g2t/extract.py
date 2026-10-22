@@ -44,8 +44,8 @@ from g2t.utils import StepResult
 # ===============================
 logger = logging.getLogger(__name__)
 
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 # ===============================
 # Global state (encapsulated in TaxonomyService)
@@ -79,6 +79,7 @@ class TaxonomyService:
         try:
             if self.ncbi_taxa_cls is None:
                 from ete3 import NCBITaxa as C
+
                 self.ncbi_taxa_cls = C
             ncbi = self.ncbi_taxa_cls()
             logger.info("Updating NCBI taxonomy database...")
@@ -105,6 +106,7 @@ class TaxonomyService:
         if spec is not None:
             try:
                 from ete3 import NCBITaxa
+
                 self.ncbi_taxa_cls = NCBITaxa
                 self.ete3_available = True
                 logger.info("ete3 module loaded")
@@ -116,7 +118,8 @@ class TaxonomyService:
         self.entrez_fallback = True
         logger.warning(
             f"{reason}; falling back to NCBI Entrez (db=taxonomy, needs network) "
-            f"for Class/Order/Family/Genus. Set NCBI_EMAIL / NCBI_API_KEY to identify yourself to NCBI.")
+            f"for Class/Order/Family/Genus. Set NCBI_EMAIL / NCBI_API_KEY to identify yourself to NCBI."
+        )
         return True
 
     def get_lineage(self, tax_id_str: str) -> dict[str, str]:
@@ -139,9 +142,7 @@ class TaxonomyService:
             rank_dict = ncbi.get_rank(lineage)
             names = ncbi.get_taxid_translator(lineage)
             result = {
-                rank_dict[tid].capitalize(): names[tid]
-                for tid in lineage
-                if rank_dict.get(tid) in _LINEAGE_RANKS
+                rank_dict[tid].capitalize(): names[tid] for tid in lineage if rank_dict.get(tid) in _LINEAGE_RANKS
             }
         except Exception as e:
             if tax_id_str not in self.errors_reported:
@@ -157,12 +158,11 @@ class TaxonomyService:
         if not cache_path or not os.path.isfile(cache_path):
             return {}
         try:
-            with open(cache_path, encoding='utf-8') as f:
+            with open(cache_path, encoding="utf-8") as f:
                 data = json.load(f)
             if not isinstance(data, dict):
                 raise ValueError("not a JSON object")
-            return {str(k): {str(a): str(b) for a, b in v.items()}
-                    for k, v in data.items() if isinstance(v, dict)}
+            return {str(k): {str(a): str(b) for a, b in v.items()} for k, v in data.items() if isinstance(v, dict)}
         except Exception as e:
             logger.warning(f"Ignoring unreadable taxonomy cache {cache_path}: {e}")
             return {}
@@ -172,7 +172,7 @@ class TaxonomyService:
         try:
             os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
             tmp = cache_path + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as f:
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=1, sort_keys=True)
             os.replace(tmp, cache_path)
         except OSError as e:
@@ -230,10 +230,12 @@ class TaxonomyService:
             self.cache.setdefault(tid, lineage)
         missing = [t for t in wanted if t not in self.cache]
         if missing:
-            logger.info(f"Taxonomy: requesting {len(missing)} TaxonID(s) from NCBI Entrez "
-                        f"({len(wanted) - len(missing)} already cached)")
+            logger.info(
+                f"Taxonomy: requesting {len(missing)} TaxonID(s) from NCBI Entrez "
+                f"({len(wanted) - len(missing)} already cached)"
+            )
         for i in range(0, len(missing), ENTREZ_TAXONOMY_BATCH):
-            chunk = missing[i:i + ENTREZ_TAXONOMY_BATCH]
+            chunk = missing[i : i + ENTREZ_TAXONOMY_BATCH]
             try:
                 got = self._efetch_lineages(chunk)
             except Exception as e:
@@ -241,7 +243,8 @@ class TaxonomyService:
                 logger.warning(
                     f"NCBI Entrez taxonomy lookup failed ({type(e).__name__}: {e}); "
                     f"Class/Order/Family/Genus will be empty for {pending} TaxonID(s). "
-                    f"Re-run with network access to fill them.")
+                    f"Re-run with network access to fill them."
+                )
                 break
             for tid in chunk:
                 self.cache[tid] = got.get(tid, {})  # unknown ids -> {} (request succeeded)
@@ -265,13 +268,16 @@ GB_EXTENSIONS = (".gb", ".gbk", ".genbank", ".gbff")
 # Assembly regex (pre-compiled)
 # ===============================
 # a value ends at the line end or at the next field label on the same line ("...: Illumina; Assembly Method: ...")
-_FLEX_END = (r'(.*?)(?=;\s*(?:Assembly\s+Method|Assembly\s+Name|Sequencing\s+Technology|Genome\s+Coverage|'
-             r'Expected\s+Final\s+Version)\s*::?|\n|$)')
-_FLEX_AM = re.compile(r'Assembly\s+Method\s*::?\s*' + _FLEX_END, re.IGNORECASE)
-_FLEX_AN = re.compile(r'Assembly\s+Name\s*::?\s*' + _FLEX_END, re.IGNORECASE)
-_FLEX_ST = re.compile(r'Sequencing\s+Technology\s*::?\s*' + _FLEX_END, re.IGNORECASE)
-_FLEX_GC = re.compile(r'Genome\s+Coverage\s*::?\s*' + _FLEX_END, re.IGNORECASE)
-_FLEX_EL = re.compile(r'Expected\s+Final\s+Version\s*::?\s*' + _FLEX_END, re.IGNORECASE)
+_FLEX_END = (
+    r"(.*?)(?=;\s*(?:Assembly\s+Method|Assembly\s+Name|Sequencing\s+Technology|Genome\s+Coverage|"
+    r"Expected\s+Final\s+Version)\s*::?|\n|$)"
+)
+_FLEX_AM = re.compile(r"Assembly\s+Method\s*::?\s*" + _FLEX_END, re.IGNORECASE)
+_FLEX_AN = re.compile(r"Assembly\s+Name\s*::?\s*" + _FLEX_END, re.IGNORECASE)
+_FLEX_ST = re.compile(r"Sequencing\s+Technology\s*::?\s*" + _FLEX_END, re.IGNORECASE)
+_FLEX_GC = re.compile(r"Genome\s+Coverage\s*::?\s*" + _FLEX_END, re.IGNORECASE)
+_FLEX_EL = re.compile(r"Expected\s+Final\s+Version\s*::?\s*" + _FLEX_END, re.IGNORECASE)
+
 
 # ===============================
 # Data classes
@@ -357,11 +363,11 @@ class ProcessingSummary:
     def add_result(self, result: FileResult):
         self.file_results.append(result)
         _map = {
-            FileStatus.SUCCESS: 'files_succeeded',
-            FileStatus.PARTIAL: 'files_partial',
-            FileStatus.FAILED: 'files_failed',
-            FileStatus.EMPTY: 'files_empty',
-            FileStatus.INVALID: 'files_invalid',
+            FileStatus.SUCCESS: "files_succeeded",
+            FileStatus.PARTIAL: "files_partial",
+            FileStatus.FAILED: "files_failed",
+            FileStatus.EMPTY: "files_empty",
+            FileStatus.INVALID: "files_invalid",
         }
         attr = _map.get(result.status)
         if attr:
@@ -374,8 +380,11 @@ class ProcessingSummary:
         self.total_assembly_failed += result.assembly_failed
 
     def get_failed_files(self) -> list[str]:
-        return [r.file_path for r in self.file_results
-                if r.status in (FileStatus.FAILED, FileStatus.INVALID, FileStatus.EMPTY)]
+        return [
+            r.file_path
+            for r in self.file_results
+            if r.status in (FileStatus.FAILED, FileStatus.INVALID, FileStatus.EMPTY)
+        ]
 
     def get_all_record_errors(self) -> list[RecordError]:
         errs = []
@@ -403,16 +412,16 @@ class ProcessingSummary:
         logger.info(f"    Total records:         {self.total_records_in_files}")
         logger.info(f"    Metadata extracted:    {self.total_metadata_extracted}")
         logger.info(f"    Metadata failed:       {self.total_metadata_failed}")
-        md_rate = (self.total_metadata_extracted / self.total_records_in_files * 100
-                   if self.total_records_in_files > 0 else 0)
+        md_rate = (
+            self.total_metadata_extracted / self.total_records_in_files * 100 if self.total_records_in_files > 0 else 0
+        )
         logger.info(f"    Metadata rate:         {md_rate:.1f}%")
         logger.info("")
         logger.info(f"    Assembly extracted:    {self.total_assembly_extracted}")
         logger.info(f"    Assembly no data:      {self.total_assembly_no_data}")
         logger.info(f"    Assembly failed:       {self.total_assembly_failed}")
         asm_with_data = self.total_assembly_extracted + self.total_assembly_failed
-        asm_rate = (self.total_assembly_extracted / asm_with_data * 100
-                    if asm_with_data > 0 else 0)
+        asm_rate = self.total_assembly_extracted / asm_with_data * 100 if asm_with_data > 0 else 0
         logger.info(f"    Assembly coverage:     {self.total_assembly_extracted}/{asm_with_data} ({asm_rate:.1f}%)")
         logger.info("-" * 75)
         logger.info(f"  Total time:              {self.total_elapsed_time:.2f}s")
@@ -427,8 +436,9 @@ class ProcessingSummary:
         logger.info("  " + "-" * 73)
         for r in self.file_results:
             fname = os.path.basename(r.file_path)
-            icon = {"success": "OK", "partial": "~", "failed": "X",
-                    "empty": "0", "invalid": "!"}.get(r.status.value, "?")
+            icon = {"success": "OK", "partial": "~", "failed": "X", "empty": "0", "invalid": "!"}.get(
+                r.status.value, "?"
+            )
             logger.info(f"  {icon} {fname}")
             if r.status in (FileStatus.INVALID, FileStatus.EMPTY):
                 logger.info(f"      Status: {r.status.value}  |  Reason: {r.error_message}")
@@ -447,7 +457,7 @@ class ProcessingSummary:
                 failed_accs = [t.accession for t in r.record_tracks if not t.metadata_ok]
                 if failed_accs:
                     shown = failed_accs[:5]
-                    more = f" ... +{len(failed_accs)-5}" if len(failed_accs) > 5 else ""
+                    more = f" ... +{len(failed_accs) - 5}" if len(failed_accs) > 5 else ""
                     logger.info(f"      Failed ACCESSIONs: {', '.join(shown)}{more}")
 
     def save_report(self, output_dir: str):
@@ -470,7 +480,7 @@ class ProcessingSummary:
                 "total_assembly_failed": self.total_assembly_failed,
                 "total_elapsed_time": round(self.total_elapsed_time, 2),
             },
-            "files": []
+            "files": [],
         }
         for r in self.file_results:
             fr = {
@@ -487,15 +497,19 @@ class ProcessingSummary:
                 "error_message": r.error_message,
                 "elapsed_time": round(r.elapsed_time, 2),
                 "record_errors": [
-                    {"record_index": e.record_index, "accession": e.accession,
-                     "error_type": e.error_type, "error_message": e.error_message,
-                     "phase": e.phase}
+                    {
+                        "record_index": e.record_index,
+                        "accession": e.accession,
+                        "error_type": e.error_type,
+                        "error_message": e.error_message,
+                        "phase": e.phase,
+                    }
                     for e in r.record_errors
                 ],
             }
             report["files"].append(fr)
         try:
-            with open(report_path, 'w', encoding='utf-8') as f:
+            with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, ensure_ascii=False, indent=2)
             logger.info(f"Report: {report_path}")
         except Exception as e:
@@ -507,13 +521,20 @@ class ProcessingSummary:
             return
         path = os.path.join(output_dir, "record_errors.csv")
         try:
-            with open(path, 'w', newline='', encoding='utf-8') as f:
+            with open(path, "w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(['file_name', 'record_index', 'accession',
-                            'error_type', 'error_message', 'phase'])
+                w.writerow(["file_name", "record_index", "accession", "error_type", "error_message", "phase"])
                 for e in all_errors:
-                    w.writerow([os.path.basename(e.file_path), e.record_index,
-                                e.accession, e.error_type, e.error_message, e.phase])
+                    w.writerow(
+                        [
+                            os.path.basename(e.file_path),
+                            e.record_index,
+                            e.accession,
+                            e.error_type,
+                            e.error_message,
+                            e.phase,
+                        ]
+                    )
             logger.info(f"Error CSV: {path} ({len(all_errors)} records)")
         except Exception as e:
             logger.error(f"Failed to save error CSV: {e}")
@@ -526,18 +547,35 @@ class ProcessingSummary:
             return
         path = os.path.join(output_dir, "record_tracking.csv")
         try:
-            with open(path, 'w', newline='', encoding='utf-8') as f:
+            with open(path, "w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(['file_name', 'record_index', 'accession',
-                            'metadata_ok', 'assembly_ok', 'assembly_source',
-                            'has_assembly_data', 'error_message'])
+                w.writerow(
+                    [
+                        "file_name",
+                        "record_index",
+                        "accession",
+                        "metadata_ok",
+                        "assembly_ok",
+                        "assembly_source",
+                        "has_assembly_data",
+                        "error_message",
+                    ]
+                )
                 for r in self.file_results:
                     fname = os.path.basename(r.file_path)
                     for t in r.record_tracks:
-                        w.writerow([fname, t.record_index, t.accession,
-                                    t.metadata_ok, t.assembly_ok,
-                                    t.assembly_source, t.has_assembly_data,
-                                    t.error_message])
+                        w.writerow(
+                            [
+                                fname,
+                                t.record_index,
+                                t.accession,
+                                t.metadata_ok,
+                                t.assembly_ok,
+                                t.assembly_source,
+                                t.has_assembly_data,
+                                t.error_message,
+                            ]
+                        )
             logger.info(f"Tracking CSV: {path} ({len(all_tracks)} records)")
         except Exception as e:
             logger.error(f"Failed to save tracking CSV: {e}")
@@ -552,10 +590,13 @@ def discover_gb_files(input_paths: list[str], recursive: bool = True) -> tuple[l
     skipped = 0
     for path in input_paths:
         if os.path.isdir(path):
-            walker = (os.walk(path) if recursive
-                      else [(path, [], [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])])
+            walker = (
+                os.walk(path)
+                if recursive
+                else [(path, [], [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])]
+            )
             for root, dirs, files in walker:
-                dirs.sort()     # os.walk honours in-place sorting: same file order on every filesystem
+                dirs.sort()  # os.walk honours in-place sorting: same file order on every filesystem
                 for fn in sorted(files):
                     total_files += 1
                     if fn.lower().endswith(GB_EXTENSIONS):
@@ -585,7 +626,7 @@ def validate_and_estimate_records(file_path: str) -> tuple[bool, str, int]:
             return False, "Empty file (0 bytes)", 0
 
         count = 0
-        with open(file_path, encoding='utf-8', errors='replace') as f:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
             header = f.read(min(2048, sz))
             if not header.strip():
                 return False, "File content empty", 0
@@ -605,7 +646,7 @@ def validate_and_estimate_records(file_path: str) -> tuple[bool, str, int]:
 
 def format_size(size_bytes) -> str:
     s = float(size_bytes) if size_bytes else 0
-    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+    for unit in ("B", "KB", "MB", "GB", "TB"):
         if s < 1024:
             return f"{s:.1f} {unit}"
         s /= 1024
@@ -663,9 +704,9 @@ def collect_taxon_ids(gb_files: list[str]) -> list[str]:
     ids: dict[str, None] = {}
     for fp in gb_files:
         try:
-            with open(fp, encoding='utf-8', errors='replace') as f:
+            with open(fp, encoding="utf-8", errors="replace") as f:
                 for line in f:
-                    if 'taxon:' in line:
+                    if "taxon:" in line:
                         for tid in _TAXON_XREF_RE.findall(line):
                             ids[tid] = None
         except OSError:
@@ -693,14 +734,14 @@ def parse_locus(record: SeqRecord) -> dict[str, str]:
         "MoleculeType": str(ann.get("molecule_type", "") or "").title(),
         "Topology": str(ann.get("topology", "") or "").capitalize(),
         "Division": str(ann.get("data_file_division", "") or ""),
-        "Date": str(ann.get("date", "") or "")
+        "Date": str(ann.get("date", "") or ""),
     }
 
 
 def parse_source_feature(feature: SeqFeature) -> dict[str, str]:
     data = {}
     for q, vals in feature.qualifiers.items():
-        cleaned = [' '.join(v.replace('\n', ' ').split()) for v in vals]
+        cleaned = [" ".join(v.replace("\n", " ").split()) for v in vals]
         if q == "db_xref":
             # The first taxon:<id> becomes TaxonID.  Every other cross-reference
             # (BOLD:..., a second taxon:..., etc.) is kept in the db_xref column (L-19).
@@ -746,7 +787,8 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> dict[s
     if len(sources) > 1:
         logger.warning(
             f"{metadata['ACCESSION'] or record.id}: {len(sources)} source features found; "
-            f"using the first one and ignoring the others")
+            f"using the first one and ignoring the others"
+        )
     if sources:
         metadata.update(parse_source_feature(sources[0]))
     if not metadata.get("organism"):
@@ -766,21 +808,25 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> dict[s
 # ===============================
 # Assembly extraction: 3 strategies
 # ===============================
-ASSEMBLY_FIELDS = ("Assembly Method", "Assembly Name", "Sequencing Technology",
-                   "Genome Coverage", "Expected Final Version")
+ASSEMBLY_FIELDS = (
+    "Assembly Method",
+    "Assembly Name",
+    "Sequencing Technology",
+    "Genome Coverage",
+    "Expected Final Version",
+)
 
 
 def _clean_value(v) -> str:
     if isinstance(v, list):
         v = "; ".join(str(x) for x in v)
-    return ' '.join(str(v).replace('\n', ' ').split()).strip()
+    return " ".join(str(v).replace("\n", " ").split()).strip()
 
 
 def extract_assembly_from_structured_comment(record: SeqRecord) -> tuple[dict[str, str] | None, str]:
     sc: Any = record.annotations.get("structured_comment", {})
     asm_data = None
-    for key in ("Assembly-Data", "Assembly-data", "assembly-data",
-                "Genome-Assembly-Data", "Genome-assembly-data"):
+    for key in ("Assembly-Data", "Assembly-data", "assembly-data", "Genome-Assembly-Data", "Genome-assembly-data"):
         if key in sc:
             asm_data = sc[key]
             break
@@ -791,8 +837,7 @@ def extract_assembly_from_structured_comment(record: SeqRecord) -> tuple[dict[st
     key_map = {
         "Assembly Method": ["Assembly Method", "Assembly_Method", "AssemblyMethod"],
         "Assembly Name": ["Assembly Name", "Assembly_Name", "AssemblyName"],
-        "Sequencing Technology": ["Sequencing Technology", "Sequencing_Technology",
-                                  "SequencingTechnology"],
+        "Sequencing Technology": ["Sequencing Technology", "Sequencing_Technology", "SequencingTechnology"],
         "Genome Coverage": ["Genome Coverage", "Genome_Coverage", "GenomeCoverage"],
         "Expected Final Version": ["Expected Final Version", "Expected_Final_Version"],
     }
@@ -832,7 +877,7 @@ def extract_assembly_from_comment_regex(record: SeqRecord) -> tuple[dict[str, st
     for field_name, pat in patterns.items():
         m = pat.search(comment)
         if m:
-            val = m.group(1).strip().rstrip(';').strip()
+            val = m.group(1).strip().rstrip(";").strip()
             if val:
                 result[field_name] = val
     if result:
@@ -854,17 +899,47 @@ def extract_assembly_from_record(record: SeqRecord) -> tuple[dict[str, str] | No
 # Column ordering
 # ===============================
 BASE_METADATA_COLUMNS = [
-    "LocusID", "ACCESSION", "Version", "Length", "MoleculeType", "Topology",
-    "Division", "Date", "Definition", "Keywords", "Organism", "Taxonomy",
-    "organism", "mol_type", "organelle", "isolate", "host", "db_xref", "country",
-    "specimen_voucher", "culture_collection", "clone", "strain",
-    "collection_date", "collected_by", "identified_by", "note",
-    "TaxonID", "Class", "Order", "Family", "Genus",
+    "LocusID",
+    "ACCESSION",
+    "Version",
+    "Length",
+    "MoleculeType",
+    "Topology",
+    "Division",
+    "Date",
+    "Definition",
+    "Keywords",
+    "Organism",
+    "Taxonomy",
+    "organism",
+    "mol_type",
+    "organelle",
+    "isolate",
+    "host",
+    "db_xref",
+    "country",
+    "specimen_voucher",
+    "culture_collection",
+    "clone",
+    "strain",
+    "collection_date",
+    "collected_by",
+    "identified_by",
+    "note",
+    "TaxonID",
+    "Class",
+    "Order",
+    "Family",
+    "Genus",
 ]
 
 ASSEMBLY_CSV_COLUMNS = [
-    'ACCESSION', 'Assembly Method', 'Assembly Name', 'Sequencing Technology',
-    'Genome Coverage', 'Expected Final Version',
+    "ACCESSION",
+    "Assembly Method",
+    "Assembly Name",
+    "Sequencing Technology",
+    "Genome Coverage",
+    "Expected Final Version",
 ]
 
 
@@ -887,10 +962,11 @@ def canonical_metadata_columns(present) -> list[str]:
 def prescan_fieldnames(gb_files: list[str]) -> list[str]:
     """Pre-scan all GB files to collect every unique source qualifier key."""
     from Bio import SeqIO
+
     all_keys = set()
     for fp in gb_files:
         try:
-            with open(fp, encoding='utf-8', errors='replace') as handle:
+            with open(fp, encoding="utf-8", errors="replace") as handle:
                 for record in SeqIO.parse(handle, "genbank"):
                     for feat in record.features:
                         if feat.type == "source":
@@ -951,7 +1027,7 @@ def count_record_terminators(file_path: str) -> int | None:
     """Number of lines that are exactly "//" (GenBank record terminators); None if unreadable."""
     count = 0
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             for line in f:
                 if line.strip() == b"//":
                     count += 1
@@ -960,8 +1036,9 @@ def count_record_terminators(file_path: str) -> int | None:
     return count
 
 
-RecordCallback = Callable[[Optional[dict[str, str]], Optional[dict[str, str]],
-                           str, bool, RecordTrack, 'FileResult'], None]
+RecordCallback = Callable[
+    [Optional[dict[str, str]], Optional[dict[str, str]], str, bool, RecordTrack, "FileResult"], None
+]
 
 
 def _process_record_loop(
@@ -1000,7 +1077,7 @@ def _process_record_loop(
     record_idx = 0
     parse_error = ""
     try:
-        with open(file_path, encoding='utf-8', errors='replace') as handle:
+        with open(file_path, encoding="utf-8", errors="replace") as handle:
             for record in SeqIO.parse(handle, "genbank"):
                 record_idx += 1
                 accession = ""
@@ -1035,11 +1112,16 @@ def _process_record_loop(
                     track.error_message = str(e)
                     if do_metadata and not track.metadata_ok:
                         result.metadata_failed += 1
-                        result.add_record_error(RecordError(
-                            file_path=file_path, record_index=record_idx,
-                            accession=accession, error_type=type(e).__name__,
-                            error_message=str(e), phase="metadata"
-                        ))
+                        result.add_record_error(
+                            RecordError(
+                                file_path=file_path,
+                                record_index=record_idx,
+                                accession=accession,
+                                error_type=type(e).__name__,
+                                error_message=str(e),
+                                phase="metadata",
+                            )
+                        )
                     if do_assembly and track.has_assembly_data and not track.assembly_ok:
                         result.assembly_failed += 1
 
@@ -1052,16 +1134,22 @@ def _process_record_loop(
                     speed = done / elapsed if elapsed > 0 else 0
                     mem = get_memory_mb()
                     mem_s = f", mem:{mem:.0f}MB" if mem else ""
-                    logger.info(
-                        f"  Progress: {done} ({speed:.0f}/s{mem_s})")
+                    logger.info(f"  Progress: {done} ({speed:.0f}/s{mem_s})")
 
     except Exception as e:
         parse_error = f"Biopython parse error: {e}"
         result.error_message = parse_error
         logger.error(f"  File-level error: {e}")
-        result.add_record_error(RecordError(
-            file_path=file_path, record_index=record_idx + 1, accession="",
-            error_type=type(e).__name__, error_message=str(e), phase="parse"))
+        result.add_record_error(
+            RecordError(
+                file_path=file_path,
+                record_index=record_idx + 1,
+                accession="",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                phase="parse",
+            )
+        )
 
     # Set total records after processing
     result.total_records = record_idx
@@ -1079,13 +1167,22 @@ def _process_record_loop(
             detail = "the last record has no '//' terminator (file truncated?)"
         else:
             detail = f"{expected - record_idx} record(s) were not parsed"
-        msg = (f"record count mismatch: file has {expected} '//' terminator(s) "
-               f"but {record_idx} record(s) were parsed; {detail}")
+        msg = (
+            f"record count mismatch: file has {expected} '//' terminator(s) "
+            f"but {record_idx} record(s) were parsed; {detail}"
+        )
         logger.warning(f"  {name}: {msg}")
         result.error_message = f"{result.error_message}; {msg}" if result.error_message else msg
-        result.add_record_error(RecordError(
-            file_path=file_path, record_index=record_idx + 1, accession="",
-            error_type="RecordCountMismatch", error_message=msg, phase="parse"))
+        result.add_record_error(
+            RecordError(
+                file_path=file_path,
+                record_index=record_idx + 1,
+                accession="",
+                error_type="RecordCountMismatch",
+                error_message=msg,
+                phase="parse",
+            )
+        )
 
     # Status determination (a file with any parse problem is never SUCCESS)
     if do_metadata:
@@ -1117,8 +1214,8 @@ def stream_process_single_file(
     include_taxonomy: bool = True,
     do_extract_metadata: bool = True,  # P1-20: renamed from extract_metadata
     do_extract_assembly: bool = True,
-    metadata_delimiter: str = ',',
-    assembly_delimiter: str = '\t',
+    metadata_delimiter: str = ",",
+    assembly_delimiter: str = "\t",
     log_interval: int = 5000,
 ) -> FileResult:
     metadata_fh = None
@@ -1129,12 +1226,11 @@ def stream_process_single_file(
 
     try:
         if do_extract_metadata and metadata_csv_path:
-            metadata_fh = open(metadata_csv_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
+            metadata_fh = open(metadata_csv_path, "w", newline="", encoding="utf-8")  # noqa: SIM115
         if do_extract_assembly and assembly_csv_path:
-            assembly_fh = open(assembly_csv_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
+            assembly_fh = open(assembly_csv_path, "w", newline="", encoding="utf-8")  # noqa: SIM115
             assembly_writer = csv.DictWriter(
-                assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS,
-                delimiter=assembly_delimiter, extrasaction='ignore'
+                assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS, delimiter=assembly_delimiter, extrasaction="ignore"
             )
             assembly_writer.writeheader()
 
@@ -1147,8 +1243,7 @@ def stream_process_single_file(
             if do_extract_metadata and metadata is not None and metadata_fh:
                 if not metadata_header_written:
                     metadata_writer = csv.DictWriter(
-                        metadata_fh, fieldnames=all_fieldnames,
-                        delimiter=metadata_delimiter, extrasaction='ignore'
+                        metadata_fh, fieldnames=all_fieldnames, delimiter=metadata_delimiter, extrasaction="ignore"
                     )
                     metadata_writer.writeheader()
                     metadata_header_written = True
@@ -1165,8 +1260,7 @@ def stream_process_single_file(
                 assembly_writer.writerow(assembly_data)
 
         result = _process_record_loop(
-            file_path, stream_callback, include_taxonomy,
-            do_extract_metadata, do_extract_assembly, log_interval
+            file_path, stream_callback, include_taxonomy, do_extract_metadata, do_extract_assembly, log_interval
         )
         return result
 
@@ -1199,8 +1293,7 @@ def memory_process_single_file(
             asm_rows.append(assembly_data)
 
     result = _process_record_loop(
-        file_path, memory_callback, include_taxonomy,
-        do_extract_metadata, do_extract_assembly
+        file_path, memory_callback, include_taxonomy, do_extract_metadata, do_extract_assembly
     )
     return result, md_rows, asm_rows
 
@@ -1208,8 +1301,9 @@ def memory_process_single_file(
 # ===============================
 # Merge metadata + assembly
 # ===============================
-def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delimiter: str = ',',
-                               md_delimiter: str = ',', asm_delimiter: str = '\t'):
+def combine_and_save_final_csv(
+    md_file: str, asm_file: str, out_file: str, delimiter: str = ",", md_delimiter: str = ",", asm_delimiter: str = "\t"
+):
     start = time.time()
     # L-04: read everything as text so leading zeros ("007"), exponent-like ids
     # ("1E5") and big integers are never rewritten; empty cells stay "" and
@@ -1236,15 +1330,15 @@ def combine_and_save_final_csv(md_file: str, asm_file: str, out_file: str, delim
     else:
         final = md_df
 
-    final.to_csv(out_file, index=False, sep=delimiter, encoding='utf-8')
-    logger.info(f"Merged: {out_file} ({len(final)} records, {time.time()-start:.1f}s)")
+    final.to_csv(out_file, index=False, sep=delimiter, encoding="utf-8")
+    logger.info(f"Merged: {out_file} ({len(final)} records, {time.time() - start:.1f}s)")
 
 
 def _write_metadata_frame(rows: list[dict], path: str, delimiter: str) -> pd.DataFrame:
     """Write metadata rows with the same column set/order as the stream writer (L-20)."""
     df = pd.DataFrame(rows)
     df = df.reindex(columns=canonical_metadata_columns(df.columns)).fillna("")
-    df.to_csv(path, index=False, sep=delimiter, encoding='utf-8')
+    df.to_csv(path, index=False, sep=delimiter, encoding="utf-8")
     return df
 
 
@@ -1255,7 +1349,7 @@ def _write_assembly_frame(rows: list[dict], path: str, delimiter: str) -> pd.Dat
         if c not in df.columns:
             df[c] = ""
     df = df[ASSEMBLY_CSV_COLUMNS].fillna("")
-    df.to_csv(path, index=False, sep=delimiter, encoding='utf-8')
+    df.to_csv(path, index=False, sep=delimiter, encoding="utf-8")
     return df
 
 
@@ -1263,16 +1357,17 @@ def _write_assembly_frame(rows: list[dict], path: str, delimiter: str) -> pd.Dat
 # Main flow: non-batch
 # ===============================
 def process_all_files(
-    gb_files: list[str], output_dir: str,
+    gb_files: list[str],
+    output_dir: str,
     metadata_output: str = "metadata.csv",
     assembly_output: str = "assembly.csv",
     final_output: str = "final.csv",
     include_taxonomy: bool = True,
     only_assembly: bool = False,
     only_except_assembly: bool = False,
-    metadata_delimiter: str = ',',
-    assembly_delimiter: str = '\t',
-    final_delimiter: str = ',',
+    metadata_delimiter: str = ",",
+    assembly_delimiter: str = "\t",
+    final_delimiter: str = ",",
     stream_mode: bool = False,
     log_interval: int = 5000,
 ) -> ProcessingSummary:
@@ -1298,12 +1393,11 @@ def process_all_files(
         assembly_writer = None
         try:
             if do_metadata:
-                metadata_fh = open(metadata_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
+                metadata_fh = open(metadata_path, "w", newline="", encoding="utf-8")  # noqa: SIM115
             if do_assembly:
-                assembly_fh = open(assembly_path, 'w', newline='', encoding='utf-8')  # noqa: SIM115
+                assembly_fh = open(assembly_path, "w", newline="", encoding="utf-8")  # noqa: SIM115
                 assembly_writer = csv.DictWriter(
-                    assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS,
-                    delimiter=assembly_delimiter, extrasaction='ignore'
+                    assembly_fh, fieldnames=ASSEMBLY_CSV_COLUMNS, delimiter=assembly_delimiter, extrasaction="ignore"
                 )
                 assembly_writer.writeheader()
 
@@ -1318,8 +1412,11 @@ def process_all_files(
                     if do_metadata and metadata and metadata_fh:
                         if not metadata_header_written:
                             metadata_writer = csv.DictWriter(
-                                metadata_fh, fieldnames=all_fieldnames,
-                                delimiter=metadata_delimiter, extrasaction='ignore')
+                                metadata_fh,
+                                fieldnames=all_fieldnames,
+                                delimiter=metadata_delimiter,
+                                extrasaction="ignore",
+                            )
                             metadata_writer.writeheader()
                             metadata_header_written = True
                         for fn in metadata_writer.fieldnames:
@@ -1336,8 +1433,10 @@ def process_all_files(
                 summary.add_result(fr)
 
                 icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
-                logger.info(f"  {icon} MD:{fr.metadata_extracted}/{fr.total_records} "
-                            f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)")
+                logger.info(
+                    f"  {icon} MD:{fr.metadata_extracted}/{fr.total_records} "
+                    f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)"
+                )
 
         finally:
             for fh in (metadata_fh, assembly_fh):
@@ -1350,8 +1449,9 @@ def process_all_files(
 
         if do_metadata and do_assembly and summary.total_metadata_extracted > 0:
             try:
-                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
-                                           metadata_delimiter, assembly_delimiter)
+                combine_and_save_final_csv(
+                    metadata_path, assembly_path, final_path, final_delimiter, metadata_delimiter, assembly_delimiter
+                )
             except Exception as e:
                 logger.error(f"Merge error: {e}")
 
@@ -1371,8 +1471,10 @@ def process_all_files(
             summary.add_result(fr)
 
             icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
-            logger.info(f"  {icon} MD:{fr.metadata_extracted}/{fr.total_records} "
-                        f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)")
+            logger.info(
+                f"  {icon} MD:{fr.metadata_extracted}/{fr.total_records} "
+                f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)"
+            )
 
         if do_metadata and all_metadata:
             try:
@@ -1390,8 +1492,9 @@ def process_all_files(
 
         if do_metadata and do_assembly and all_metadata:
             try:
-                combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
-                                           metadata_delimiter, assembly_delimiter)
+                combine_and_save_final_csv(
+                    metadata_path, assembly_path, final_path, final_delimiter, metadata_delimiter, assembly_delimiter
+                )
             except Exception as e:
                 logger.error(f"Merge error: {e}")
 
@@ -1409,6 +1512,7 @@ def _init_worker(cache_dict, ete3_available=False, entrez_fallback=False):
     if ete3_available and not _taxonomy.ete3_available:
         try:
             from ete3 import NCBITaxa
+
             _taxonomy.ncbi_taxa_cls = NCBITaxa
             _taxonomy.ete3_available = True
         except Exception as e:
@@ -1432,15 +1536,27 @@ def _unique_batch_names(gb_files: list[str]) -> list[str]:
 
 def _batch_paths(output_dir: str, base: str) -> tuple[str, str, str, str]:
     sub = os.path.join(output_dir, base + "_metadata")
-    return (sub, os.path.join(sub, base + "_metadata.csv"),
-            os.path.join(sub, base + "_assembly.csv"),
-            os.path.join(sub, base + "_metadata_final.csv"))
+    return (
+        sub,
+        os.path.join(sub, base + "_metadata.csv"),
+        os.path.join(sub, base + "_assembly.csv"),
+        os.path.join(sub, base + "_metadata_final.csv"),
+    )
 
 
 def _process_single_file_batch(
-    file_path: str, base: str, *,
-    output_dir: str, do_metadata: bool, do_assembly: bool, tax: bool, stream_mode: bool,
-    metadata_delimiter: str, assembly_delimiter: str, final_delimiter: str, log_interval: int,
+    file_path: str,
+    base: str,
+    *,
+    output_dir: str,
+    do_metadata: bool,
+    do_assembly: bool,
+    tax: bool,
+    stream_mode: bool,
+    metadata_delimiter: str,
+    assembly_delimiter: str,
+    final_delimiter: str,
+    log_interval: int,
 ) -> FileResult:
     """Process one GenBank file into ``<output_dir>/<base>_metadata/``.
 
@@ -1454,8 +1570,16 @@ def _process_single_file_batch(
 
     if stream_mode:
         fr = stream_process_single_file(
-            file_path, metadata_path, assembly_path, tax, do_metadata, do_assembly,
-            metadata_delimiter, assembly_delimiter, log_interval)
+            file_path,
+            metadata_path,
+            assembly_path,
+            tax,
+            do_metadata,
+            do_assembly,
+            metadata_delimiter,
+            assembly_delimiter,
+            log_interval,
+        )
     else:
         fr, mdr, asmr = memory_process_single_file(file_path, tax, do_assembly, do_metadata)
         if do_metadata and mdr and metadata_path:
@@ -1469,13 +1593,20 @@ def _process_single_file_batch(
             except Exception as e:
                 logger.error(f"Save error: {e}")
 
-    if (do_metadata and do_assembly and metadata_path and assembly_path
-            and os.path.exists(metadata_path) and os.path.getsize(metadata_path) > 0):
+    if (
+        do_metadata
+        and do_assembly
+        and metadata_path
+        and assembly_path
+        and os.path.exists(metadata_path)
+        and os.path.getsize(metadata_path) > 0
+    ):
         try:
-            combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
-                                       metadata_delimiter, assembly_delimiter)
+            combine_and_save_final_csv(
+                metadata_path, assembly_path, final_path, final_delimiter, metadata_delimiter, assembly_delimiter
+            )
         except Exception as e:
-                logger.error(f"Merge error: {e}")
+            logger.error(f"Merge error: {e}")
 
     return fr
 
@@ -1492,10 +1623,16 @@ def _read_text_csv(path: str, sep: str) -> pd.DataFrame | None:
 
 
 def _merge_batch_outputs(
-    names: list[str], output_dir: str,
-    metadata_output: str, assembly_output: str, final_output: str,
-    do_metadata: bool, do_assembly: bool,
-    metadata_delimiter: str, assembly_delimiter: str, final_delimiter: str,
+    names: list[str],
+    output_dir: str,
+    metadata_output: str,
+    assembly_output: str,
+    final_output: str,
+    do_metadata: bool,
+    do_assembly: bool,
+    metadata_delimiter: str,
+    assembly_delimiter: str,
+    final_delimiter: str,
 ) -> int:
     """Concatenate the per-file CSVs (in input order) into metadata/assembly/final.csv.
 
@@ -1522,7 +1659,7 @@ def _merge_batch_outputs(
     if do_metadata and md_frames:
         md = pd.concat(md_frames, ignore_index=True, sort=False)
         md = md.reindex(columns=canonical_metadata_columns(md.columns)).fillna("")
-        md.to_csv(metadata_path, index=False, sep=metadata_delimiter, encoding='utf-8')
+        md.to_csv(metadata_path, index=False, sep=metadata_delimiter, encoding="utf-8")
         n_rows = len(md)
         logger.info(f"Metadata: {metadata_path} ({n_rows} records)")
     if do_assembly and (asm_frames or (md_frames and do_metadata)):
@@ -1530,19 +1667,26 @@ def _merge_batch_outputs(
         _write_assembly_frame(rows, assembly_path, assembly_delimiter)
         logger.info(f"Assembly: {assembly_path} ({len(rows)} records)")
     if do_metadata and do_assembly and n_rows > 0:
-        combine_and_save_final_csv(metadata_path, assembly_path, final_path, final_delimiter,
-                                   metadata_delimiter, assembly_delimiter)
+        combine_and_save_final_csv(
+            metadata_path, assembly_path, final_path, final_delimiter, metadata_delimiter, assembly_delimiter
+        )
     return n_rows
 
 
 def process_batch_mode(
-    gb_files: list[str], output_dir: str,
-    max_tasks: int = 4, stream_mode: bool = False,
-    only_assembly: bool = False, only_except_assembly: bool = False,
+    gb_files: list[str],
+    output_dir: str,
+    max_tasks: int = 4,
+    stream_mode: bool = False,
+    only_assembly: bool = False,
+    only_except_assembly: bool = False,
     include_taxonomy: bool = True,
-    metadata_delimiter: str = ',', assembly_delimiter: str = '\t',
-    final_delimiter: str = ',', log_interval: int = 5000,
-    metadata_output: str = "metadata.csv", assembly_output: str = "assembly.csv",
+    metadata_delimiter: str = ",",
+    assembly_delimiter: str = "\t",
+    final_delimiter: str = ",",
+    log_interval: int = 5000,
+    metadata_output: str = "metadata.csv",
+    assembly_output: str = "assembly.csv",
     final_output: str = "final.csv",
 ) -> ProcessingSummary:
     summary = ProcessingSummary()
@@ -1557,10 +1701,16 @@ def process_batch_mode(
     names = _unique_batch_names(gb_files)
     worker = functools.partial(
         _process_single_file_batch,
-        output_dir=output_dir, do_metadata=do_metadata, do_assembly=do_assembly, tax=tax,
-        stream_mode=stream_mode, metadata_delimiter=metadata_delimiter,
-        assembly_delimiter=assembly_delimiter, final_delimiter=final_delimiter,
-        log_interval=log_interval)
+        output_dir=output_dir,
+        do_metadata=do_metadata,
+        do_assembly=do_assembly,
+        tax=tax,
+        stream_mode=stream_mode,
+        metadata_delimiter=metadata_delimiter,
+        assembly_delimiter=assembly_delimiter,
+        final_delimiter=final_delimiter,
+        log_interval=log_interval,
+    )
 
     # L-05: bulk-load lineages once in the parent; workers only read the cache.
     prefetch_taxonomy(gb_files, output_dir, tax)
@@ -1571,15 +1721,14 @@ def process_batch_mode(
     # Pre-populate with current cache
     shared_cache.update(_taxonomy.cache)
 
-    logger.info(f"Batch mode: {len(gb_files)} files, concurrency {max_tasks}, "
-                f"stream={'yes' if stream_mode else 'no'}")
+    logger.info(f"Batch mode: {len(gb_files)} files, concurrency {max_tasks}, stream={'yes' if stream_mode else 'no'}")
 
     results: dict[int, FileResult] = {}
     try:
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=max(1, max_tasks),
             initializer=_init_worker,
-            initargs=(shared_cache, _taxonomy.ete3_available, _taxonomy.entrez_fallback)
+            initargs=(shared_cache, _taxonomy.ete3_available, _taxonomy.entrez_fallback),
         ) as ex:
             future_to_idx = {ex.submit(worker, f, names[i]): i for i, f in enumerate(gb_files)}
             for done, fut in enumerate(concurrent.futures.as_completed(future_to_idx), 1):
@@ -1588,9 +1737,11 @@ def process_batch_mode(
                 try:
                     fr = fut.result()
                     icon = {"success": "OK", "partial": "~", "failed": "X"}.get(fr.status.value, "?")
-                    logger.info(f"[{done}/{len(gb_files)}] {icon} {os.path.basename(f)} "
-                                f"MD:{fr.metadata_extracted}/{fr.total_records} "
-                                f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)")
+                    logger.info(
+                        f"[{done}/{len(gb_files)}] {icon} {os.path.basename(f)} "
+                        f"MD:{fr.metadata_extracted}/{fr.total_records} "
+                        f"ASM:{fr.assembly_extracted} ({fr.elapsed_time:.1f}s)"
+                    )
                 except Exception as e:
                     fr = FileResult(file_path=f, status=FileStatus.FAILED, error_message=str(e))
                     logger.error(f"[{done}/{len(gb_files)}] X {os.path.basename(f)}: {e}")
@@ -1606,12 +1757,24 @@ def process_batch_mode(
             summary.add_result(results[i])
 
     # L-01: merge per-file outputs into <output_dir>/final.csv (+ metadata.csv, assembly.csv)
-    merged_names = [names[i] for i in range(len(gb_files))
-                    if i in results and results[i].status in (FileStatus.SUCCESS, FileStatus.PARTIAL)]
+    merged_names = [
+        names[i]
+        for i in range(len(gb_files))
+        if i in results and results[i].status in (FileStatus.SUCCESS, FileStatus.PARTIAL)
+    ]
     try:
         _merge_batch_outputs(
-            merged_names, output_dir, metadata_output, assembly_output, final_output,
-            do_metadata, do_assembly, metadata_delimiter, assembly_delimiter, final_delimiter)
+            merged_names,
+            output_dir,
+            metadata_output,
+            assembly_output,
+            final_output,
+            do_metadata,
+            do_assembly,
+            metadata_delimiter,
+            assembly_delimiter,
+            final_delimiter,
+        )
     except Exception as e:
         logger.error(f"Batch merge error: {e}")
 
@@ -1622,8 +1785,14 @@ def process_batch_mode(
 # ===============================
 # Public API
 # ===============================
-def _finish_extract(summary: ProcessingSummary, output_dir: str, start_time: float,
-                    final_path: str = "", rows: int = 0, success: bool = False) -> StepResult:
+def _finish_extract(
+    summary: ProcessingSummary,
+    output_dir: str,
+    start_time: float,
+    final_path: str = "",
+    rows: int = 0,
+    success: bool = False,
+) -> StepResult:
     """Always write extraction_report.json (L-02) and build the StepResult."""
     summary.total_elapsed_time = time.time() - start_time
     try:
@@ -1631,8 +1800,9 @@ def _finish_extract(summary: ProcessingSummary, output_dir: str, start_time: flo
         summary.save_report(output_dir)
     except OSError as e:
         logger.error(f"Failed to save extraction report: {e}")
-    return StepResult(success=success, output_file=final_path if success else "",
-                      rows=rows, elapsed=time.time() - start_time)
+    return StepResult(
+        success=success, output_file=final_path if success else "", rows=rows, elapsed=time.time() - start_time
+    )
 
 
 def extract(
@@ -1680,14 +1850,35 @@ def extract(
 
         if batch:
             processing = process_batch_mode(
-                valid_files, output_dir, max_tasks, stream,
-                False, False, True, ',', '\t', ',', 5000,
-                final_output=final_name)
+                valid_files,
+                output_dir,
+                max_tasks,
+                stream,
+                False,
+                False,
+                True,
+                ",",
+                "\t",
+                ",",
+                5000,
+                final_output=final_name,
+            )
         else:
             processing = process_all_files(
-                valid_files, output_dir,
-                "metadata.csv", "assembly.csv", final_name,
-                True, False, False, ',', '\t', ',', stream, 5000)
+                valid_files,
+                output_dir,
+                "metadata.csv",
+                "assembly.csv",
+                final_name,
+                True,
+                False,
+                False,
+                ",",
+                "\t",
+                ",",
+                stream,
+                5000,
+            )
         for r in processing.file_results:
             summary.add_result(r)
 
@@ -1704,10 +1895,13 @@ def extract(
                 f"Extract finished with problems: {summary.files_succeeded} ok, "
                 f"{summary.files_partial} partial, {summary.files_failed} failed, "
                 f"{summary.files_invalid} invalid, {summary.files_empty} empty "
-                f"(see {os.path.join(output_dir, 'extraction_report.json')})")
+                f"(see {os.path.join(output_dir, 'extraction_report.json')})"
+            )
             for r in problems:
-                logger.warning(f"  {os.path.basename(r.file_path)}: {r.status.value}"
-                               f"{' - ' + r.error_message if r.error_message else ''}")
+                logger.warning(
+                    f"  {os.path.basename(r.file_path)}: {r.status.value}"
+                    f"{' - ' + r.error_message if r.error_message else ''}"
+                )
         success = n_ok > 0 and os.path.exists(final_path)
         if not success:
             logger.error("Extract: no file produced a usable final table")
@@ -1723,25 +1917,22 @@ def extract(
 def main(argv=None):
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        encoding='utf-8'
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        encoding="utf-8",
     )
     parser = argparse.ArgumentParser(
         description="GenBank Metadata Extractor (refactored): 3-strategy Assembly + record tracking",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-i", "--input", required=True, nargs="+",
-                        help="Input GenBank files or directories")
+    parser.add_argument("-i", "--input", required=True, nargs="+", help="Input GenBank files or directories")
     parser.add_argument("-o", "--output", default=".", help="Output directory")
     parser.add_argument("-m", "--metadata-output", default="metadata.csv")
     parser.add_argument("-a", "--assembly-output", default="assembly.csv")
     parser.add_argument("-f", "--final-output", default="final.csv")
 
-    parser.add_argument("--stream", action="store_true",
-                        help="Stream processing (recommended for large files)")
-    parser.add_argument("--batch", action="store_true",
-                        help="Batch mode (parallel)")
+    parser.add_argument("--stream", action="store_true", help="Stream processing (recommended for large files)")
+    parser.add_argument("--batch", action="store_true", help="Batch mode (parallel)")
     parser.add_argument("--max_tasks", type=int, default=4)
     parser.add_argument("--log_interval", type=int, default=5000)
 
@@ -1757,8 +1948,7 @@ def main(argv=None):
     parser.add_argument("--no_report", action="store_true")
     parser.add_argument("--no_tracking", action="store_true")
     parser.add_argument("--no_recursive", action="store_true")
-    parser.add_argument("--if_use_chunksize", action="store_true",
-                        help="(Legacy) same as --stream")
+    parser.add_argument("--if_use_chunksize", action="store_true", help="(Legacy) same as --stream")
 
     args = parser.parse_args(argv)
     stream = args.stream or args.if_use_chunksize
@@ -1825,24 +2015,40 @@ def main(argv=None):
 
     if args.batch:
         processing_result = process_batch_mode(
-            valid_files, args.output, args.max_tasks, stream,
-            args.only_assembly_meta, args.only_except_assembly_meta,
+            valid_files,
+            args.output,
+            args.max_tasks,
+            stream,
+            args.only_assembly_meta,
+            args.only_except_assembly_meta,
             not args.only_except_assembly_meta,
-            args.metadata_delimiter, args.assembly_delimiter,
-            args.final_delimiter, args.log_interval,
-            metadata_output=args.metadata_output, assembly_output=args.assembly_output,
-            final_output=args.final_output)
+            args.metadata_delimiter,
+            args.assembly_delimiter,
+            args.final_delimiter,
+            args.log_interval,
+            metadata_output=args.metadata_output,
+            assembly_output=args.assembly_output,
+            final_output=args.final_output,
+        )
         for r in processing_result.file_results:
             summary.add_result(r)
         summary.total_elapsed_time = processing_result.total_elapsed_time
     else:
         processing_result = process_all_files(
-            valid_files, args.output,
-            args.metadata_output, args.assembly_output, args.final_output,
+            valid_files,
+            args.output,
+            args.metadata_output,
+            args.assembly_output,
+            args.final_output,
             not args.only_except_assembly_meta,
-            args.only_assembly_meta, args.only_except_assembly_meta,
-            args.metadata_delimiter, args.assembly_delimiter,
-            args.final_delimiter, stream, args.log_interval)
+            args.only_assembly_meta,
+            args.only_except_assembly_meta,
+            args.metadata_delimiter,
+            args.assembly_delimiter,
+            args.final_delimiter,
+            stream,
+            args.log_interval,
+        )
         for r in processing_result.file_results:
             summary.add_result(r)
         summary.total_elapsed_time = processing_result.total_elapsed_time

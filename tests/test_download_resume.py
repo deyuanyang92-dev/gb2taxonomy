@@ -12,7 +12,7 @@ from g2t.download import DownloadOptions, download
 
 class FakeNCBI:
     def __init__(self):
-        self.db: dict[str, list[str]] = {}   # query substring -> accessions
+        self.db: dict[str, list[str]] = {}  # query substring -> accessions
         self.default: list[str] = []
 
     def result_for(self, term):
@@ -23,9 +23,11 @@ class FakeNCBI:
 
 
 def _rec(acc):
-    return (f"LOCUS       {acc.split('.')[0]}                  60 bp    DNA     linear   INV 01-JAN-2020\n"
-            f"DEFINITION  record {acc}.\nACCESSION   {acc.split('.')[0]}\nVERSION     {acc}\n"
-            "ORIGIN\n        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt\n//\n")
+    return (
+        f"LOCUS       {acc.split('.')[0]}                  60 bp    DNA     linear   INV 01-JAN-2020\n"
+        f"DEFINITION  record {acc}.\nACCESSION   {acc.split('.')[0]}\nVERSION     {acc}\n"
+        "ORIGIN\n        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt\n//\n"
+    )
 
 
 @pytest.fixture
@@ -36,8 +38,11 @@ def fake(monkeypatch):
     def _call(fn, parse, retries=5, **kw):
         name = fn.__name__
         if kw.get("db") == "taxonomy":
-            return {"IdList": ["37891"]} if name == "esearch" else [
-                {"ScientificName": "Priapulidae", "Rank": "family", "Lineage": "x"}]
+            return (
+                {"IdList": ["37891"]}
+                if name == "esearch"
+                else [{"ScientificName": "Priapulidae", "Rank": "family", "Lineage": "x"}]
+            )
         if name == "esearch":
             accs = f.result_for(kw["term"])
             if kw.get("usehistory"):
@@ -45,7 +50,7 @@ def fake(monkeypatch):
                 return {"Count": str(len(accs)), "WebEnv": "w", "QueryKey": "1"}
             return {"Count": str(len(accs))}
         if kw.get("rettype") == "acc":
-            return "\n".join(state["last"][kw["retstart"]: kw["retstart"] + kw["retmax"]]) + "\n"
+            return "\n".join(state["last"][kw["retstart"] : kw["retstart"] + kw["retmax"]]) + "\n"
         return "".join(_rec(a) for a in kw["id"].split(","))
 
     monkeypatch.setattr(dl, "_call", _call)
@@ -53,6 +58,7 @@ def fake(monkeypatch):
     def _efetch_text(ids):
         def efetch():
             pass
+
         return _call(efetch, False, db="nuccore", id=",".join(ids), rettype="gbwithparts", retmode="text")
 
     monkeypatch.setattr(dl, "_efetch_text", _efetch_text)
@@ -74,7 +80,7 @@ def ids_in(d):
 def test_growing_database_redownloads_shifted_batches(tmp_path, fake):
     fake.default = accs("AB", 400)
     download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
-    fake.default = accs("ZZ", 3) + accs("AB", 400)          # 3 new records at the head of the list
+    fake.default = accs("ZZ", 3) + accs("AB", 400)  # 3 new records at the head of the list
     res = download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
     got = ids_in(tmp_path / "markers")
     assert sorted(got) == sorted(fake.default) and res.failed == 0

@@ -26,9 +26,7 @@ ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 
 
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="Download GenBank records by taxon (requests + E-utilities method)"
-    )
+    p = argparse.ArgumentParser(description="Download GenBank records by taxon (requests + E-utilities method)")
     p.add_argument("--taxon", required=True, help="NCBI Taxon ID (e.g. 6270) or name")
     p.add_argument("--output", default="./gb_download", help="Output directory")
     p.add_argument("--batch-size", type=int, default=500, help="Records per batch (default: 500)")
@@ -40,8 +38,9 @@ def parse_args():
     return p.parse_args()
 
 
-def fetch_with_retry(session: requests.Session, url: str, params: dict,
-                     max_retries: int = 3, timeout: int = 120) -> requests.Response:
+def fetch_with_retry(
+    session: requests.Session, url: str, params: dict, max_retries: int = 3, timeout: int = 120
+) -> requests.Response:
     """HTTP GET with exponential backoff retry."""
     for attempt in range(max_retries):
         try:
@@ -49,19 +48,19 @@ def fetch_with_retry(session: requests.Session, url: str, params: dict,
             if resp.status_code == 200:
                 return resp
             if resp.status_code == 429:
-                wait = 10 * (2 ** attempt)
+                wait = 10 * (2**attempt)
                 print(f"    Rate limited, waiting {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             if resp.status_code >= 500:
-                wait = 2 * (2 ** attempt)
+                wait = 2 * (2**attempt)
                 print(f"    Server error {resp.status_code}, retry in {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
-                wait = 2 * (2 ** attempt)
+                wait = 2 * (2**attempt)
                 print(f"    Network error: {e}, retry in {wait}s...", flush=True)
                 time.sleep(wait)
             else:
@@ -113,8 +112,7 @@ def resolve_taxon(session: requests.Session, taxon_input: str, api_key: str = No
     return taxon_id, name
 
 
-def search_records(session: requests.Session, taxon_id: int,
-                   api_key: str = None) -> tuple[int, str, str]:
+def search_records(session: requests.Session, taxon_id: int, api_key: str = None) -> tuple[int, str, str]:
     """esearch to get count + WebEnv + QueryKey."""
     params = {
         "db": "nuccore",
@@ -134,10 +132,18 @@ def search_records(session: requests.Session, taxon_id: int,
     return count, webenv, query_key
 
 
-def download_batch(session: requests.Session, webenv: str, query_key: str,
-                   retstart: int, batch_size: int, output_path: Path,
-                   api_key: str = None, timeout: int = 120, expected: int = None,
-                   email: str = None) -> bool:
+def download_batch(
+    session: requests.Session,
+    webenv: str,
+    query_key: str,
+    retstart: int,
+    batch_size: int,
+    output_path: Path,
+    api_key: str = None,
+    timeout: int = 120,
+    expected: int = None,
+    email: str = None,
+) -> bool:
     """Download one batch. Returns True on success."""
     params = {
         "db": "nuccore",
@@ -215,8 +221,16 @@ def main():
         print(f"  Batch {batch_idx + 1}/{num_batches} ({retstart + 1}-{end}/{total})...", end=" ", flush=True)
 
         success = download_batch(
-            session, webenv, query_key, retstart, args.batch_size,
-            batch_file, args.api_key, args.timeout, expected=end - retstart, email=args.email,
+            session,
+            webenv,
+            query_key,
+            retstart,
+            args.batch_size,
+            batch_file,
+            args.api_key,
+            args.timeout,
+            expected=end - retstart,
+            email=args.email,
         )
 
         if success:
@@ -224,27 +238,31 @@ def main():
             print(f"OK ({size_kb:.1f} KB)")
         else:
             print("FAILED (will retry on --resume)")
-            progress.update({
+            progress.update(
+                {
+                    "taxon_id": taxon_id,
+                    "taxon_name": taxon_name,
+                    "total_count": total,
+                    "webenv": webenv,
+                    "query_key": query_key,
+                    "last_batch": batch_idx - 1,
+                    "completed": False,
+                }
+            )
+            save_progress(output_dir, progress)
+            sys.exit(1)
+
+        progress.update(
+            {
                 "taxon_id": taxon_id,
                 "taxon_name": taxon_name,
                 "total_count": total,
                 "webenv": webenv,
                 "query_key": query_key,
-                "last_batch": batch_idx - 1,
-                "completed": False,
-            })
-            save_progress(output_dir, progress)
-            sys.exit(1)
-
-        progress.update({
-            "taxon_id": taxon_id,
-            "taxon_name": taxon_name,
-            "total_count": total,
-            "webenv": webenv,
-            "query_key": query_key,
-            "last_batch": batch_idx,
-            "completed": batch_idx == num_batches - 1,
-        })
+                "last_batch": batch_idx,
+                "completed": batch_idx == num_batches - 1,
+            }
+        )
         save_progress(output_dir, progress)
 
         time.sleep(delay)

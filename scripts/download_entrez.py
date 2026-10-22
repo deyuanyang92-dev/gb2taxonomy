@@ -18,6 +18,7 @@ Output:
     <output>/<tag>/batch_0001.gb, ... + accessions.tsv + manifest.json
     (tag = markers / mito / mitogenome / gene-COI_18S / ...). Re-running resumes.
 """
+
 import sys
 from pathlib import Path
 

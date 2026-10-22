@@ -46,22 +46,56 @@ class OrganizeConfig:
     first_col_name: str = "species_voucher_new"
     second_col_name: str = "organism"
 
-    gene_order: list[str] = field(default_factory=lambda: [
-        "mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3",
-        "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"
-    ])
+    gene_order: list[str] = field(
+        default_factory=lambda: [
+            "mtgenome",
+            "coi",
+            "16s",
+            "12s",
+            "cob",
+            "cox2",
+            "cox3",
+            "18s",
+            "28s",
+            "its1-its2",
+            "18-28s",
+            "ef-1",
+            "h3",
+        ]
+    )
 
     metadata_mode: str = "first_nonempty"
 
-    meta_columns: list[str] = field(default_factory=lambda: [
-        "Conflict", "match_source", "Original_match", "Conflict_reason",
-        "Assignment_reason", "Class", "Order", "Family", "Genus",
-        "PCR_primers", "geo_loc_name", "lat_lon", "collected_by",
-        "identified_by", "altitude",
-        "country", "collection_date", "isolate", "specimen_voucher",
-        "host", "habitat", "isolation_source", "culture_collection",
-        "clone", "strain", "note",
-    ])
+    meta_columns: list[str] = field(
+        default_factory=lambda: [
+            "Conflict",
+            "match_source",
+            "Original_match",
+            "Conflict_reason",
+            "Assignment_reason",
+            "Class",
+            "Order",
+            "Family",
+            "Genus",
+            "PCR_primers",
+            "geo_loc_name",
+            "lat_lon",
+            "collected_by",
+            "identified_by",
+            "altitude",
+            "country",
+            "collection_date",
+            "isolate",
+            "specimen_voucher",
+            "host",
+            "habitat",
+            "isolation_source",
+            "culture_collection",
+            "clone",
+            "strain",
+            "note",
+        ]
+    )
 
     extra_columns: list[str] = field(default_factory=list)
 
@@ -74,21 +108,43 @@ class OrganizeConfig:
 
     gene_includes: dict[str, list[str]] = field(default_factory=_default_gene_includes)
 
-    tail_columns: list[str] = field(default_factory=lambda: [
-        "TaxonID", "geo_loc_name", "lat_lon",
-        "Ref1Authors", "Ref1Title", "Ref1Journal",
-        "match_basis", "match_confidence", "match_evidence",
-    ])
+    tail_columns: list[str] = field(
+        default_factory=lambda: [
+            "TaxonID",
+            "geo_loc_name",
+            "lat_lon",
+            "Ref1Authors",
+            "Ref1Title",
+            "Ref1Journal",
+            "match_basis",
+            "match_confidence",
+            "match_evidence",
+        ]
+    )
 
     def get_mito_genes(self) -> list[str]:
-        known_mito = {"coi", "16s", "12s", "cob", "cox2", "cox3",
-                      "nd1", "nd2", "nd3", "nd4", "nd4l", "nd5", "nd6",
-                      "atp6", "atp8", "cytb"}
+        known_mito = {
+            "coi",
+            "16s",
+            "12s",
+            "cob",
+            "cox2",
+            "cox3",
+            "nd1",
+            "nd2",
+            "nd3",
+            "nd4",
+            "nd4l",
+            "nd5",
+            "nd6",
+            "atp6",
+            "atp8",
+            "cytb",
+        }
         return [g for g in self.gene_order if g in known_mito]
 
 
-def check_columns(df: pd.DataFrame, mandatory: list[str],
-                   optional: list[str] | None = None) -> bool:
+def check_columns(df: pd.DataFrame, mandatory: list[str], optional: list[str] | None = None) -> bool:
     missing = [c for c in mandatory if c not in df.columns]
     if missing:
         logger.error(f"Missing required columns: {', '.join(missing)}")
@@ -108,7 +164,7 @@ def get_first_nonempty(series: pd.Series) -> str:
 
 
 def normalize_gene_name(gene: str) -> str:
-    return gene.rstrip('#?')
+    return gene.rstrip("#?")
 
 
 def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, str]:
@@ -121,7 +177,7 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> di
         locusid = str(row.LocusID).strip()
         if not locusid:
             continue
-        raw_genes = [g.strip() for g in str(row.gene_type).split(',')]
+        raw_genes = [g.strip() for g in str(row.gene_type).split(",")]
         genes = [normalize_gene_name(g) for g in raw_genes]
         for gene in genes:
             if gene in gene_ids:
@@ -156,8 +212,7 @@ def _mtgenome_children(config: OrganizeConfig) -> list[str]:
     return list(given)
 
 
-def _propagate_locusids(gene_ids: dict[str, list[str]], parent: str,
-                        children: list[str]) -> None:
+def _propagate_locusids(gene_ids: dict[str, list[str]], parent: str, children: list[str]) -> None:
     parent_ids = gene_ids.get(parent, [])
     if not parent_ids:
         return
@@ -277,8 +332,7 @@ def metadata_all(group: pd.DataFrame, columns: list[str]) -> dict[str, str]:
     return result
 
 
-def metadata_per_gene(group: pd.DataFrame, gene_order: list[str],
-                      columns: list[str]) -> dict[str, str]:
+def metadata_per_gene(group: pd.DataFrame, gene_order: list[str], columns: list[str]) -> dict[str, str]:
     result = {}
     for col in columns:
         if col not in group.columns:
@@ -292,7 +346,7 @@ def metadata_per_gene(group: pd.DataFrame, gene_order: list[str],
             if pd.isna(val) or not str(val).strip():
                 continue
             val_str = str(val).strip()
-            genes = [normalize_gene_name(g.strip()) for g in str(gene_type).split(',')]
+            genes = [normalize_gene_name(g.strip()) for g in str(gene_type).split(",")]
             for gene in genes:
                 if gene in gene_vals:
                     gene_vals[gene].add(val_str)
@@ -300,8 +354,7 @@ def metadata_per_gene(group: pd.DataFrame, gene_order: list[str],
     return result
 
 
-def metadata_advanced(group: pd.DataFrame, gene_locusids: dict[str, str],
-                      columns: list[str]) -> dict[str, str]:
+def metadata_advanced(group: pd.DataFrame, gene_locusids: dict[str, str], columns: list[str]) -> dict[str, str]:
     result = {}
     col_locusid_val: dict[str, dict[str, str]] = {col: {} for col in columns}
     for _, row in group.iterrows():
@@ -332,9 +385,7 @@ def metadata_advanced(group: pd.DataFrame, gene_locusids: dict[str, str],
             for lid in locusids_str.split(";"):
                 lid = lid.strip()
                 if lid in this_col_data:
-                    vals_for_gene.update(
-                        v.strip() for v in this_col_data[lid].split(";") if v.strip()
-                    )
+                    vals_for_gene.update(v.strip() for v in this_col_data[lid].split(";") if v.strip())
             if vals_for_gene:
                 gene_value_map[gene] = vals_for_gene
 
@@ -362,6 +413,7 @@ def voucher_summary(group: pd.DataFrame) -> dict[str, str]:
     """voucher_as_submitted: every distinct specimen_voucher of the specimen as found in GenBank;
     voucher_standardized: one normalised voucher (see g2t.curate.standardize_vouchers)."""
     from g2t.curate import standardize_vouchers
+
     submitted: list[str] = []
     if "specimen_voucher" in group.columns:
         for v in group["specimen_voucher"]:
@@ -392,8 +444,7 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, Any]
 
     columns_to_process = list(config.meta_columns)
     if config.metadata_mode == "all":
-        exclude = {config.group_column, config.second_col_name,
-                   "gene_type", "LocusID"} | set(config.gene_order)
+        exclude = {config.group_column, config.second_col_name, "gene_type", "LocusID"} | set(config.gene_order)
         all_cols = [c for c in group.columns if c not in exclude]
         columns_to_process = all_cols
 
@@ -436,9 +487,9 @@ def build_header(config: OrganizeConfig, sample_row: dict[str, Any]) -> list[str
 
     if config.metadata_mode == "all":
         exclude = set(header)
-        meta_cols = [k for k in sample_row if k not in exclude
-                     and k not in config.tail_columns
-                     and k not in config.extra_columns]
+        meta_cols = [
+            k for k in sample_row if k not in exclude and k not in config.tail_columns and k not in config.extra_columns
+        ]
         header.extend(meta_cols)
     else:
         header.extend(config.meta_columns)
@@ -485,7 +536,8 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
         detail = ", ".join(f"{g}={n}" for g, n in sorted(unlisted.items()))
         logger.warning(
             f"Gene types not in gene_order were dropped from the gene columns (records per gene type): {detail}. "
-            f"Add them to gene_order (--gene_order) to keep them.")
+            f"Add them to gene_order (--gene_order) to keep them."
+        )
 
     keys = df[config.group_column].tolist()
     lids = df["LocusID"].tolist()
@@ -493,7 +545,8 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
     if empty_positions:
         logger.warning(
             f"Group column '{config.group_column}' has {len(empty_positions)} empty rows -> "
-            f"each gets its own 'UNKNOWN_<LocusID>' row")
+            f"each gets its own 'UNKNOWN_<LocusID>' row"
+        )
         for i in empty_positions:
             lid = "" if pd.isna(lids[i]) else str(lids[i]).strip()
             keys[i] = f"UNKNOWN_{lid}" if lid else f"UNKNOWN_row{i + 1}"
@@ -533,60 +586,86 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Species-Gene Organizer: group gene assignments by species",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument("-i", "--input", required=True, help="Input file (CSV/TSV/Excel)")
-    parser.add_argument("-o", "--output", default="organized_species_voucher.csv",
-                        help="Output filename")
+    parser.add_argument("-o", "--output", default="organized_species_voucher.csv", help="Output filename")
 
-    parser.add_argument("--group_column", "--which_column_as_species_voucher",
-                        default="species_voucher_new",
-                        help="Column to group rows by")
-    parser.add_argument("--first_column_name", "--first_row_name",
-                        default="species_voucher_new",
-                        help="Name for the first column in output")
-    parser.add_argument("--second_column_name", "--second_row_name",
-                        default="organism",
-                        help="Name for the second column in output")
+    parser.add_argument(
+        "--group_column",
+        "--which_column_as_species_voucher",
+        default="species_voucher_new",
+        help="Column to group rows by",
+    )
+    parser.add_argument(
+        "--first_column_name",
+        "--first_row_name",
+        default="species_voucher_new",
+        help="Name for the first column in output",
+    )
+    parser.add_argument(
+        "--second_column_name", "--second_row_name", default="organism", help="Name for the second column in output"
+    )
 
-    parser.add_argument("--gene_order", "--rank_genes_order_in_rows",
-                        nargs="+",
-                        default=OrganizeConfig().gene_order,
-                        help="Gene types to include as columns, in order")
+    parser.add_argument(
+        "--gene_order",
+        "--rank_genes_order_in_rows",
+        nargs="+",
+        default=OrganizeConfig().gene_order,
+        help="Gene types to include as columns, in order",
+    )
 
-    parser.add_argument("--metadata_mode", "--write_metadata_mode",
-                        choices=["first_nonempty", "casual", "advanced", "per_gene", "all"],
-                        default="first_nonempty",
-                        help="How to aggregate metadata across rows")
+    parser.add_argument(
+        "--metadata_mode",
+        "--write_metadata_mode",
+        choices=["first_nonempty", "casual", "advanced", "per_gene", "all"],
+        default="first_nonempty",
+        help="How to aggregate metadata across rows",
+    )
 
     # Hidden backward-compatible aliases (legacy yes/no flags)
-    parser.add_argument("--write_metadata_first_nonempty", choices=["yes", "no"], default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--write_metadata_advanced", choices=["yes", "no"], default=None,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--if_organize_all", choices=["yes", "no"], default=None,
-                        help=argparse.SUPPRESS)
+    parser.add_argument("--write_metadata_first_nonempty", choices=["yes", "no"], default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--write_metadata_advanced", choices=["yes", "no"], default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--if_organize_all", choices=["yes", "no"], default=None, help=argparse.SUPPRESS)
 
-    parser.add_argument("--metadata_columns", "--mustbe_meta_data_list",
-                        nargs="+",
-                        default=OrganizeConfig().meta_columns,
-                        help="Metadata columns to include in output (default: OrganizeConfig.meta_columns)")
-    parser.add_argument("--extra_columns", "--extra_information_write_in",
-                        nargs="*", default=[],
-                        help="Additional columns to append to output")
+    parser.add_argument(
+        "--metadata_columns",
+        "--mustbe_meta_data_list",
+        nargs="+",
+        default=OrganizeConfig().meta_columns,
+        help="Metadata columns to include in output (default: OrganizeConfig.meta_columns)",
+    )
+    parser.add_argument(
+        "--extra_columns",
+        "--extra_information_write_in",
+        nargs="*",
+        default=[],
+        help="Additional columns to append to output",
+    )
 
-    parser.add_argument("--mtgenome_prefer_nc", "--mtgenome_dupli_write_nc",
-                        choices=["yes", "no"], default="no",
-                        help="Prefer NC_ accessions when mtgenome has duplicates")
-    parser.add_argument("--organize_18_28s_separately", "--if_organize_18_28s_into_seprate",
-                        choices=["yes", "no"], default="yes",
-                        help="Propagate 18-28s LocusIDs to sub-gene columns")
-    parser.add_argument("--organize_mtgenome_separately", "--if_organize_mtgenomes_into_sep",
-                        choices=["yes", "no"], default="yes",
-                        help="Propagate mtgenome LocusIDs to sub-gene columns")
-    parser.add_argument("--mtgenome_includes", nargs="*", default=None,
-                        help="Override which genes mtgenome includes")
+    parser.add_argument(
+        "--mtgenome_prefer_nc",
+        "--mtgenome_dupli_write_nc",
+        choices=["yes", "no"],
+        default="no",
+        help="Prefer NC_ accessions when mtgenome has duplicates",
+    )
+    parser.add_argument(
+        "--organize_18_28s_separately",
+        "--if_organize_18_28s_into_seprate",
+        choices=["yes", "no"],
+        default="yes",
+        help="Propagate 18-28s LocusIDs to sub-gene columns",
+    )
+    parser.add_argument(
+        "--organize_mtgenome_separately",
+        "--if_organize_mtgenomes_into_sep",
+        choices=["yes", "no"],
+        default="yes",
+        help="Propagate mtgenome LocusIDs to sub-gene columns",
+    )
+    parser.add_argument("--mtgenome_includes", nargs="*", default=None, help="Override which genes mtgenome includes")
 
     args = parser.parse_args(argv)
 

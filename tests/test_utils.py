@@ -72,7 +72,7 @@ class TestSanitizeString:
         assert sanitize_string("Hello World") == "Hello_World"
 
     def test_quotes_removed(self):
-        assert sanitize_string("it's \"quoted\"") == "its_quoted"
+        assert sanitize_string('it\'s "quoted"') == "its_quoted"
 
     def test_parens_removed(self):
         assert sanitize_string("name (copy)") == "name_copy"

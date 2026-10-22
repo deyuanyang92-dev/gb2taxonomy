@@ -23,8 +23,10 @@ DATA_FONT = Font(name="Arial", size=11)
 HEADER_FILL = PatternFill("solid", fgColor="DCE6F1")
 REQUIRED_FILL = PatternFill("solid", fgColor="FFFFCC")
 THIN_BORDER = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 WRAP = Alignment(wrap_text=True, vertical="top")
 
@@ -76,10 +78,24 @@ UPDATE_COLS = [
 UPDATE_REQUIRED = {"acc. num."}
 
 UPDATE_SAMPLE = [
-    ["AB123456", "Norway: Hordaland, Bergen", "60.39 N 5.33 E", "08-Nov-2005", "Smith, J.", "SMNH:211581",
-     "freshwater sediment"],
-    ["AB123457", "China: Sichuan, Chengdu", "30.57 N 104.07 E", "1993", "Wang, L.", "personal:Li Wang:2020-001",
-     "soil"],
+    [
+        "AB123456",
+        "Norway: Hordaland, Bergen",
+        "60.39 N 5.33 E",
+        "08-Nov-2005",
+        "Smith, J.",
+        "SMNH:211581",
+        "freshwater sediment",
+    ],
+    [
+        "AB123457",
+        "China: Sichuan, Chengdu",
+        "30.57 N 104.07 E",
+        "1993",
+        "Wang, L.",
+        "personal:Li Wang:2020-001",
+        "soil",
+    ],
 ]
 
 # ── Field descriptions ──────────────────────────────────────────────────────
@@ -87,16 +103,36 @@ FIELD_DESC = [
     # (Field, Required, Format, Example, Notes)
     ("Sequence_ID", "必填", "自由文本", "Seq1", "BankIt 新提交用。每行唯一标识符"),
     ("acc. num.", "必填", "GenBank 登录号", "AB123456", "更新已有记录用。不含版本号"),
-    ("Country (geo_loc_name)", "必填", "Country: Region, Locality", "Norway: Hordaland, Bergen",
-     "BankIt 提交列名。冒号后跟省/州，逗号分隔更细地域"),
-    ("geo_loc_name", "必填", "Country: Region, Locality", "Norway: Hordaland, Bergen",
-     "记录更新列名。与 Country (geo_loc_name) 格式相同"),
+    (
+        "Country (geo_loc_name)",
+        "必填",
+        "Country: Region, Locality",
+        "Norway: Hordaland, Bergen",
+        "BankIt 提交列名。冒号后跟省/州，逗号分隔更细地域",
+    ),
+    (
+        "geo_loc_name",
+        "必填",
+        "Country: Region, Locality",
+        "Norway: Hordaland, Bergen",
+        "记录更新列名。与 Country (geo_loc_name) 格式相同",
+    ),
     ("Lat_Lon", "推荐", "dd.dd N|S ddd.dd E|W", "57.68 N 11.96 E", "十进制小数，保留 2-4 位。不接受度分秒"),
-    ("Collection_date", "必填", "DD-Mon-YYYY / Mon-YYYY / YYYY", "08-Nov-2005",
-     "月份缩写: Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec"),
+    (
+        "Collection_date",
+        "必填",
+        "DD-Mon-YYYY / Mon-YYYY / YYYY",
+        "08-Nov-2005",
+        "月份缩写: Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec",
+    ),
     ("Collected_by", "推荐", "Lastname, F.", "Smith, J.; Doe, A.", "多人用分号分隔。不缩写为 et al."),
-    ("Specimen_voucher", "推荐", "institution:specimen-id", "SMNH:211581",
-     "格式: institution-code[:collection-code]:specimen-id"),
+    (
+        "Specimen_voucher",
+        "推荐",
+        "institution:specimen-id",
+        "SMNH:211581",
+        "格式: institution-code[:collection-code]:specimen-id",
+    ),
     ("Isolation_source", "可选", "自由文本", "soil", "样本来源描述"),
     ("Isolate", "可选", "自由文本", "strain ABC123", "分离株名称"),
     ("Host", "可选", "自由文本", "Homo sapiens", "宿主生物"),
@@ -118,8 +154,11 @@ FIELD_DESC = [
 ]
 
 # 填充色按必填程度
-REQ_FILLS = {"必填": PatternFill("solid", fgColor="FFFFCC"), "推荐": PatternFill("solid", fgColor="E2EFDA"),
-             "可选": None}
+REQ_FILLS = {
+    "必填": PatternFill("solid", fgColor="FFFFCC"),
+    "推荐": PatternFill("solid", fgColor="E2EFDA"),
+    "可选": None,
+}
 
 
 def _write_sheet(ws, columns, required_cols, sample_rows):

@@ -22,9 +22,23 @@ OUTPUT = BASE / "haplotaxis_output3/gb_metadata/final_enriched.csv"
 def load_literature() -> pd.DataFrame:
     df = pd.read_excel(EXCEL, sheet_name="Blad1", header=2)
     df.columns = [
-        "Species", "Specimen_no", "Voucher", "Country", "State",
-        "Municipality", "Locality", "Habitat", "N", "E",
-        "Coll_Date", "Leg", "12S", "16S", "18S", "28S", "COI",
+        "Species",
+        "Specimen_no",
+        "Voucher",
+        "Country",
+        "State",
+        "Municipality",
+        "Locality",
+        "Habitat",
+        "N",
+        "E",
+        "Coll_Date",
+        "Leg",
+        "12S",
+        "16S",
+        "18S",
+        "28S",
+        "COI",
     ]
     df = df.iloc[1:].reset_index(drop=True)
 
@@ -68,9 +82,17 @@ def main():
 
     # New columns to add
     lit_cols = [
-        "lit_country", "lit_state", "lit_municipality", "lit_locality",
-        "lit_habitat", "lit_lat", "lit_lon", "lit_coll_date", "lit_leg",
-        "lit_voucher", "lit_species",
+        "lit_country",
+        "lit_state",
+        "lit_municipality",
+        "lit_locality",
+        "lit_habitat",
+        "lit_lat",
+        "lit_lon",
+        "lit_coll_date",
+        "lit_leg",
+        "lit_voucher",
+        "lit_species",
     ]
     for col in lit_cols:
         final[col] = ""
@@ -99,9 +121,10 @@ def main():
                 lat, lon = float(row["lit_lat"]), float(row["lit_lon"])
             except (TypeError, ValueError):
                 lat = lon = float("nan")
-            if lat == lat and lon == lon:   # not NaN
-                final.at[idx, "lat_lon"] = (f"{abs(lat):.4f} {'N' if lat >= 0 else 'S'} "
-                                            f"{abs(lon):.4f} {'E' if lon >= 0 else 'W'}")
+            if lat == lat and lon == lon:  # not NaN
+                final.at[idx, "lat_lon"] = (
+                    f"{abs(lat):.4f} {'N' if lat >= 0 else 'S'} {abs(lon):.4f} {'E' if lon >= 0 else 'W'}"
+                )
                 filled_gps += 1
         # Collection date
         if _empty(row.get("collection_date")) and not _empty(row.get("lit_coll_date")):

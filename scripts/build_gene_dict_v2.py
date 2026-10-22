@@ -24,6 +24,7 @@ from pathlib import Path
 # Try to import yaml, fall back to manual output
 try:
     import yaml
+
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False
@@ -64,7 +65,12 @@ MT_MAP = {**SYNGENES_TO_G2T_MAP, **NEW_MT_GENES}
 
 # Synonyms to skip because they're too short/ambiguous and cause false positives
 SKIP_SYNONYMS = {
-    "I", "COX", "CO", "ND", "ATP", "rbcL",  # too ambiguous alone
+    "I",
+    "COX",
+    "CO",
+    "ND",
+    "ATP",
+    "rbcL",  # too ambiguous alone
 }
 
 # Minimum synonym length to include (shorter ones cause false positives)
@@ -90,11 +96,11 @@ def read_g2t_gene_dict(yaml_path):
         return {}
 
     if HAS_YAML:
-        with open(yaml_path, encoding='utf-8') as f:
+        with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         result = {}
-        for k, v in data.get('gene_types', {}).items():
-            synonyms = v.get('synonyms', []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
+        for k, v in data.get("gene_types", {}).items():
+            synonyms = v.get("synonyms", []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
             result[k.lower()] = [str(s) for s in synonyms if isinstance(s, str)]
         return result
     else:
@@ -105,8 +111,8 @@ def read_g2t_gene_dict(yaml_path):
 def read_syngenes_tsv(tsv_path):
     """Read a SynGenes TSV file and return list of Full Name synonyms."""
     synonyms = []
-    with open(tsv_path, encoding='utf-8') as f:
-        reader = csv.reader(f, delimiter='\t')
+    with open(tsv_path, encoding="utf-8") as f:
+        reader = csv.reader(f, delimiter="\t")
         next(reader, None)  # skip header
         for row in reader:
             if len(row) >= 1 and row[0].strip():
@@ -209,10 +215,13 @@ def write_v2_yaml(v2_dict, output_path):
 
     # Sort: mitochondrial first, then chloroplast, then nuclear, then unknown
     category_order = {"mitochondrial": 0, "chloroplast": 1, "nuclear": 2, "unknown": 3}
-    sorted_genes = sorted(v2_dict.items(), key=lambda x: (
-        category_order.get(x[1].get("category", "unknown"), 99),
-        x[0],
-    ))
+    sorted_genes = sorted(
+        v2_dict.items(),
+        key=lambda x: (
+            category_order.get(x[1].get("category", "unknown"), 99),
+            x[0],
+        ),
+    )
 
     for gene_key, info in sorted_genes:
         output["gene_types"][gene_key] = {
@@ -221,15 +230,15 @@ def write_v2_yaml(v2_dict, output_path):
             "synonyms": info["synonyms"],
         }
 
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         if HAS_YAML:
             yaml.dump(output, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         else:
             # Manual YAML output as fallback
-            f.write("version: \"2.0\"\n")
+            f.write('version: "2.0"\n')
             f.write("metadata:\n")
-            f.write("  source: \"g2t v2.0 + SynGenes integration\"\n")
-            f.write("  description: \"Unified gene dictionary with organism-aware scope\"\n")
+            f.write('  source: "g2t v2.0 + SynGenes integration"\n')
+            f.write('  description: "Unified gene dictionary with organism-aware scope"\n')
             f.write("gene_types:\n")
             for gene_key, info in output["gene_types"].items():
                 f.write(f"  {gene_key}:\n")
@@ -238,7 +247,7 @@ def write_v2_yaml(v2_dict, output_path):
                 f.write("    synonyms:\n")
                 for syn in info["synonyms"]:
                     # Quote strings that contain special YAML characters
-                    if any(c in syn for c in ':{}[],&*?|->!%@`#'):
+                    if any(c in syn for c in ":{}[],&*?|->!%@`#"):
                         f.write(f'      - "{syn}"\n')
                     else:
                         f.write(f"      - {syn}\n")

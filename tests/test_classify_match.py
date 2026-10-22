@@ -88,9 +88,7 @@ class TestCleanLength:
 
 class TestMatchMitoGenes:
     def test_coi_match(self, config):
-        matched, notes = match_mito_genes(
-            "cytochrome oxidase subunit I partial sequence", 650, "dna", config
-        )
+        matched, notes = match_mito_genes("cytochrome oxidase subunit I partial sequence", 650, "dna", config)
         assert "coi" in matched
 
     def test_mtgenome_priority(self, config):
@@ -105,9 +103,7 @@ class TestMatchMitoGenes:
         assert len(matched) == 0
 
     def test_16s_match(self, config):
-        matched, notes = match_mito_genes(
-            "16S ribosomal RNA gene, partial sequence; mitochondrial", 550, "dna", config
-        )
+        matched, notes = match_mito_genes("16S ribosomal RNA gene, partial sequence; mitochondrial", 550, "dna", config)
         assert "16s" in matched
 
 
@@ -116,21 +112,15 @@ class TestMatchMitoGenes:
 
 class TestMatchNuclearGenes:
     def test_18s_match(self, config):
-        matched, notes = match_nuclear_genes(
-            "18S ribosomal RNA, partial sequence", 1800, config
-        )
+        matched, notes = match_nuclear_genes("18S ribosomal RNA, partial sequence", 1800, config)
         assert "18s" in matched
 
     def test_28s_match(self, config):
-        matched, notes = match_nuclear_genes(
-            "28S ribosomal RNA gene, partial sequence", 800, config
-        )
+        matched, notes = match_nuclear_genes("28S ribosomal RNA gene, partial sequence", 800, config)
         assert "28s" in matched
 
     def test_h3_match(self, config):
-        matched, notes = match_nuclear_genes(
-            "histone H3 gene, partial cds", 350, config
-        )
+        matched, notes = match_nuclear_genes("histone H3 gene, partial cds", 350, config)
         assert "h3" in matched
 
     def test_18_28s_priority(self, config):
@@ -188,42 +178,30 @@ class TestFirstRoundMatch:
 
 class TestConflictCheck:
     def test_mtgenome_skips_conflict(self):
-        result = conflict_check_and_reassign(
-            "mtgenome", "mitochondrion complete genome", "circular", "mito", 16000
-        )
+        result = conflict_check_and_reassign("mtgenome", "mitochondrion complete genome", "circular", "mito", 16000)
         assert "mtgenome" in result["gene_type"]
         assert not result["conflict"]
 
     def test_12s_with_large_subunit_conflict(self):
-        result = conflict_check_and_reassign(
-            "12s", "large subunit ribosomal RNA gene", "linear", "mito", 550
-        )
+        result = conflict_check_and_reassign("12s", "large subunit ribosomal RNA gene", "linear", "mito", 550)
         assert result["conflict"] is True
 
     def test_16s_with_small_subunit_conflict(self):
-        result = conflict_check_and_reassign(
-            "16s", "small subunit ribosomal RNA gene", "linear", "mito", 550
-        )
+        result = conflict_check_and_reassign("16s", "small subunit ribosomal RNA gene", "linear", "mito", 550)
         assert result["conflict"] is True
 
     def test_multi_mito_three_genes_long_reassigns_mtgenome(self):
         # Conflict check: >2 mito genes + Length>3000 -> mtgenome
-        result = conflict_check_and_reassign(
-            "coi,16s,12s", "some definition", "linear", "mito", 5000
-        )
+        result = conflict_check_and_reassign("coi,16s,12s", "some definition", "linear", "mito", 5000)
         assert result["gene_type"] == "mtgenome"
 
     def test_18_28s_skips_conflict(self):
-        result = conflict_check_and_reassign(
-            "18-28s", "some definition", "linear", "nuclear", 8000
-        )
+        result = conflict_check_and_reassign("18-28s", "some definition", "linear", "nuclear", 8000)
         assert "18-28s" in result["gene_type"]
         assert not result["conflict"]
 
     def test_single_gene_no_conflict(self):
-        result = conflict_check_and_reassign(
-            "coi", "cytochrome oxidase subunit I", "linear", "mito", 650
-        )
+        result = conflict_check_and_reassign("coi", "cytochrome oxidase subunit I", "linear", "mito", 650)
         assert "coi" in result["gene_type"]
         assert not result["conflict"]
 

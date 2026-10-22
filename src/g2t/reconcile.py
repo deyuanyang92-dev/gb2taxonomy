@@ -46,8 +46,10 @@ import pandas as pd
 
 from g2t.utils import StepResult, read_table
 
-GENE_TOKENS = (r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
-               r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO")
+GENE_TOKENS = (
+    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
+    r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO"
+)
 GENE_PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 GENE_SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
 CORE = re.compile(r"(?:^|[^A-Za-z0-9])([A-Za-z]{0,6})[\s_\-]?((?:(?:1[89]|20)\d{2}[\s_.\-])?\d{2,8}[A-Za-z]?)$")
@@ -57,8 +59,9 @@ TRAILING = re.compile(r"(\s*\([^()]*\)|[\s.,;:]+)$")
 SPLIT = re.compile(r"\s*(?:[,;/]|\band\b)\s*")
 # same priority as the voucher step (g2t.voucher): specimen_voucher > isolate > culture_collection > clone > strain
 VOUCHER_FIELDS = ["specimen_voucher", "isolate", "culture_collection", "clone", "strain"]
-MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun",
-                                           "jul", "aug", "sep", "oct", "nov", "dec"])}
+MONTHS = {
+    m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])
+}
 RANK = {"high": 2, "medium": 1}
 
 
@@ -66,7 +69,7 @@ RANK = {"high": 2, "medium": 1}
 class ReconcileConfig:
     key_column: str = "species_voucher_new"
     organism_column: str = "organism"
-    min_confidence: str = "medium"        # "high" = only strong evidence merges
+    min_confidence: str = "medium"  # "high" = only strong evidence merges
     min_core_length: int = 4
 
 
@@ -77,13 +80,16 @@ class Evidence:
     conflicts: list[str] = field(default_factory=list)
 
     def text(self) -> str:
-        parts = [f"strong: {'; '.join(self.strong)}" if self.strong else "",
-                 f"moderate: {'; '.join(self.moderate)}" if self.moderate else "",
-                 f"conflict: {'; '.join(self.conflicts)}" if self.conflicts else ""]
+        parts = [
+            f"strong: {'; '.join(self.strong)}" if self.strong else "",
+            f"moderate: {'; '.join(self.moderate)}" if self.moderate else "",
+            f"conflict: {'; '.join(self.conflicts)}" if self.conflicts else "",
+        ]
         return " | ".join(p for p in parts if p)
 
 
 # --------------------------------------------------------------------------- parsing helpers
+
 
 def _core_of(part: str, min_len: int) -> str:
     v = part
@@ -165,7 +171,7 @@ def _parse_date(s: str) -> tuple[int | None, int | None, int | None]:
 
 def _dates_compatible(a: str, b: str) -> tuple[bool, bool]:
     """(compatible, identical-to-the-day)."""
-    if "/" in a or "/" in b:          # ranges: compare years only
+    if "/" in a or "/" in b:  # ranges: compare years only
         ya, yb = set(re.findall(r"\d{4}", a)), set(re.findall(r"\d{4}", b))
         return bool(ya & yb) or not (ya and yb), False
     pa, pb = _parse_date(a), _parse_date(b)
@@ -194,6 +200,7 @@ def _first_author(df: pd.DataFrame) -> set:
 
 # --------------------------------------------------------------------------- evidence
 
+
 def compare_groups(a: pd.DataFrame, b: pd.DataFrame) -> Evidence:
     ev = Evidence()
     shared = _titles(a) & _titles(b)
@@ -211,9 +218,11 @@ def compare_groups(a: pd.DataFrame, b: pd.DataFrame) -> Evidence:
     la = [p for p in map(_latlon, _vals(a, "lat_lon")) if p]
     lb = [p for p in map(_latlon, _vals(b, "lat_lon")) if p]
     if la and lb:
+
         def dist(x, y):
             dlon = abs(x[1] - y[1]) % 360
             return math.hypot(x[0] - y[0], min(dlon, 360 - dlon))
+
         d = min(dist(x, y) for x in la for y in lb)
         if d <= 0.01:
             ev.strong.append("same coordinates")
@@ -253,6 +262,7 @@ def _decide(ev: Evidence, gene_overlap: bool, min_conf: str) -> tuple[str, str]:
 
 # --------------------------------------------------------------------------- main logic
 
+
 def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     config = config or ReconcileConfig()
     df = df.copy()
@@ -265,7 +275,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     def raw_voucher(row) -> str:
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if any(ch.isalnum() for ch in v) and v.lower() != "nan":   # same rule as voucher.py (L-22)
+            if any(ch.isalnum() for ch in v) and v.lower() != "nan":  # same rule as voucher.py (L-22)
                 return v
         return ""
 
@@ -293,30 +303,38 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
 
     def row_for(core, ka, kb):
         ga, gb = groups[ka], groups[kb]
-        return dict(voucher_core=core, group_a=ka, group_b=kb,
-                    organism_a="; ".join(sorted(_vals(ga, org))), organism_b="; ".join(sorted(_vals(gb, org))),
-                    accessions_a="; ".join(map(str, ga["ACCESSION"])) if "ACCESSION" in ga else "",
-                    accessions_b="; ".join(map(str, gb["ACCESSION"])) if "ACCESSION" in gb else "",
-                    genes_a="; ".join(sorted(_genes(ga))), genes_b="; ".join(sorted(_genes(gb))))
+        return dict(
+            voucher_core=core,
+            group_a=ka,
+            group_b=kb,
+            organism_a="; ".join(sorted(_vals(ga, org))),
+            organism_b="; ".join(sorted(_vals(gb, org))),
+            accessions_a="; ".join(map(str, ga["ACCESSION"])) if "ACCESSION" in ga else "",
+            accessions_b="; ".join(map(str, gb["ACCESSION"])) if "ACCESSION" in gb else "",
+            genes_a="; ".join(sorted(_genes(ga))),
+            genes_b="; ".join(sorted(_genes(gb))),
+        )
 
     edges = []
     seen_pairs: set[frozenset] = set()
     for core, keys in cores.items():
         for i in range(len(keys)):
             for j in range(i + 1, len(keys)):
-                ka, kb = sorted((keys[i], keys[j]))     # edge order independent of input row order
+                ka, kb = sorted((keys[i], keys[j]))  # edge order independent of input row order
                 if frozenset((ka, kb)) in seen_pairs:
                     continue
                 seen_pairs.add(frozenset((ka, kb)))
                 oa, ob = _vals(groups[ka], org), _vals(groups[kb], org)
                 base = row_for(core, ka, kb)
                 if not oa or not ob:
-                    report.append({**base, "evidence": "", "confidence": "",
-                                   "decision": "not merged: organism missing"})
+                    report.append(
+                        {**base, "evidence": "", "confidence": "", "decision": "not merged: organism missing"}
+                    )
                     continue
                 if oa != ob:
-                    report.append({**base, "evidence": "", "confidence": "",
-                                   "decision": "not merged: different organisms"})
+                    report.append(
+                        {**base, "evidence": "", "confidence": "", "decision": "not merged: different organisms"}
+                    )
                     continue
                 ev = evidence(ka, kb)
                 overlap = bool(_genes(groups[ka]) & _genes(groups[kb]))
@@ -345,8 +363,10 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                 if ev.conflicts:
                     return f"not merged: would join conflicting groups ({x} vs {y}: {'; '.join(ev.conflicts)})"
                 if _genes(groups[x]) & _genes(groups[y]) and not ev.strong:
-                    return (f"not merged: would put the same gene twice in one specimen without strong "
-                            f"evidence ({x} vs {y})")
+                    return (
+                        f"not merged: would put the same gene twice in one specimen without strong "
+                        f"evidence ({x} vs {y})"
+                    )
         return ""
 
     edge_info: dict[str, list[tuple[str, str]]] = {}
@@ -387,13 +407,29 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         df.loc[mask, "match_confidence"] = conf
         df.loc[mask, "match_evidence"] = " || ".join(t for _, t in edge_info.get(root, []))
 
-    cols = ["voucher_core", "group_a", "group_b", "organism_a", "organism_b", "genes_a", "genes_b",
-            "accessions_a", "accessions_b", "evidence", "confidence", "decision"]
+    cols = [
+        "voucher_core",
+        "group_a",
+        "group_b",
+        "organism_a",
+        "organism_b",
+        "genes_a",
+        "genes_b",
+        "accessions_a",
+        "accessions_b",
+        "evidence",
+        "confidence",
+        "decision",
+    ]
     return df, pd.DataFrame(report, columns=cols)
 
 
-def reconcile(input_file: str, output_dir: str, config: ReconcileConfig | None = None,
-              output_name: str = "reconciled_species_voucher.csv") -> StepResult:
+def reconcile(
+    input_file: str,
+    output_dir: str,
+    config: ReconcileConfig | None = None,
+    output_name: str = "reconciled_species_voucher.csv",
+) -> StepResult:
     """Run Step 3b on the voucher-step output."""
     t0 = time.time()
     out_dir = Path(output_dir)
@@ -410,8 +446,12 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Evidence-based merging of voucher variants (Step 3b)")
     p.add_argument("-i", "--input", required=True, help="updated_species_voucher.csv from g2t-voucher")
     p.add_argument("-o", "--output_dir", required=True)
-    p.add_argument("--min_confidence", choices=["high", "medium"], default="medium",
-                   help="high = merge only with strong evidence (shared paper/date/coordinates)")
+    p.add_argument(
+        "--min_confidence",
+        choices=["high", "medium"],
+        default="medium",
+        help="high = merge only with strong evidence (shared paper/date/coordinates)",
+    )
     a = p.parse_args(argv)
     r = reconcile(a.input, a.output_dir, ReconcileConfig(min_confidence=a.min_confidence))
     rep = pd.read_csv(Path(a.output_dir) / "reconcile_report.csv")

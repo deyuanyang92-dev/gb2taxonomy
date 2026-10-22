@@ -12,9 +12,11 @@ from g2t.recstore import RecordStore, iter_records
 
 
 def _rec(acc, length=60):
-    return (f"LOCUS       {acc.split('.')[0]}                  {length} bp    DNA     linear   INV 01-JAN-2020\n"
-            f"DEFINITION  record {acc}.\nACCESSION   {acc.split('.')[0]}\nVERSION     {acc}\n"
-            "ORIGIN\n        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt\n//\n")
+    return (
+        f"LOCUS       {acc.split('.')[0]}                  {length} bp    DNA     linear   INV 01-JAN-2020\n"
+        f"DEFINITION  record {acc}.\nACCESSION   {acc.split('.')[0]}\nVERSION     {acc}\n"
+        "ORIGIN\n        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt\n//\n"
+    )
 
 
 def accs(prefix, n, ver=1):
@@ -28,15 +30,18 @@ def fake(monkeypatch):
     def _call(fn, parse, retries=5, **kw):
         name = fn.__name__
         if kw.get("db") == "taxonomy":
-            return {"IdList": ["37891"]} if name == "esearch" else [
-                {"ScientificName": "Priapulidae", "Rank": "family", "Lineage": "x"}]
+            return (
+                {"IdList": ["37891"]}
+                if name == "esearch"
+                else [{"ScientificName": "Priapulidae", "Rank": "family", "Lineage": "x"}]
+            )
         if name == "esearch":
             lst = state["mdat"] if "[MDAT]" in kw["term"] else state["list"]
             state["terms"].append(kw["term"])
             state["cur"] = lst
             return {"Count": str(len(lst)), "WebEnv": "w", "QueryKey": "1"}
         if kw.get("rettype") == "acc":
-            return "\n".join(state["cur"][kw["retstart"]: kw["retstart"] + kw["retmax"]]) + "\n"
+            return "\n".join(state["cur"][kw["retstart"] : kw["retstart"] + kw["retmax"]]) + "\n"
         ids = kw["id"].split(",")
         state["fetched"] += ids
         return "".join(_rec(a) for a in ids)
@@ -46,6 +51,7 @@ def fake(monkeypatch):
     def _efetch_text(ids):
         def efetch():
             pass
+
         return _call(efetch, False, db="nuccore", id=",".join(ids), rettype="gbwithparts", retmode="text")
 
     monkeypatch.setattr(dl, "_efetch_text", _efetch_text)
@@ -234,7 +240,7 @@ def test_unchanged_rerun_keeps_batch_files(tmp_path, fake):
     fake["list"] = accs("AB", 30)
     download("Priapulidae", str(tmp_path), DownloadOptions(batch=10), progress=False)
     f = tmp_path / "markers" / "batch_0001.gb"
-    f.write_text(f.read_text() + "")          # same content
+    f.write_text(f.read_text() + "")  # same content
     mt = f.stat().st_mtime_ns
     download("Priapulidae", str(tmp_path), DownloadOptions(batch=10), progress=False)
     assert f.stat().st_mtime_ns == mt
@@ -249,7 +255,7 @@ def test_download_skips_report_queries_unless_asked(tmp_path, fake, monkeypatch)
     orig = dl.count
     monkeypatch.setattr(dl, "count", lambda t: terms.append(t) or orig(t))
     download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False)
-    assert len(terms) == 1                                   # only the selection itself
+    assert len(terms) == 1  # only the selection itself
     terms.clear()
     res = download("Priapulidae", str(tmp_path), DownloadOptions(), progress=False, report=True)
     assert len(terms) > 10 and res.per_gene and res.composition
@@ -271,9 +277,9 @@ def test_since_auto_fetches_only_modified_records(tmp_path, fake):
     _set_date(tmp_path / "markers", "2026-01-10")
     fake["fetched"].clear()
     fake["terms"].clear()
-    fake["mdat"] = ["AB000003.2", "CD000001.1"]          # one updated, one new
+    fake["mdat"] = ["AB000003.2", "CD000001.1"]  # one updated, one new
     res = download("Priapulidae", str(tmp_path), DownloadOptions(since="auto"), progress=False)
-    assert any("2026/01/07:3000[MDAT]" in t for t in fake["terms"])          # last date minus 3 days
+    assert any("2026/01/07:3000[MDAT]" in t for t in fake["terms"])  # last date minus 3 days
     assert sorted(fake["fetched"]) == ["AB000003.2", "CD000001.1"]
     got = ids_in(tmp_path / "markers")
     assert "AB000003.1" not in got and "AB000003.2" in got and "CD000001.1" in got and len(got) == 21
@@ -300,7 +306,7 @@ def test_no_store_mode_is_incremental_without_sqlite(tmp_path, fake):
     got = ids_in(tmp_path / "markers")
     assert sorted(got) == sorted(fake["list"]) and len(got) == len(set(got))
     assert (res.reused, res.updated, res.new) == (11, 1, 1)
-    fake["list"] = accs("AB", 3)                          # withdrawn records are removed from the files
+    fake["list"] = accs("AB", 3)  # withdrawn records are removed from the files
     download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
     assert sorted(ids_in(tmp_path / "markers")) == accs("AB", 3)
     assert not list(tmp_path.glob("*.sqlite"))
@@ -320,8 +326,13 @@ def test_no_store_with_since(tmp_path, fake):
 
 def test_cli_validates_arguments(capsys):
     from g2t.download import main
-    for argv in (["-t", "X", "--since", "yesterday"], ["-t", "X", "--store", "s.db", "--no-store"],
-                 ["-t", "X", "-w", "0"], ["-t", "X", "--minlen", "-5"]):
+
+    for argv in (
+        ["-t", "X", "--since", "yesterday"],
+        ["-t", "X", "--store", "s.db", "--no-store"],
+        ["-t", "X", "-w", "0"],
+        ["-t", "X", "--minlen", "-5"],
+    ):
         with pytest.raises(SystemExit) as e:
             main(argv)
         assert e.value.code == 2
@@ -330,6 +341,7 @@ def test_cli_validates_arguments(capsys):
 
 def test_cli_quiet_and_since_date(tmp_path, fake, capsys):
     from g2t.download import main
+
     fake["list"] = accs("AB", 3)
     assert main(["-t", "X", "-o", str(tmp_path), "-q"]) == 0
     assert "[1/1]" not in capsys.readouterr().err
@@ -377,14 +389,18 @@ def test_unchanged_shortcut_checks_batch_file_names(tmp_path, fake):
     download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
     fake["list"] = accs("AB", 10) + ["AB000011.2", "AB000012.2"]
     download("Priapulidae", str(tmp_path), DownloadOptions(no_store=True, batch=5), progress=False)
-    assert sorted(f.name for f in (tmp_path / "markers").glob("batch_*.gb")) != ["batch_0001.gb", "batch_0002.gb",
-                                                                                  "batch_0003.gb"]
+    assert sorted(f.name for f in (tmp_path / "markers").glob("batch_*.gb")) != [
+        "batch_0001.gb",
+        "batch_0002.gb",
+        "batch_0003.gb",
+    ]
     download("Priapulidae", str(tmp_path), DownloadOptions(batch=5), progress=False)
     assert sorted(ids_in(tmp_path / "markers")) == sorted(fake["list"])
 
 
 def test_gene_clauses_are_parenthesised():
     from g2t.ncbi_genes import GENES
+
     for g in ("12S", "16S"):
         for clause in GENES[g]:
             if " AND " in clause:
@@ -394,5 +410,6 @@ def test_gene_clauses_are_parenthesised():
 def test_pipeline_cli_returns_zero_on_success(monkeypatch, tmp_path):
     from g2t import _cli, _pipeline
     from g2t._pipeline import PipelineResult
+
     monkeypatch.setattr(_pipeline, "run", lambda **kw: PipelineResult(success=True, output_dir=str(tmp_path)))
     assert _cli.main_pipeline(["-i", "x", "-o", str(tmp_path), "--quiet"]) == 0

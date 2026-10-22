@@ -1,6 +1,5 @@
 """Tests for _pipeline.py: PipelineResult and _find_fallback."""
 
-
 import pytest
 
 from g2t._pipeline import PipelineResult, _find_fallback

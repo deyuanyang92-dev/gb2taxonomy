@@ -27,11 +27,11 @@ class CustomFormatter(logging.Formatter):
         return super().format(record)
 
 
-def setup_logging(log_file: str = 'extract_methods.log') -> None:
+def setup_logging(log_file: str = "extract_methods.log") -> None:
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    formatter = CustomFormatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+    formatter = CustomFormatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     console_handler = logging.StreamHandler(sys.stdout)
@@ -50,6 +50,7 @@ def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]] |
     if yaml_path is None:
         try:
             from importlib.resources import files
+
             yaml_path = str(files("g2t") / "data" / "gene_dict.yaml")
         except Exception:
             yaml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gene_dict.yaml")
@@ -57,11 +58,12 @@ def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]] |
         return None
     try:
         import yaml
-        with open(yaml_path, encoding='utf-8') as f:
+
+        with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         result = {}
-        for k, v in data.get('gene_types', {}).items():
-            synonyms = v.get('synonyms', []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
+        for k, v in data.get("gene_types", {}).items():
+            synonyms = v.get("synonyms", []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
             result[k.lower()] = list({str(s).lower() for s in synonyms if isinstance(s, str)})
         return result
     except Exception as e:
@@ -71,149 +73,245 @@ def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]] |
 
 # Built-in fallback dictionary (kept for backward compatibility)
 _BUILTIN_GENE_DICT: dict[str, list[str]] = {
-    'coi': list({s.lower() for s in [
-        'cytochrome oxidase I',
-        'cytochrome oxidase subunit 1 gene',
-        'cytochrome c oxidase subunit I',
-        'cytochrome oxidase subunit I',
-        'cytochrome c oxidase subunit I',
-        'cytochrome oxidase subunit 1',
-        'mitochondrial COI',
-        'cytochrome c oxidase I',
-        'cytochrome c oxidase subunit 1',
-        'cytochrome c oxidase gene',
-        'cox1',
-        'cytochrome oxidase subunit I-like',
-        'COI', 'CO1', 'COXI', 'COX1'
-    ]}),
-    '16s': list({s.lower() for s in [
-        '16S ribosomal RNA',
-        '16S ribosomal RNA gene, partial sequence; mitochondrial',
-        'large subunit ribosomal RNA gene, partial sequence; mitochondrial',
-        'mitochondrial gene for 16S rRNA, partial sequence',
-        '16S ribosomal RNA, partial sequence',
-        'large subunit ribosomal RNA',
-        '16S rRNA gene', '16S ribosomal RNA gene', '16S-rRNA',
-        '16S ribosomal', '16S large subunit rRNA gene',
-        'ribosomal RNA large subunit', '16s rRNA', '16S subunit RNA'
-    ]}),
-    '12s': list({s.lower() for s in [
-        '12S ribosomal RNA gene, partial sequence; mitochondrial',
-        'mitochondrial gene for 12S ribosomal RNA, patial sequence',
-        'small subunit ribosomal RNA gene, partial sequence; mitochondrial',
-        'small subunit ribosomal RNA gene',
-        'small subunit ribosomal RNA gene, partial sequence; mitochondrial',
-        'small subunit ribosomal',
-        '12S rRNA gene', '12S rRNA',
-        '12S small subunit rRNA gene',
-        '12S rRNA, partial sequence',
-        'ribosomal RNA small subunit', '12S ribosomal RNA'
-    ]}),
-    'cob': list({s.lower() for s in [
-        'cytochrome b', 'cytb',
-        'cytochrome b gene, partial cds; mitochondrial',
-        'mitochondrial cytb gene for cytochrome b, partial cds',
-        'cytochrome b (Cytb) gene, partial cds; mitochondrial',
-        'cytochrome b (CytB) gene, partial cds; mitochondrial',
-        'mitochondrial cytb gene for cytochrome b, partial cds',
-        'cytochrome oxidase subunit b',
-        'COB', 'cytochrome b-like', 'cytB'
-    ]}),
-    'mtgenome': list({s.lower() for s in [
-        'organelle: mitochondrion',
-        'mitochondrion, complete genome',
-        'mitochondrion, partial genome',
-        'mitochondrion sequence',
-        'mitochondrial genome',
-        'mitochondrial DNA, nearly complete genome',
-        'chromosome: MIT',
-        'mitochondrial_genome',
-        'mt genome', 'mtDNA',
-        'complete sequence',
-        'complete genome',
-        'mitogenome',
-        'mitochondrion, complete sequence'
-    ]}),
-    'cox3': list({s.lower() for s in [
-        'cytochrome oxidase subunit III',
-        'cytochrome c oxidase subunit 3',
-        'cytochrome oxidase 3',
-        'cytochrome c oxidase subunit III',
-        'cytochrome c oxidase III',
-        'cytochrome oxidase subunit 3 mRNA',
-        'cytochrome oxidase subunit 3',
-        'cytochrome c oxidase subunit III (cox3) gene',
-        'COX3', 'CO3', 'COXIII'
-    ]}),
-    'cox2': list({s.lower() for s in [
-        'cytochrome oxidase subunit II',
-        'cytochrome oxidase subunit 2',
-        'cytochrome c oxidase subunit II',
-        'cytochrome c oxidase subunit 2',
-        'COX2', 'CO2', 'COXII'
-    ]}),
-    '18-28s': list({s.lower() for s in [
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
-        '18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
-        'small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene',  # noqa: E501
-        'small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
-        '18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence',  # noqa: E501
-        '18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence'
-    ]}),
-    'its1-its2': list({s.lower() for s in [
-        '5.8S rRNA', '5.8S ribosomal RNA',
-        'internal transcribed spacer',  # P0-2a: fixed "trancribed" -> "transcribed"
-        'ITS1', 'ITS2',
-        'internal transcribed spacer 1 intergenic spacer',
-        'internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence',  # noqa: E501
-        'ITS'
-    ]}),
-    '28s': list({s.lower() for s in [
-        '28S ribosomal RNA gene',
-        '28S ribosomal RNA gene, partial sequence',
-        'large subunit ribosomal RNA gene, partial sequence',
-        '28S rRNA, partial sequence', '28S rRNA',
-        'large subunit ribosomal RNA',
-        'ribosomal RNA large subunit gene',
-        '28S ribosomal RNA'
-    ]}),
-    'ef-1': list({s.lower() for s in [
-        'elongation factor-1 alpha (EF-1 alpha) mRNA',
-        'elongation factor-1', 'elongation factor-1alpha',
-        'elongation factor 1-alpha',
-        'ef1a', 'ef-1a', 'elongation factor 1 alpha', 'EF1alpha'  # P1-12: added missing synonyms
-    ]}),
-    '18s': list({s.lower() for s in [
-        'small subunit ribosomal RNA gene, partial sequence',
-        '18S ribosomal RNA, partial sequence',
-        '18s rRNA, complete sequence',
-        '18S rRNA, partial sequence',
-        '18S ribosomal RNA gene, partial sequence',
-        '18S ribosomal RNA, partial sequence',
-        '18S ribosomal RNA gene',
-        'small subunit ribosomal RNA gene, partial sequence',
-        '18S ribosomal RNA', 'small subunit RNA',
-        'nuclear small subunit ribosomal RNA',
-        'small subunit ribosomal RNA',
-        'macronuclear small-subunit ribosomal RNA',
-        '18S small subunit ribosomal RNA',
-        '18S rRNA', 'small subunit ribosomal RNA gen',
-        '18S ribosomal RNA',  # P0-2b: fixed "ribosoaml" -> "ribosomal"
-        'ribosomal RNA small-subunit'
-    ]}),
-    'h3': list({s.lower() for s in [
-        'histone H3', 'histone 3', 'histone 3 (H3)',
-        'histone 3 (H3) gene, partial cds',
-        'histone H3 gene', 'H3 histone',
-        'histone (H3) gene', 'histone 3 gene'
-    ]})
+    "coi": list(
+        {
+            s.lower()
+            for s in [
+                "cytochrome oxidase I",
+                "cytochrome oxidase subunit 1 gene",
+                "cytochrome c oxidase subunit I",
+                "cytochrome oxidase subunit I",
+                "cytochrome c oxidase subunit I",
+                "cytochrome oxidase subunit 1",
+                "mitochondrial COI",
+                "cytochrome c oxidase I",
+                "cytochrome c oxidase subunit 1",
+                "cytochrome c oxidase gene",
+                "cox1",
+                "cytochrome oxidase subunit I-like",
+                "COI",
+                "CO1",
+                "COXI",
+                "COX1",
+            ]
+        }
+    ),
+    "16s": list(
+        {
+            s.lower()
+            for s in [
+                "16S ribosomal RNA",
+                "16S ribosomal RNA gene, partial sequence; mitochondrial",
+                "large subunit ribosomal RNA gene, partial sequence; mitochondrial",
+                "mitochondrial gene for 16S rRNA, partial sequence",
+                "16S ribosomal RNA, partial sequence",
+                "large subunit ribosomal RNA",
+                "16S rRNA gene",
+                "16S ribosomal RNA gene",
+                "16S-rRNA",
+                "16S ribosomal",
+                "16S large subunit rRNA gene",
+                "ribosomal RNA large subunit",
+                "16s rRNA",
+                "16S subunit RNA",
+            ]
+        }
+    ),
+    "12s": list(
+        {
+            s.lower()
+            for s in [
+                "12S ribosomal RNA gene, partial sequence; mitochondrial",
+                "mitochondrial gene for 12S ribosomal RNA, patial sequence",
+                "small subunit ribosomal RNA gene, partial sequence; mitochondrial",
+                "small subunit ribosomal RNA gene",
+                "small subunit ribosomal RNA gene, partial sequence; mitochondrial",
+                "small subunit ribosomal",
+                "12S rRNA gene",
+                "12S rRNA",
+                "12S small subunit rRNA gene",
+                "12S rRNA, partial sequence",
+                "ribosomal RNA small subunit",
+                "12S ribosomal RNA",
+            ]
+        }
+    ),
+    "cob": list(
+        {
+            s.lower()
+            for s in [
+                "cytochrome b",
+                "cytb",
+                "cytochrome b gene, partial cds; mitochondrial",
+                "mitochondrial cytb gene for cytochrome b, partial cds",
+                "cytochrome b (Cytb) gene, partial cds; mitochondrial",
+                "cytochrome b (CytB) gene, partial cds; mitochondrial",
+                "mitochondrial cytb gene for cytochrome b, partial cds",
+                "cytochrome oxidase subunit b",
+                "COB",
+                "cytochrome b-like",
+                "cytB",
+            ]
+        }
+    ),
+    "mtgenome": list(
+        {
+            s.lower()
+            for s in [
+                "organelle: mitochondrion",
+                "mitochondrion, complete genome",
+                "mitochondrion, partial genome",
+                "mitochondrion sequence",
+                "mitochondrial genome",
+                "mitochondrial DNA, nearly complete genome",
+                "chromosome: MIT",
+                "mitochondrial_genome",
+                "mt genome",
+                "mtDNA",
+                "complete sequence",
+                "complete genome",
+                "mitogenome",
+                "mitochondrion, complete sequence",
+            ]
+        }
+    ),
+    "cox3": list(
+        {
+            s.lower()
+            for s in [
+                "cytochrome oxidase subunit III",
+                "cytochrome c oxidase subunit 3",
+                "cytochrome oxidase 3",
+                "cytochrome c oxidase subunit III",
+                "cytochrome c oxidase III",
+                "cytochrome oxidase subunit 3 mRNA",
+                "cytochrome oxidase subunit 3",
+                "cytochrome c oxidase subunit III (cox3) gene",
+                "COX3",
+                "CO3",
+                "COXIII",
+            ]
+        }
+    ),
+    "cox2": list(
+        {
+            s.lower()
+            for s in [
+                "cytochrome oxidase subunit II",
+                "cytochrome oxidase subunit 2",
+                "cytochrome c oxidase subunit II",
+                "cytochrome c oxidase subunit 2",
+                "COX2",
+                "CO2",
+                "COXII",
+            ]
+        }
+    ),
+    "18-28s": list(
+        {
+            s.lower()
+            for s in [
+                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
+                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
+                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
+                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
+                "small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene",  # noqa: E501
+                "small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
+                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
+                "18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence",
+            ]
+        }
+    ),
+    "its1-its2": list(
+        {
+            s.lower()
+            for s in [
+                "5.8S rRNA",
+                "5.8S ribosomal RNA",
+                "internal transcribed spacer",  # P0-2a: fixed "trancribed" -> "transcribed"
+                "ITS1",
+                "ITS2",
+                "internal transcribed spacer 1 intergenic spacer",
+                "internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence",  # noqa: E501
+                "ITS",
+            ]
+        }
+    ),
+    "28s": list(
+        {
+            s.lower()
+            for s in [
+                "28S ribosomal RNA gene",
+                "28S ribosomal RNA gene, partial sequence",
+                "large subunit ribosomal RNA gene, partial sequence",
+                "28S rRNA, partial sequence",
+                "28S rRNA",
+                "large subunit ribosomal RNA",
+                "ribosomal RNA large subunit gene",
+                "28S ribosomal RNA",
+            ]
+        }
+    ),
+    "ef-1": list(
+        {
+            s.lower()
+            for s in [
+                "elongation factor-1 alpha (EF-1 alpha) mRNA",
+                "elongation factor-1",
+                "elongation factor-1alpha",
+                "elongation factor 1-alpha",
+                "ef1a",
+                "ef-1a",
+                "elongation factor 1 alpha",
+                "EF1alpha",  # P1-12: added missing synonyms
+            ]
+        }
+    ),
+    "18s": list(
+        {
+            s.lower()
+            for s in [
+                "small subunit ribosomal RNA gene, partial sequence",
+                "18S ribosomal RNA, partial sequence",
+                "18s rRNA, complete sequence",
+                "18S rRNA, partial sequence",
+                "18S ribosomal RNA gene, partial sequence",
+                "18S ribosomal RNA, partial sequence",
+                "18S ribosomal RNA gene",
+                "small subunit ribosomal RNA gene, partial sequence",
+                "18S ribosomal RNA",
+                "small subunit RNA",
+                "nuclear small subunit ribosomal RNA",
+                "small subunit ribosomal RNA",
+                "macronuclear small-subunit ribosomal RNA",
+                "18S small subunit ribosomal RNA",
+                "18S rRNA",
+                "small subunit ribosomal RNA gen",
+                "18S ribosomal RNA",  # P0-2b: fixed "ribosoaml" -> "ribosomal"
+                "ribosomal RNA small-subunit",
+            ]
+        }
+    ),
+    "h3": list(
+        {
+            s.lower()
+            for s in [
+                "histone H3",
+                "histone 3",
+                "histone 3 (H3)",
+                "histone 3 (H3) gene, partial cds",
+                "histone H3 gene",
+                "H3 histone",
+                "histone (H3) gene",
+                "histone 3 gene",
+            ]
+        }
+    ),
 }
 
 # Initialize from YAML (preferred) or built-in
@@ -239,8 +337,8 @@ def _precompile_patterns():
             if key in _COMPILED_PATTERNS:
                 continue
             escaped = re.escape(key)
-            left = r'\b' if re.match(r'\w', key) else r'(?:(?<=\s)|^)'
-            right = r'\b' if (key and re.match(r'\w', key[-1])) else r'(?=\s|$)'
+            left = r"\b" if re.match(r"\w", key) else r"(?:(?<=\s)|^)"
+            right = r"\b" if (key and re.match(r"\w", key[-1])) else r"(?=\s|$)"
             _COMPILED_PATTERNS[key] = re.compile(left + escaped + right, re.IGNORECASE)
 
 
@@ -286,13 +384,20 @@ class MatchConfig:
     length2_ntgenes: str = "150:50000"
     global_length_range: str = "150:50000"
 
-    gene_length_ranges: dict[str, str] = field(default_factory=lambda: {
-        "mtgenome": "3000:500000",
-        "18-28s": "5000:15000",
-        "coi": "none", "its1-its2": "none", "cob": "none",
-        "12s": "none", "16s": "none", "18s": "none",
-        "28s": "none", "h3": "none",
-    })
+    gene_length_ranges: dict[str, str] = field(
+        default_factory=lambda: {
+            "mtgenome": "3000:500000",
+            "18-28s": "5000:15000",
+            "coi": "none",
+            "its1-its2": "none",
+            "cob": "none",
+            "12s": "none",
+            "16s": "none",
+            "18s": "none",
+            "28s": "none",
+            "h3": "none",
+        }
+    )
 
     add_assignment_reasons: bool = True
     record_conflict_reasons: bool = True
@@ -334,17 +439,13 @@ def load_path_dict(path_dict: str) -> None:
                     line = line.strip()
                     if line and ":" in line:
                         gene, syns = line.split(":", 1)
-                        new_dict[gene.strip().lower()] = [
-                            s.strip().lower() for s in syns.split(",") if s.strip()
-                        ]
+                        new_dict[gene.strip().lower()] = [s.strip().lower() for s in syns.split(",") if s.strip()]
         elif ext == ".csv":
             df = pd.read_csv(path_dict, dtype=str)
             if {"gene", "synonyms"}.issubset(df.columns):
                 for row in df.itertuples(index=False):
                     gene = row.gene.strip().lower()
-                    new_dict[gene] = [
-                        s.strip().lower() for s in str(row.synonyms).split(",") if s.strip()
-                    ]
+                    new_dict[gene] = [s.strip().lower() for s in str(row.synonyms).split(",") if s.strip()]
             else:
                 logger.error("CSV must contain 'gene' and 'synonyms' columns")
         else:
@@ -362,7 +463,6 @@ def load_path_dict(path_dict: str) -> None:
         logger.info(f"External gene dictionary loaded ({len(new_dict)} genes)")
 
 
-
 def smart_match(phrase: str, text: str) -> bool:
     """Smart phrase matching using pre-compiled patterns (P1-9)."""
     key = phrase.lower()
@@ -370,8 +470,8 @@ def smart_match(phrase: str, text: str) -> bool:
     if pat is None:
         # Fallback for phrases not in GENE_DICT (e.g. from external dicts)
         escaped = re.escape(key)
-        left = r'\b' if re.match(r'\w', key) else r'(?:(?<=\s)|^)'
-        right = r'\b' if (key and re.match(r'\w', key[-1])) else r'(?=\s|$)'
+        left = r"\b" if re.match(r"\w", key) else r"(?:(?<=\s)|^)"
+        right = r"\b" if (key and re.match(r"\w", key[-1])) else r"(?=\s|$)"
         pat = re.compile(left + escaped + right, re.IGNORECASE)
         _COMPILED_PATTERNS[key] = pat
     return pat.search(text) is not None
@@ -395,15 +495,24 @@ def clean_length(length_str: str) -> int:
 
 # Words that look like gene keywords but are not marker genes (review item L-06).
 NEGATIVE_CONTEXT: dict[str, re.Pattern] = {
-    "16s": re.compile(r"16s\s+r?rna\s+(?:\((?:[^()]|\([^()]*\))*\)[\s-]*)?"
-                      r"(?:methyl|methylase|methyltransferase)", re.I),
+    "16s": re.compile(
+        r"16s\s+r?rna\s+(?:\((?:[^()]|\([^()]*\))*\)[\s-]*)?"
+        r"(?:methyl|methylase|methyltransferase)",
+        re.I,
+    ),
     "12s": re.compile(r"12s\s+r?rna\s+(?:methyl|methylase|methyltransferase)", re.I),
-    "h3": re.compile(r"(?:histone\s+)?h3\s*(?:k\d+|lysine|\S*(?:demethylase|methyltransferase|acetyltransferase|"
-                     r"deacetylase|kinase|chaperone))", re.I),
+    "h3": re.compile(
+        r"(?:histone\s+)?h3\s*(?:k\d+|lysine|\S*(?:demethylase|methyltransferase|acetyltransferase|"
+        r"deacetylase|kinase|chaperone))",
+        re.I,
+    ),
     "ef-1": re.compile(r"elongation\s+factor[\s-]*1[\s-]*(?:beta|gamma|delta|b|g|d)\b", re.I),
 }
-_SPECIMEN_TOKEN = re.compile(r"\b(?:isolate|voucher|strain|clone|specimen|haplotype|culture|individual|sample)"
-                             r"\s+(?:voucher\s+)?[^\s,;]+", re.I)
+_SPECIMEN_TOKEN = re.compile(
+    r"\b(?:isolate|voucher|strain|clone|specimen|haplotype|culture|individual|sample)"
+    r"\s+(?:voucher\s+)?[^\s,;]+",
+    re.I,
+)
 
 
 def clean_definition(definition: Any) -> str:
@@ -411,7 +520,7 @@ def clean_definition(definition: Any) -> str:
     and the English word 'its' are removed first, so they are not read as gene names (review item L-06)."""
     text = str(definition or "")
     text = _SPECIMEN_TOKEN.sub(" ", text)
-    text = re.sub(r"\bits\b", " ", text)          # lower-case possessive only; 'ITS' is kept
+    text = re.sub(r"\bits\b", " ", text)  # lower-case possessive only; 'ITS' is kept
     return re.sub(r"\s+", " ", text).lower().strip()
 
 
@@ -420,8 +529,9 @@ def _negative_hit(gene: str, definition: str) -> bool:
     return bool(pat and pat.search(definition))
 
 
-def filter_dataframe(df: pd.DataFrame, moleculetype: str, mol_type: str,
-                     length_filter: str, organelle_filter: str) -> pd.DataFrame:
+def filter_dataframe(
+    df: pd.DataFrame, moleculetype: str, mol_type: str, length_filter: str, organelle_filter: str
+) -> pd.DataFrame:
     if moleculetype.lower() != "all":
         df = df[df["MoleculeType"].str.lower() == moleculetype.lower()]
     if mol_type.lower() != "all":
@@ -455,30 +565,43 @@ def _write_filtered(output_dir: str, rows: list[dict], append: bool) -> None:
 def _filtered_rows(removed: pd.DataFrame, step: str, reason) -> list[dict]:
     out = []
     for _, r in removed.iterrows():
-        out.append({
-            "input_row": r.get("g2t_input_row", ""),
-            "ACCESSION": r.get("ACCESSION", ""), "LocusID": r.get("LocusID", ""),
-            "Organism": r.get("Organism", r.get("organism", "")),
-            "Length": r.get("g2t_length_raw", "") if pd.isna(r.get("Length")) else int(r.get("Length")),
-            "Definition": r.get("Definition", ""), "step": step,
-            "reason": reason(r) if callable(reason) else reason,
-        })
+        out.append(
+            {
+                "input_row": r.get("g2t_input_row", ""),
+                "ACCESSION": r.get("ACCESSION", ""),
+                "LocusID": r.get("LocusID", ""),
+                "Organism": r.get("Organism", r.get("organism", "")),
+                "Length": r.get("g2t_length_raw", "") if pd.isna(r.get("Length")) else int(r.get("Length")),
+                "Definition": r.get("Definition", ""),
+                "step": step,
+                "reason": reason(r) if callable(reason) else reason,
+            }
+        )
     return out
 
 
-def _filter_dataframe_logged(df: pd.DataFrame, moleculetype: str, mol_type: str,
-                             length_filter: str, organelle_filter: str, removed: list[dict]) -> pd.DataFrame:
+def _filter_dataframe_logged(
+    df: pd.DataFrame, moleculetype: str, mol_type: str, length_filter: str, organelle_filter: str, removed: list[dict]
+) -> pd.DataFrame:
     """filter_dataframe, but every removed row is appended to `removed` with its reason."""
+
     def apply(d, keep, reason):
         removed.extend(_filtered_rows(d[~keep], "classify round 1", reason))
         return d[keep]
+
     if moleculetype.lower() != "all":
-        df = apply(df, df["MoleculeType"].str.lower() == moleculetype.lower(),
-                   lambda r: f"MoleculeType '{r.get('MoleculeType', '')}' is not '{moleculetype}'")
+        df = apply(
+            df,
+            df["MoleculeType"].str.lower() == moleculetype.lower(),
+            lambda r: f"MoleculeType '{r.get('MoleculeType', '')}' is not '{moleculetype}'",
+        )
     if mol_type.lower() != "all":
         allowed = [x.strip().lower() for x in mol_type.split(",")]
-        df = apply(df, df["mol_type"].str.lower().isin(allowed),
-                   lambda r: f"mol_type '{r.get('mol_type', '')}' not in {mol_type}")
+        df = apply(
+            df,
+            df["mol_type"].str.lower().isin(allowed),
+            lambda r: f"mol_type '{r.get('mol_type', '')}' not in {mol_type}",
+        )
     if length_filter.lower() != "all":
         lo, hi = parse_interval(length_filter)
         keep = pd.Series(True, index=df.index)
@@ -488,15 +611,28 @@ def _filter_dataframe_logged(df: pd.DataFrame, moleculetype: str, mol_type: str,
             keep &= df["Length"] <= hi
         df = apply(df, keep, lambda r: f"length {int(r['Length'])} bp outside --length {length_filter}")
     if organelle_filter.lower() != "all":
-        df = apply(df, df["organelle"].str.lower() == organelle_filter.lower(),
-                   lambda r: f"organelle '{r.get('organelle', '')}' is not '{organelle_filter}'")
+        df = apply(
+            df,
+            df["organelle"].str.lower() == organelle_filter.lower(),
+            lambda r: f"organelle '{r.get('organelle', '')}' is not '{organelle_filter}'",
+        )
     return df
 
 
-CLASSIFY_OUTPUTS = ["assigned_genes_type.csv", "assigned_genes_types2.csv", "assigned_genes_types_all.csv",
-                    "unmatched_sequences.csv", "unmatched_sequences2.csv", "unmatched_categorized.csv",
-                    "unmatched_report.txt", "conflicted_genes.csv", "multiple_matched.csv", "multiple_matched2.csv",
-                    FILTERED_FILE, STATUS_FILE]
+CLASSIFY_OUTPUTS = [
+    "assigned_genes_type.csv",
+    "assigned_genes_types2.csv",
+    "assigned_genes_types_all.csv",
+    "unmatched_sequences.csv",
+    "unmatched_sequences2.csv",
+    "unmatched_categorized.csv",
+    "unmatched_report.txt",
+    "conflicted_genes.csv",
+    "multiple_matched.csv",
+    "multiple_matched2.csv",
+    FILTERED_FILE,
+    STATUS_FILE,
+]
 
 
 def _clean_outputs(output_dir: str, extra: list[str] | None = None) -> None:
@@ -524,8 +660,7 @@ def _write_all(output_dir: str, prematch_output: str) -> str:
     return all_file
 
 
-DIAG_COLUMNS = ["gene_type", "Conflict", "match_source", "Original_match",
-                "Conflict_reason", "Assignment_reason"]
+DIAG_COLUMNS = ["gene_type", "Conflict", "match_source", "Original_match", "Conflict_reason", "Assignment_reason"]
 
 
 def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -603,11 +738,14 @@ def _match_gene_loop(
     return matched, notes
 
 
-def match_mito_genes(definition: str, length_val: int, molecule_type: str,
-                     config: MatchConfig) -> tuple[set[str], list[str]]:
+def match_mito_genes(
+    definition: str, length_val: int, molecule_type: str, config: MatchConfig
+) -> tuple[set[str], list[str]]:
     """Mitochondrial gene matching: mtgenome priority, then other mito genes."""
     return _match_gene_loop(
-        definition, length_val, config,
+        definition,
+        length_val,
+        config,
         gene_set=config.mito_genes,
         skip_genes=set(),
         priority_genes=["mtgenome"],
@@ -615,11 +753,12 @@ def match_mito_genes(definition: str, length_val: int, molecule_type: str,
     )
 
 
-def match_nuclear_genes(definition: str, length_val: int,
-                        config: MatchConfig) -> tuple[set[str], list[str]]:
+def match_nuclear_genes(definition: str, length_val: int, config: MatchConfig) -> tuple[set[str], list[str]]:
     """Nuclear gene matching: 18-28s priority, then its1-its2, then other nuclear genes."""
     return _match_gene_loop(
-        definition, length_val, config,
+        definition,
+        length_val,
+        config,
         gene_set=config.nuclear_genes,
         skip_genes=set(),
         priority_genes=["18-28s", "its1-its2"],
@@ -664,17 +803,17 @@ def first_round_match(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
 # Round 1.5: Conflict check
 # =========================
 def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> dict | None:
-    if gene == "12s" and re.search(r'large subunit ribosomal', definition, re.IGNORECASE):
+    if gene == "12s" and re.search(r"large subunit ribosomal", definition, re.IGNORECASE):
         return {
             "resolved": {"12s"},  # P0-4: preserve original (consistent with 18s/28s now)
             "reason": "12s matched with 'large subunit ribosomal' in definition, possible 16S mismatch, flagged",
-            "conflict_reason": "12s conflicts with 'large subunit ribosomal' description"
+            "conflict_reason": "12s conflicts with 'large subunit ribosomal' description",
         }
-    if gene == "16s" and re.search(r'small subunit ribosomal', definition, re.IGNORECASE):
+    if gene == "16s" and re.search(r"small subunit ribosomal", definition, re.IGNORECASE):
         return {
             "resolved": {"16s"},
             "reason": "16s matched with 'small subunit ribosomal' in definition, possible 12S mismatch, flagged",
-            "conflict_reason": "16s conflicts with 'small subunit ribosomal' description"
+            "conflict_reason": "16s conflicts with 'small subunit ribosomal' description",
         }
     if gene in ("18s", "28s") and "mitochondrial" in definition.lower():
         # P0-4: Always preserve original gene name, record conflict in metadata
@@ -682,21 +821,21 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> di
             return {
                 "resolved": {gene},
                 "reason": f"{gene} in definition with 'mitochondrial' but length {length_val}>800, kept {gene}",
-                "conflict_reason": f"{gene} conflicts with mitochondrial annotation"
+                "conflict_reason": f"{gene} conflicts with mitochondrial annotation",
             }
         else:
             return {
                 "resolved": {gene},  # P0-4: no more '?' suffix — consistent with 12s/16s
                 "reason": f"{gene} in definition with 'mitochondrial' and length {length_val}<=800, "
-                          "flagged as uncertain",
-                "conflict_reason": f"{gene} conflicts with mitochondrial annotation, short length"
+                "flagged as uncertain",
+                "conflict_reason": f"{gene} conflicts with mitochondrial annotation, short length",
             }
     return None
 
 
-def conflict_check_and_reassign(gene_type_str: str, definition: str,
-                                topology: str, group: str,
-                                length_val: int, mt_min: int | None = 3000) -> dict[str, Any]:
+def conflict_check_and_reassign(
+    gene_type_str: str, definition: str, topology: str, group: str, length_val: int, mt_min: int | None = 3000
+) -> dict[str, Any]:
     genes = {g.strip().lower() for g in gene_type_str.split(",") if g.strip()}
     original = gene_type_str
     notes = []
@@ -711,11 +850,9 @@ def conflict_check_and_reassign(gene_type_str: str, definition: str,
     resolved = set(genes)
 
     if group.lower() == "mito":
-        resolved, conflict, conflict_reason, notes = _conflict_mito(
-            genes, definition, length_val, notes, mt_min)
+        resolved, conflict, conflict_reason, notes = _conflict_mito(genes, definition, length_val, notes, mt_min)
     else:
-        resolved, conflict, conflict_reason, notes = _conflict_nuclear(
-            genes, definition, length_val, notes)
+        resolved, conflict, conflict_reason, notes = _conflict_nuclear(genes, definition, length_val, notes)
 
     new_gene_type = ",".join(sorted(resolved))
 
@@ -728,13 +865,14 @@ def conflict_check_and_reassign(gene_type_str: str, definition: str,
     if new_gene_type != original:
         notes.append(f"Reassigned: [{original}] -> [{new_gene_type}]")
 
-    return _build_result(new_gene_type, match_source, notes,
-                         original=original, conflict=conflict,
-                         conflict_reason=conflict_reason)
+    return _build_result(
+        new_gene_type, match_source, notes, original=original, conflict=conflict, conflict_reason=conflict_reason
+    )
 
 
-def _conflict_mito(genes: set[str], definition: str, length_val: int,
-                   notes: list[str], mt_min: int | None = 3000) -> tuple[set[str], bool, str, list[str]]:
+def _conflict_mito(
+    genes: set[str], definition: str, length_val: int, notes: list[str], mt_min: int | None = 3000
+) -> tuple[set[str], bool, str, list[str]]:
     conflict = False
     conflict_reason = ""
     resolved = set(genes)
@@ -750,8 +888,8 @@ def _conflict_mito(genes: set[str], definition: str, length_val: int,
         return resolved, conflict, conflict_reason, notes
 
     if len(genes) == 2:
-        has_trna = re.search(r'trna', definition, re.IGNORECASE)
-        has_complete = re.search(r'complete sequence', definition, re.IGNORECASE)
+        has_trna = re.search(r"trna", definition, re.IGNORECASE)
+        has_complete = re.search(r"complete sequence", definition, re.IGNORECASE)
         if has_trna or has_complete:
             conflict = True
             trigger = "tRNA" if has_trna else "complete sequence"
@@ -770,8 +908,9 @@ def _conflict_mito(genes: set[str], definition: str, length_val: int,
     return resolved, conflict, conflict_reason, notes
 
 
-def _conflict_nuclear(genes: set[str], definition: str, length_val: int,
-                      notes: list[str]) -> tuple[set[str], bool, str, list[str]]:
+def _conflict_nuclear(
+    genes: set[str], definition: str, length_val: int, notes: list[str]
+) -> tuple[set[str], bool, str, list[str]]:
     conflict = False
     conflict_reason = ""
     resolved = set(genes)
@@ -821,27 +960,30 @@ def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
 
             if gene == "mtgenome":
                 mt_min = _mtgenome_min(config)
-                if ((mt_min is None or length_val >= mt_min) and molecule_type == "dna"
-                        and (has_mito_def or has_mito_org)):
+                if (
+                    (mt_min is None or length_val >= mt_min)
+                    and molecule_type == "dna"
+                    and (has_mito_def or has_mito_org)
+                ):
                     candidates.add("mtgenome")
                     notes.append(f"mtgenome: keyword + Length>={mt_min} + DNA + mitochondrial features")
                 else:
                     conflict_notes.append(
                         f"mtgenome: conditions not met (Length={length_val}, "
                         f"MoleculeType={molecule_type}, "
-                        f"mito_in_def={has_mito_def}, mito_in_org={has_mito_org})")
+                        f"mito_in_def={has_mito_def}, mito_in_org={has_mito_org})"
+                    )
             else:
                 candidates.add(gene)
                 notes.append(f"{gene}: keyword matched")
 
         if not candidates and pcr_primers:
             coi_primers = ["HCO2198", "lc01490", "LCO1490"]
-            if any(re.search(rf'(?:fwd|rev)_name:\s*{re.escape(p)}', pcr_primers, re.IGNORECASE)
-                   for p in coi_primers):
+            if any(re.search(rf"(?:fwd|rev)_name:\s*{re.escape(p)}", pcr_primers, re.IGNORECASE) for p in coi_primers):
                 candidates.add("coi")
                 notes.append("PCR primer match (HCO2198/lc01490) -> coi")
 
-            if re.search(r'(?:fwd|rev)_name:\s*28SC1', pcr_primers, re.IGNORECASE):
+            if re.search(r"(?:fwd|rev)_name:\s*28SC1", pcr_primers, re.IGNORECASE):
                 candidates.add("28s")
                 notes.append("PCR primer match (28SC1) -> 28s")
 
@@ -852,36 +994,45 @@ def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
             gene_assigned = next(iter(candidates))
             if gene_assigned in config.mito_genes and not (has_mito_def or has_mito_org):
                 conflict_notes.append(
-                    f"Mitochondrial candidate ({gene_assigned}) but no mitochondrial marker in organelle/definition")
+                    f"Mitochondrial candidate ({gene_assigned}) but no mitochondrial marker in organelle/definition"
+                )
             if gene_assigned in config.nuclear_genes and (has_mito_def or has_mito_org):
                 conflict_notes.append(
-                    f"Nuclear candidate ({gene_assigned}) but mitochondrial marker in organelle/definition")
+                    f"Nuclear candidate ({gene_assigned}) but mitochondrial marker in organelle/definition"
+                )
 
     gene_type = ",".join(sorted(candidates))
     match_source = "recheck_mode" if gene_type else ""
     conflict = bool(conflict_notes) and bool(gene_type)
 
     return _build_result(
-        gene_type, match_source, notes,
+        gene_type,
+        match_source,
+        notes,
         original=gene_type,
         conflict=conflict,
-        conflict_reason="; ".join(conflict_notes) if conflict else ""
+        conflict_reason="; ".join(conflict_notes) if conflict else "",
     )
 
 
 # =========================
 # Result builder
 # =========================
-def _build_result(gene_type: str, match_source: str, notes: list[str],
-                  original: str = "", conflict: bool = False,
-                  conflict_reason: str = "") -> dict[str, Any]:
+def _build_result(
+    gene_type: str,
+    match_source: str,
+    notes: list[str],
+    original: str = "",
+    conflict: bool = False,
+    conflict_reason: str = "",
+) -> dict[str, Any]:
     return {
         "gene_type": gene_type,
         "match_source": match_source,
         "Original_match": original or gene_type,
         "conflict": conflict,
         "Conflict_reason": conflict_reason,
-        "Assignment_reason": "; ".join(notes)
+        "Assignment_reason": "; ".join(notes),
     }
 
 
@@ -899,8 +1050,7 @@ def process_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
     group = _record_group(str(row.get("organelle", "")).lower(), definition)
     length_val = clean_length(row.get("Length", "0"))
 
-    final = conflict_check_and_reassign(gene_type_str, definition, "", group, length_val,
-                                        mt_min=_mtgenome_min(config))
+    final = conflict_check_and_reassign(gene_type_str, definition, "", group, length_val, mt_min=_mtgenome_min(config))
 
     if final["match_source"] == "reassign_mode":
         match_source = "first_match -> conflict_check"
@@ -919,18 +1069,26 @@ def process_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
         "Original_match": final["Original_match"],
         "conflict": final["conflict"],
         "Conflict_reason": final["Conflict_reason"],
-        "Assignment_reason": "; ".join(reasons)
+        "Assignment_reason": "; ".join(reasons),
     }
 
 
 # =========================
 # Main flows
 # =========================
-def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
-                     prematch_output: str, multip_output: str,
-                     unmatched_output: str, conflicted_output: str,
-                     moleculetype: str, mol_type: str,
-                     length_filter: str, organelle_filter: str) -> pd.DataFrame:
+def process_prematch(
+    input_file: str,
+    output_dir: str,
+    config: MatchConfig,
+    prematch_output: str,
+    multip_output: str,
+    unmatched_output: str,
+    conflicted_output: str,
+    moleculetype: str,
+    mol_type: str,
+    length_filter: str,
+    organelle_filter: str,
+) -> pd.DataFrame:
     os.makedirs(output_dir, exist_ok=True)
 
     ext = os.path.splitext(input_file)[1].lower()
@@ -941,8 +1099,8 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     df.columns = df.columns.str.strip()
 
     df["g2t_length_raw"] = df["Length"].astype(str)
-    df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True).str.replace(",", "")
-    df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
+    df["Length"] = df["Length"].astype(str).str.replace(r"\s*bp\s*", "", regex=True).str.replace(",", "")
+    df["Length"] = pd.to_numeric(df["Length"], errors="coerce")
     df["g2t_input_row"] = range(len(df))
     removed: list[dict] = []
 
@@ -955,10 +1113,16 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
         keep &= df["Length"] >= lo
     if hi is not None:
         keep &= df["Length"] <= hi
-    removed.extend(_filtered_rows(
-        df[~keep], "classify round 1",
-        lambda r: (f"length {int(r['Length'])} bp outside {config.global_length_range} "
-                   "(global length filter; change with --length_range2_all)")))
+    removed.extend(
+        _filtered_rows(
+            df[~keep],
+            "classify round 1",
+            lambda r: (
+                f"length {int(r['Length'])} bp outside {config.global_length_range} "
+                "(global length filter; change with --length_range2_all)"
+            ),
+        )
+    )
     df = df[keep]
     logger.info(f"After global length filter: {len(df)} records")
 
@@ -967,7 +1131,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
 
     results = []
     conflict_records = []
-    for row_dict in df.to_dict("records"):      # itertuples renamed columns with spaces (L-14)
+    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces (L-14)
         res = process_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -982,8 +1146,7 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     res_df = pd.DataFrame(results) if results else pd.DataFrame(columns=list(df.columns) + DIAG_COLUMNS)
     if "LocusID" in res_df.columns and len(res_df):
         dup = res_df.duplicated(subset=["LocusID"], keep="first")
-        removed.extend(_filtered_rows(res_df[dup], "classify round 1",
-                                      "duplicate LocusID (first occurrence kept)"))
+        removed.extend(_filtered_rows(res_df[dup], "classify round 1", "duplicate LocusID (first occurrence kept)"))
         res_df = res_df[~dup]
     _write_filtered(output_dir, removed, append=False)
     if removed:
@@ -1004,26 +1167,32 @@ def process_prematch(input_file: str, output_dir: str, config: MatchConfig,
     _save_csv(unmatched_df, output_dir, unmatched_output, "Unmatched")
 
     if conflict_records:
-        conflict_df = reorder_columns(pd.DataFrame(conflict_records).drop(
-            columns=["g2t_input_row", "g2t_length_raw"], errors="ignore"))
+        conflict_df = reorder_columns(
+            pd.DataFrame(conflict_records).drop(columns=["g2t_input_row", "g2t_length_raw"], errors="ignore")
+        )
         _save_csv(conflict_df, output_dir, conflicted_output, "Conflict")
 
-    multip_df = assigned_df[assigned_df["gene_type"].apply(
-        lambda x: len(x.split(",")) > 1 if x else False)]
+    multip_df = assigned_df[assigned_df["gene_type"].apply(lambda x: len(x.split(",")) > 1 if x else False)]
     if not multip_df.empty:
         _save_csv(multip_df, output_dir, multip_output, "Multi-match")
 
     total = len(res_df)
-    logger.info(f"Round 1 summary: total={total}, matched={len(assigned_df)}, "
-                f"conflict={len(conflict_records)}, unmatched={len(unmatched_df)}")
+    logger.info(
+        f"Round 1 summary: total={total}, matched={len(assigned_df)}, "
+        f"conflict={len(conflict_records)}, unmatched={len(unmatched_df)}"
+    )
     return res_df
 
 
-def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
-                    apply_length_filter: bool = True,
-                    assigned_out: str = "assigned_genes_types2.csv",
-                    multip_out: str = "multiple_matched2.csv",
-                    unmatched_out: str = "unmatched_sequences2.csv") -> pd.DataFrame:
+def process_recheck(
+    input_file: str,
+    output_dir: str,
+    config: MatchConfig,
+    apply_length_filter: bool = True,
+    assigned_out: str = "assigned_genes_types2.csv",
+    multip_out: str = "multiple_matched2.csv",
+    unmatched_out: str = "unmatched_sequences2.csv",
+) -> pd.DataFrame:
     os.makedirs(output_dir, exist_ok=True)
 
     ext = os.path.splitext(input_file)[1].lower()
@@ -1041,20 +1210,20 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
 
     # P0-3: Use union of mt+nt ranges instead of nuclear-only
     if apply_length_filter:
-        df["Length"] = df["Length"].astype(str).str.replace(r'\s*bp\s*', '', regex=True).str.replace(",", "")
-        df["Length"] = pd.to_numeric(df["Length"], errors='coerce')
+        df["Length"] = df["Length"].astype(str).str.replace(r"\s*bp\s*", "", regex=True).str.replace(",", "")
+        df["Length"] = pd.to_numeric(df["Length"], errors="coerce")
         lo_mt, hi_mt = parse_interval(config.length2_mtgenes)
         lo_nt, hi_nt = parse_interval(config.length2_ntgenes)
         lo = min(lo_mt or 0, lo_nt or 0)
-        hi = max(hi_mt or float('inf'), hi_nt or float('inf'))
+        hi = max(hi_mt or float("inf"), hi_nt or float("inf"))
         if lo is not None:
             df = df[df["Length"] >= lo]
-        if hi is not None and hi != float('inf'):
+        if hi is not None and hi != float("inf"):
             df = df[df["Length"] <= hi]
 
     results = []
     conflict_records = []
-    for row_dict in df.to_dict("records"):      # itertuples renamed columns with spaces (L-14)
+    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces (L-14)
         res = recheck_match_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -1079,8 +1248,7 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
 
     assigned_df = res_df[res_df["gene_type"] != ""]
     unmatched_df = res_df[res_df["gene_type"] == ""]
-    multi_df = assigned_df[assigned_df["gene_type"].apply(
-        lambda x: len(x.split(",")) > 1 if x else False)]
+    multi_df = assigned_df[assigned_df["gene_type"].apply(lambda x: len(x.split(",")) > 1 if x else False)]
 
     _save_csv(assigned_df, output_dir, assigned_out, "Round 2 matched")
     _save_csv(unmatched_df, output_dir, unmatched_out, "Round 2 unmatched")
@@ -1101,13 +1269,14 @@ def process_recheck(input_file: str, output_dir: str, config: MatchConfig,
         else:
             _save_csv(conflict_df, output_dir, "conflicted_genes.csv", "Round 2 conflict")
 
-    logger.info(f"Round 2 summary: total={len(res_df)}, matched={len(assigned_df)}, "
-                f"conflict={len(conflict_records)}, unmatched={len(unmatched_df)}")
+    logger.info(
+        f"Round 2 summary: total={len(res_df)}, matched={len(assigned_df)}, "
+        f"conflict={len(conflict_records)}, unmatched={len(unmatched_df)}"
+    )
     return res_df
 
 
-def extract_genes(df: pd.DataFrame, gene_types: list[str] | None,
-                  output_dir: str) -> None:
+def extract_genes(df: pd.DataFrame, gene_types: list[str] | None, output_dir: str) -> None:
     if not gene_types:
         all_genes: set[str] = set()
         for gt in df["gene_type"].dropna():
@@ -1116,12 +1285,13 @@ def extract_genes(df: pd.DataFrame, gene_types: list[str] | None,
         logger.info(f"Auto-detected gene types: {gene_types}")
 
     for gene in gene_types:
-        subset = df[df["gene_type"].apply(
-            lambda x, g=gene: g in [s.strip() for s in str(x).split(",")] if x else False)]
+        subset = df[
+            df["gene_type"].apply(lambda x, g=gene: g in [s.strip() for s in str(x).split(",")] if x else False)
+        ]
         if subset.empty:
             logger.warning(f"No records for gene type '{gene}'")
             continue
-        safe_name = re.sub(r'[^\w\-]', '_', gene)
+        safe_name = re.sub(r"[^\w\-]", "_", gene)
         out_file = os.path.join(output_dir, f"{safe_name}_extracted.csv")
         try:
             reorder_columns(subset).to_csv(out_file, index=False)
@@ -1144,38 +1314,38 @@ def categorize_unmatched_definition(def_text: str) -> str:
     def_lower = str(def_text).lower()
 
     # Genome/assembly data
-    if 'whole genome shotgun' in def_lower:
-        return 'whole_genome_shotgun'
-    elif 'genome assembly' in def_lower:
-        return 'genome_assembly'
-    elif 'tpa_asm' in def_lower or 'tpa:' in def_lower:
-        return 'TPA_assembly'
-    elif 'chromosome:' in def_lower:
-        return 'chromosome_data'
-    elif 'scaffold' in def_lower:
-        return 'scaffold'
-    elif 'contig' in def_lower:
-        return 'contig'
+    if "whole genome shotgun" in def_lower:
+        return "whole_genome_shotgun"
+    elif "genome assembly" in def_lower:
+        return "genome_assembly"
+    elif "tpa_asm" in def_lower or "tpa:" in def_lower:
+        return "TPA_assembly"
+    elif "chromosome:" in def_lower:
+        return "chromosome_data"
+    elif "scaffold" in def_lower:
+        return "scaffold"
+    elif "contig" in def_lower:
+        return "contig"
 
     # RNA types
-    elif 'mrna sequence' in def_lower or 'cdna clone' in def_lower:
-        return 'mRNA/cDNA'
-    elif 'trna' in def_lower:
-        return 'tRNA'
-    elif 'rrna' in def_lower and 'mitochondrial' not in def_lower:
-        return 'nuclear_rRNA'
+    elif "mrna sequence" in def_lower or "cdna clone" in def_lower:
+        return "mRNA/cDNA"
+    elif "trna" in def_lower:
+        return "tRNA"
+    elif "rrna" in def_lower and "mitochondrial" not in def_lower:
+        return "nuclear_rRNA"
 
     # Other genes not in standard list
-    elif 'nad' in def_lower or 'nadh' in def_lower:
-        return 'NADH_dehydrogenase'
-    elif 'atp synthase' in def_lower or 'atpase' in def_lower:
-        return 'ATP_synthase'
-    elif 'creatine kinase' in def_lower:
-        return 'creatine_kinase'
-    elif 'cytochrome b' in def_lower or 'cytb' in def_lower:
-        return 'cytochrome_b_variant'
+    elif "nad" in def_lower or "nadh" in def_lower:
+        return "NADH_dehydrogenase"
+    elif "atp synthase" in def_lower or "atpase" in def_lower:
+        return "ATP_synthase"
+    elif "creatine kinase" in def_lower:
+        return "creatine_kinase"
+    elif "cytochrome b" in def_lower or "cytb" in def_lower:
+        return "cytochrome_b_variant"
     else:
-        return 'other'
+        return "other"
 
 
 def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> str:
@@ -1185,7 +1355,7 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
 
     # Categorize each unmatched sequence
     unmatched_df = unmatched_df.copy()
-    unmatched_df['category'] = unmatched_df['Definition'].apply(categorize_unmatched_definition)
+    unmatched_df["category"] = unmatched_df["Definition"].apply(categorize_unmatched_definition)
 
     # Generate summary
     summary_lines = []
@@ -1195,7 +1365,7 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
     summary_lines.append(f"Total unmatched: {len(unmatched_df)}")
     summary_lines.append("")
 
-    category_counts = unmatched_df['category'].value_counts()
+    category_counts = unmatched_df["category"].value_counts()
     summary_lines.append("Category breakdown:")
     summary_lines.append("-" * 40)
 
@@ -1208,7 +1378,7 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
     summary_lines.append("-" * 40)
 
     for cat in category_counts.index[:5]:  # Top 5 categories
-        samples = unmatched_df[unmatched_df['category'] == cat]['Definition'].head(3).tolist()
+        samples = unmatched_df[unmatched_df["category"] == cat]["Definition"].head(3).tolist()
         summary_lines.append(f"\n[{cat}]")
         for s in samples:
             summary_lines.append(f"  - {str(s)[:100]}...")
@@ -1219,7 +1389,7 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
     # Save report
     report_path = os.path.join(output_dir, "unmatched_report.txt")
     report_content = "\n".join(summary_lines)
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_content)
 
     # Also save categorized CSV
@@ -1246,8 +1416,15 @@ def _run_cli(args: argparse.Namespace) -> None:
 
     output_dir = args.output
     os.makedirs(output_dir, exist_ok=True)
-    _clean_outputs(output_dir, [args.prematch_output_file_name, args.unmatched_sequences,
-                                args.multip_matched_genestype, args.conflicted_sequences])
+    _clean_outputs(
+        output_dir,
+        [
+            args.prematch_output_file_name,
+            args.unmatched_sequences,
+            args.multip_matched_genestype,
+            args.conflicted_sequences,
+        ],
+    )
 
     mtgenes = [s.strip() for s in args.mtgenes_list.split(",") if s.strip()]
     ntgenes = [s.strip() for s in args.ntgenes_list.split(",") if s.strip()]
@@ -1291,21 +1468,23 @@ def _run_cli(args: argparse.Namespace) -> None:
     logger.info("Round 1: Gene type matching")
     logger.info("-" * 40)
     prematch_df = process_prematch(
-        args.input, output_dir, config,
+        args.input,
+        output_dir,
+        config,
         args.prematch_output_file_name,
         args.multip_matched_genestype,
         args.unmatched_sequences,
         args.conflicted_sequences,
-        args.moleculetype, args.mol_type,
-        args.length, args.organelle
+        args.moleculetype,
+        args.mol_type,
+        args.length,
+        args.organelle,
     )
 
     # Gene extraction
     gene_types_arg = args.which_gene_types_extract
     if gene_types_arg:
-        extract_genes(prematch_df,
-                      [s.strip().lower() for s in gene_types_arg.split(",")],
-                      output_dir)
+        extract_genes(prematch_df, [s.strip().lower() for s in gene_types_arg.split(",")], output_dir)
 
     # Round 2
     if args.if_recheck_unmatched.lower() == "yes":
@@ -1316,25 +1495,38 @@ def _run_cli(args: argparse.Namespace) -> None:
             logger.info("-" * 40)
 
             process_recheck(
-                unmatched_file, output_dir, config,
-                apply_length_filter=(args.if_length_range_work2_recheck.lower() == "yes")
+                unmatched_file,
+                output_dir,
+                config,
+                apply_length_filter=(args.if_length_range_work2_recheck.lower() == "yes"),
             )
 
         else:
             logger.warning(f"Unmatched file not found or empty: {unmatched_file}, skipping round 2")
     all_file = _write_all(output_dir, args.prematch_output_file_name)
     logger.info(f"Merged results: {all_file}")
-    build_record_status(args.input, output_dir, args.if_recheck_unmatched.lower() == "yes", config,
-                        args.unmatched_sequences, args.prematch_output_file_name)
+    build_record_status(
+        args.input,
+        output_dir,
+        args.if_recheck_unmatched.lower() == "yes",
+        config,
+        args.unmatched_sequences,
+        args.prematch_output_file_name,
+    )
 
     logger.info("=" * 60)
     logger.info("Processing complete")
     logger.info("=" * 60)
 
 
-def build_record_status(input_file: str, output_dir: str, if_recheck: bool, config: MatchConfig,
-                        unmatched_output: str = "unmatched_sequences.csv",
-                        prematch_output: str = "assigned_genes_type.csv") -> pd.DataFrame:
+def build_record_status(
+    input_file: str,
+    output_dir: str,
+    if_recheck: bool,
+    config: MatchConfig,
+    unmatched_output: str = "unmatched_sequences.csv",
+    prematch_output: str = "assigned_genes_type.csv",
+) -> pd.DataFrame:
     """One row per input row: assigned (gene_type) / unmatched / filtered, each with a reason."""
     src = utils_read_table(input_file)
     src.columns = src.columns.str.strip()
@@ -1361,9 +1553,14 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
     rows = []
     for i, r in src.iterrows():
         lid = str(r.get("LocusID", ""))
-        base = {"input_row": i, "ACCESSION": r.get("ACCESSION", ""), "LocusID": lid,
-                "Organism": r.get("Organism", r.get("organism", "")), "Length": r.get("Length", ""),
-                "Definition": r.get("Definition", "")}
+        base = {
+            "input_row": i,
+            "ACCESSION": r.get("ACCESSION", ""),
+            "LocusID": lid,
+            "Organism": r.get("Organism", r.get("organism", "")),
+            "Length": r.get("Length", ""),
+            "Definition": r.get("Definition", ""),
+        }
         if str(i) in filt_reason:
             rows.append({**base, "status": "filtered", "gene_type": "", "reason": filt_reason[str(i)]})
         elif lid in gene_of:
@@ -1371,17 +1568,32 @@ def build_record_status(input_file: str, output_dir: str, if_recheck: bool, conf
         else:
             reason = "no gene type matched (DEFINITION keywords, round 1"
             if recheck_ran and lid not in un2_ids:
-                reason += (f"); skipped in round-2 recheck: length outside {config.length2_mtgenes} / "
-                           f"{config.length2_ntgenes}")
+                reason += (
+                    f"); skipped in round-2 recheck: length outside {config.length2_mtgenes} / {config.length2_ntgenes}"
+                )
             else:
                 reason += " and 2)" if recheck_ran else ")"
             rows.append({**base, "status": "unmatched", "gene_type": "", "reason": reason})
-    out = pd.DataFrame(rows, columns=["input_row", "ACCESSION", "LocusID", "Organism", "Length", "Definition",
-                                      "status", "gene_type", "reason"])
+    out = pd.DataFrame(
+        rows,
+        columns=[
+            "input_row",
+            "ACCESSION",
+            "LocusID",
+            "Organism",
+            "Length",
+            "Definition",
+            "status",
+            "gene_type",
+            "reason",
+        ],
+    )
     out.to_csv(os.path.join(output_dir, STATUS_FILE), index=False)
     counts = out["status"].value_counts().to_dict()
-    logger.info(f"Record status: input={len(out)}, assigned={counts.get('assigned', 0)}, "
-                f"unmatched={counts.get('unmatched', 0)}, filtered={counts.get('filtered', 0)} -> {STATUS_FILE}")
+    logger.info(
+        f"Record status: input={len(out)}, assigned={counts.get('assigned', 0)}, "
+        f"unmatched={counts.get('unmatched', 0)}, filtered={counts.get('filtered', 0)} -> {STATUS_FILE}"
+    )
     return out
 
 
@@ -1397,6 +1609,7 @@ def classify(
 ) -> StepResult:
     """Classify gene types from metadata CSV. Returns StepResult."""
     import time
+
     start_time = time.time()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1406,17 +1619,26 @@ def classify(
 
     try:
         prematch_df = process_prematch(
-            input_file, output_dir, config,
-            prematch_output, "multiple_matched.csv",
-            unmatched_output, "conflicted_genes.csv",
-            "all", "all", "all", "all",
+            input_file,
+            output_dir,
+            config,
+            prematch_output,
+            "multiple_matched.csv",
+            unmatched_output,
+            "conflicted_genes.csv",
+            "all",
+            "all",
+            "all",
+            "all",
         )
 
         if if_recheck:
             unmatched_file = os.path.join(output_dir, unmatched_output)
             if os.path.exists(unmatched_file) and os.path.getsize(unmatched_file) > 50:
                 process_recheck(
-                    unmatched_file, output_dir, config,
+                    unmatched_file,
+                    output_dir,
+                    config,
                     apply_length_filter=apply_length_filter_recheck,
                 )
         _write_all(output_dir, prematch_output)
@@ -1456,59 +1678,61 @@ def classify(
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Gene Type Classifier: GenBank metadata -> gene_type labels",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument('-i', '--input', required=True, help='Input file (CSV/TSV/Excel)')
-    parser.add_argument('-o', '--output', default='assign_genes_type', help='Output directory')
+    parser.add_argument("-i", "--input", required=True, help="Input file (CSV/TSV/Excel)")
+    parser.add_argument("-o", "--output", default="assign_genes_type", help="Output directory")
 
-    parser.add_argument('--prematch_output_file_name', default='assigned_genes_type.csv')
-    parser.add_argument('--multip_matched_genestype', default='multiple_matched.csv')
-    parser.add_argument('--unmatched_sequences', default='unmatched_sequences.csv')
-    parser.add_argument('--conflicted_sequences', default='conflicted_genes.csv')
+    parser.add_argument("--prematch_output_file_name", default="assigned_genes_type.csv")
+    parser.add_argument("--multip_matched_genestype", default="multiple_matched.csv")
+    parser.add_argument("--unmatched_sequences", default="unmatched_sequences.csv")
+    parser.add_argument("--conflicted_sequences", default="conflicted_genes.csv")
 
-    parser.add_argument('--if_remove_matched_sequences', '-ifrms', default='no')
+    parser.add_argument("--if_remove_matched_sequences", "-ifrms", default="no")
 
-    parser.add_argument('--length_range2_mtgenome', default='3000:500000')
-    parser.add_argument('--length_range2_18_28s', default='5000:15000')
-    parser.add_argument('--length_range2_coi', default='none')
-    parser.add_argument('--length_range2_its', default='none')
-    parser.add_argument('--length_range2_cob', default='none')
-    parser.add_argument('--length_range2_12s', default='none')
-    parser.add_argument('--length_range2_16s', default='none')
-    parser.add_argument('--length_range2_18s', default='none')
-    parser.add_argument('--length_range2_28s', default='none')
-    parser.add_argument('--length_range2_h3', default='none')
+    parser.add_argument("--length_range2_mtgenome", default="3000:500000")
+    parser.add_argument("--length_range2_18_28s", default="5000:15000")
+    parser.add_argument("--length_range2_coi", default="none")
+    parser.add_argument("--length_range2_its", default="none")
+    parser.add_argument("--length_range2_cob", default="none")
+    parser.add_argument("--length_range2_12s", default="none")
+    parser.add_argument("--length_range2_16s", default="none")
+    parser.add_argument("--length_range2_18s", default="none")
+    parser.add_argument("--length_range2_28s", default="none")
+    parser.add_argument("--length_range2_h3", default="none")
 
-    parser.add_argument('--gene_length_range', nargs='*', default=None,
-                        help='Per-gene length ranges: gene=lower:upper')
+    parser.add_argument("--gene_length_range", nargs="*", default=None, help="Per-gene length ranges: gene=lower:upper")
 
-    parser.add_argument('--length2_mtgenes', default='150:50000')
-    parser.add_argument('--length2_ntgenes', default='150:50000')
-    parser.add_argument('--length_range2_all', default='150:50000')
-    parser.add_argument('--length', default='all')
-    parser.add_argument('--organelle', default='all')
-    parser.add_argument('--moleculetype', default='all')
-    parser.add_argument('--mol_type', default='all')
+    parser.add_argument("--length2_mtgenes", default="150:50000")
+    parser.add_argument("--length2_ntgenes", default="150:50000")
+    parser.add_argument("--length_range2_all", default="150:50000")
+    parser.add_argument("--length", default="all")
+    parser.add_argument("--organelle", default="all")
+    parser.add_argument("--moleculetype", default="all")
+    parser.add_argument("--mol_type", default="all")
 
-    parser.add_argument('--mtgenes_list', default='coi,cox3,cox2,16s,12s,cob,mtgenome')
-    parser.add_argument('--ntgenes_list', default='18-28s,its1-its2,ef-1,28s,18s,h3')
-    parser.add_argument('--path_dict', default=None, help='External gene dictionary file')
+    parser.add_argument("--mtgenes_list", default="coi,cox3,cox2,16s,12s,cob,mtgenome")
+    parser.add_argument("--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3")
+    parser.add_argument("--path_dict", default=None, help="External gene dictionary file")
 
     # P2-15: Fixed typo, with backward-compatible alias
-    parser.add_argument('--which_gene_types_extract', '--which_gene_types_extact', '-wgte', default=None)
+    parser.add_argument("--which_gene_types_extract", "--which_gene_types_extact", "-wgte", default=None)
 
-    parser.add_argument('--if_recheck_unmatched', default='yes')
-    parser.add_argument('--if_length_range_work2_recheck', default='yes')
-    parser.add_argument('--if_add_assigned_gene_types_reasons', default='yes')
-    parser.add_argument('--if_recorded_conflict_reasons', default='yes')
+    parser.add_argument("--if_recheck_unmatched", default="yes")
+    parser.add_argument("--if_length_range_work2_recheck", default="yes")
+    parser.add_argument("--if_add_assigned_gene_types_reasons", default="yes")
+    parser.add_argument("--if_recorded_conflict_reasons", default="yes")
 
     args = parser.parse_args(argv)
 
     check_argv = argv if argv else sys.argv
-    if '--which_gene_types_extact' in check_argv:
-        warnings.warn("--which_gene_types_extact is deprecated (typo), use --which_gene_types_extract",
-                       DeprecationWarning, stacklevel=2)
+    if "--which_gene_types_extact" in check_argv:
+        warnings.warn(
+            "--which_gene_types_extact is deprecated (typo), use --which_gene_types_extract",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     _run_cli(args)
 

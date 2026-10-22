@@ -33,10 +33,12 @@ def _read(path):
 class TestL08MtgenomeIncludes:
     def test_custom_mtgenome_includes_limits_propagation(self):
         group = pd.DataFrame({"gene_type": ["mtgenome"], "LocusID": ["MG1"]})
-        cfg = OrganizeConfig(gene_includes={
-            "18-28s": ["18s", "28s", "its1-its2"],
-            "mtgenome": ["coi"],
-        })
+        cfg = OrganizeConfig(
+            gene_includes={
+                "18-28s": ["18s", "28s", "its1-its2"],
+                "mtgenome": ["coi"],
+            }
+        )
         res = collect_locusids_per_gene(group, cfg)
         assert res["mtgenome"] == "MG1"
         assert res["coi"] == "MG1"
@@ -45,10 +47,7 @@ class TestL08MtgenomeIncludes:
 
     def test_cli_mtgenome_includes_takes_effect(self, tmp_path):
         inp = tmp_path / "in.csv"
-        inp.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            "Sp_A_1,Sp A,mtgenome,MG1\n"
-        )
+        inp.write_text("species_voucher_new,organism,gene_type,LocusID\nSp_A_1,Sp A,mtgenome,MG1\n")
         out_default = tmp_path / "default.csv"
         out_coi = tmp_path / "coi_only.csv"
         organize_main(["-i", str(inp), "-o", str(out_default)])
@@ -78,10 +77,12 @@ class TestL08MtgenomeIncludes:
 
     def test_18_28s_uses_gene_includes(self):
         group = pd.DataFrame({"gene_type": ["18-28s"], "LocusID": ["R1"]})
-        cfg = OrganizeConfig(gene_includes={
-            "18-28s": ["18s"],
-            "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
-        })
+        cfg = OrganizeConfig(
+            gene_includes={
+                "18-28s": ["18s"],
+                "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
+            }
+        )
         res = collect_locusids_per_gene(group, cfg)
         assert res["18s"] == "R1"
         assert res["28s"] == ""
@@ -97,18 +98,20 @@ class TestL08MtgenomeIncludes:
 
 @pytest.fixture
 def conflict_group():
-    return pd.DataFrame({
-        "species_voucher_new": ["Sp_A_1", "Sp_A_1"],
-        "organism": ["Sp A", "Sp A"],
-        "gene_type": ["coi", "16s,cox2"],
-        "LocusID": ["A1.1", "A2.1"],
-        "Conflict": ["False", "True"],
-        "Conflict_reason": ["", "Multiple candidate gene types: 16s, cox2"],
-        "Original_match": ["coi", "16s,cox2"],
-        "Assignment_reason": ["coi: keyword", "16s: x; cox2: y"],
-        "geo_loc_name": ["Russia: White Sea", ""],
-        "country": ["", "Norway"],
-    })
+    return pd.DataFrame(
+        {
+            "species_voucher_new": ["Sp_A_1", "Sp_A_1"],
+            "organism": ["Sp A", "Sp A"],
+            "gene_type": ["coi", "16s,cox2"],
+            "LocusID": ["A1.1", "A2.1"],
+            "Conflict": ["False", "True"],
+            "Conflict_reason": ["", "Multiple candidate gene types: 16s, cox2"],
+            "Original_match": ["coi", "16s,cox2"],
+            "Assignment_reason": ["coi: keyword", "16s: x; cox2: y"],
+            "geo_loc_name": ["Russia: White Sea", ""],
+            "country": ["", "Norway"],
+        }
+    )
 
 
 class TestL09ConflictAggregation:
@@ -129,8 +132,7 @@ class TestL09ConflictAggregation:
         assert metadata_first_nonempty(conflict_group, ["Conflict"])["Conflict"] == ""
 
     def test_reason_fields_joined_with_locusid(self, conflict_group):
-        res = metadata_first_nonempty(
-            conflict_group, ["Conflict_reason", "Original_match", "Assignment_reason"])
+        res = metadata_first_nonempty(conflict_group, ["Conflict_reason", "Original_match", "Assignment_reason"])
         assert res["Conflict_reason"] == "A2.1: Multiple candidate gene types: 16s, cox2"
         assert res["Original_match"] == "A1.1: coi | A2.1: 16s,cox2"
         assert res["Assignment_reason"] == "A1.1: coi: keyword | A2.1: 16s: x; cox2: y"
@@ -172,8 +174,7 @@ class TestL11NormalizeColumns:
     def test_case_preserved_spaces_replaced(self, tmp_path):
         inp = tmp_path / "in.csv"
         inp.write_text(
-            "LocusID,ACCESSION,Organism,organism,gene type, Sample Id ,gene_type\n"
-            "L1,A1,Org X,org x,coi,S1,coi\n"
+            "LocusID,ACCESSION,Organism,organism,gene type, Sample Id ,gene_type\nL1,A1,Org X,org x,coi,S1,coi\n"
         )
         out_dir = tmp_path / "out"
         res = build_species_vouchers(str(inp), str(out_dir), normalize_column_names=True, quiet=True)
@@ -194,19 +195,26 @@ class TestL11NormalizeColumns:
         classify_dir.mkdir(parents=True)
         (out_root / "gb_metadata").mkdir(parents=True)
         (out_root / "gb_metadata" / "final.csv").write_text("LocusID\nA.1\n")
-        pd.DataFrame({
-            "gene_type": ["coi", "16s"],
-            "Conflict": ["False", "False"],
-            "LocusID": ["A.1", "B.1"],
-            "ACCESSION": ["A", "B"],
-            "Organism": ["Priapulus caudatus", "Priapulus caudatus"],
-            "organism": ["Priapulus caudatus", "Priapulus caudatus"],
-            "specimen voucher": ["V 1", "V 1"],
-        }).to_csv(classify_dir / "assigned_genes_types_all.csv", index=False)
+        pd.DataFrame(
+            {
+                "gene_type": ["coi", "16s"],
+                "Conflict": ["False", "False"],
+                "LocusID": ["A.1", "B.1"],
+                "ACCESSION": ["A", "B"],
+                "Organism": ["Priapulus caudatus", "Priapulus caudatus"],
+                "organism": ["Priapulus caudatus", "Priapulus caudatus"],
+                "specimen voucher": ["V 1", "V 1"],
+            }
+        ).to_csv(classify_dir / "assigned_genes_types_all.csv", index=False)
         # "specimen voucher" -> "specimen_voucher" must still feed the voucher key
         result = g2t.run(
-            input_files=[], output_dir=str(out_root), quiet=True, normalize_columns=True,
-            skip_extract=True, skip_classify=True, skip_reconcile=True,
+            input_files=[],
+            output_dir=str(out_root),
+            quiet=True,
+            normalize_columns=True,
+            skip_extract=True,
+            skip_classify=True,
+            skip_reconcile=True,
         )
         assert result.success, result.log
         org = _read(out_root / "organized_genes" / "organized_species_voucher.csv")
@@ -223,15 +231,28 @@ class TestL11NormalizeColumns:
 
 @pytest.fixture
 def defaults_csv(tmp_path):
-    df = pd.DataFrame([
-        dict(LocusID="A.1", ACCESSION="A", organism="Priapulus caudatus", gene_type="coi",
-             culture_collection="CC-7", haplotype="H1"),
-        dict(LocusID="B.1", ACCESSION="B", organism="Priapulus caudatus", gene_type="16s",
-             culture_collection="CC-7", haplotype="H1"),
-        dict(LocusID="C.1", ACCESSION="C", organism="Priapulus caudatus", gene_type="coi",
-             haplotype="H9"),
-        dict(LocusID="D.1", ACCESSION="D", organism="Priapulus caudatus", gene_type="coi"),
-    ])
+    df = pd.DataFrame(
+        [
+            dict(
+                LocusID="A.1",
+                ACCESSION="A",
+                organism="Priapulus caudatus",
+                gene_type="coi",
+                culture_collection="CC-7",
+                haplotype="H1",
+            ),
+            dict(
+                LocusID="B.1",
+                ACCESSION="B",
+                organism="Priapulus caudatus",
+                gene_type="16s",
+                culture_collection="CC-7",
+                haplotype="H1",
+            ),
+            dict(LocusID="C.1", ACCESSION="C", organism="Priapulus caudatus", gene_type="coi", haplotype="H9"),
+            dict(LocusID="D.1", ACCESSION="D", organism="Priapulus caudatus", gene_type="coi"),
+        ]
+    )
     p = tmp_path / "in.csv"
     df.to_csv(p, index=False)
     return p
@@ -250,8 +271,11 @@ class TestL12CliDefaults:
         cli = _read(cli_dir / "updated_species_voucher.csv")
         assert list(api["species_voucher_new"]) == list(cli["species_voucher_new"])
         assert list(cli["species_voucher_new"]) == [
-            "Priapulus_caudatus_CC-7", "Priapulus_caudatus_CC-7",
-            "Priapulus_caudatus_C", "Priapulus_caudatus_D"]
+            "Priapulus_caudatus_CC-7",
+            "Priapulus_caudatus_CC-7",
+            "Priapulus_caudatus_C",
+            "Priapulus_caudatus_D",
+        ]
 
     def test_cli_fill_haplotype_still_opt_in(self, defaults_csv, tmp_path):
         out = tmp_path / "hap"
@@ -286,16 +310,46 @@ class TestL22BlankVoucher:
     @pytest.fixture
     def edge_csv(self, tmp_path):
         rows = [
-            dict(LocusID="A.1", ACCESSION="AA", organism="Priapulus caudatus", gene_type="coi",
-                 specimen_voucher=" ", isolate="I1"),
-            dict(LocusID="B.1", ACCESSION="BB", organism="Priapulus caudatus", gene_type="coi",
-                 specimen_voucher="..", isolate="I2"),
-            dict(LocusID="C.1", ACCESSION="CC", organism="Priapulus caudatus", gene_type="16s",
-                 specimen_voucher="()", isolate="I3"),
-            dict(LocusID="D.1", ACCESSION="DD", organism="Priapulus caudatus", gene_type="coi",
-                 specimen_voucher="-", isolate=" . "),
-            dict(LocusID="E.1", ACCESSION="EE", organism="Priapulus caudatus", gene_type="coi",
-                 specimen_voucher="ab 1", isolate="I5"),
+            dict(
+                LocusID="A.1",
+                ACCESSION="AA",
+                organism="Priapulus caudatus",
+                gene_type="coi",
+                specimen_voucher=" ",
+                isolate="I1",
+            ),
+            dict(
+                LocusID="B.1",
+                ACCESSION="BB",
+                organism="Priapulus caudatus",
+                gene_type="coi",
+                specimen_voucher="..",
+                isolate="I2",
+            ),
+            dict(
+                LocusID="C.1",
+                ACCESSION="CC",
+                organism="Priapulus caudatus",
+                gene_type="16s",
+                specimen_voucher="()",
+                isolate="I3",
+            ),
+            dict(
+                LocusID="D.1",
+                ACCESSION="DD",
+                organism="Priapulus caudatus",
+                gene_type="coi",
+                specimen_voucher="-",
+                isolate=" . ",
+            ),
+            dict(
+                LocusID="E.1",
+                ACCESSION="EE",
+                organism="Priapulus caudatus",
+                gene_type="coi",
+                specimen_voucher="ab 1",
+                isolate="I5",
+            ),
         ]
         p = tmp_path / "edge.csv"
         pd.DataFrame(rows).to_csv(p, index=False, na_rep="")
@@ -322,8 +376,9 @@ class TestL22BlankVoucher:
 
     def test_blank_haplotype_does_not_block_accession_fallback(self, tmp_path):
         p = tmp_path / "hap.csv"
-        pd.DataFrame([dict(LocusID="A.1", ACCESSION="AA", organism="Sp x", gene_type="coi",
-                           haplotype="..")]).to_csv(p, index=False)
+        pd.DataFrame([dict(LocusID="A.1", ACCESSION="AA", organism="Sp x", gene_type="coi", haplotype="..")]).to_csv(
+            p, index=False
+        )
         out = tmp_path / "out"
         build_species_vouchers(str(p), str(out), if_write_haplotype=True, quiet=True)
         assert _read(out / "updated_species_voucher.csv").loc[0, "species_voucher_new"] == "Sp_x_AA"
@@ -340,7 +395,7 @@ class TestL23UnknownGenesAndKeys:
         inp.write_text(
             "species_voucher_new,organism,gene_type,LocusID\n"
             "Sp_A_1,Sp A,nd1,N1.1\n"
-            "Sp_B_1,Sp B,\"nd1,coi\",N2.1\n"
+            'Sp_B_1,Sp B,"nd1,coi",N2.1\n'
             "Sp_C_1,Sp C,nd6#,N3.1\n"
             "Sp_D_1,Sp D,coi,C1.1\n"
         )
@@ -356,9 +411,7 @@ class TestL23UnknownGenesAndKeys:
     def test_no_warning_when_all_genes_known(self, tmp_path, caplog):
         inp = tmp_path / "in.csv"
         inp.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            "Sp_A_1,Sp A,coi,A1.1\n"
-            "Sp_A_1,Sp A,\"16s,18s\",A2.1\n"
+            'species_voucher_new,organism,gene_type,LocusID\nSp_A_1,Sp A,coi,A1.1\nSp_A_1,Sp A,"16s,18s",A2.1\n'
         )
         with caplog.at_level(logging.WARNING, logger="g2t.organize"):
             organize(str(inp), str(tmp_path / "out.csv"))
@@ -366,10 +419,7 @@ class TestL23UnknownGenesAndKeys:
 
     def test_custom_gene_in_gene_order_is_kept_and_not_warned(self, tmp_path, caplog):
         inp = tmp_path / "in.csv"
-        inp.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            "Sp_A_1,Sp A,nd1,N1.1\n"
-        )
+        inp.write_text("species_voucher_new,organism,gene_type,LocusID\nSp_A_1,Sp A,nd1,N1.1\n")
         cfg = OrganizeConfig(gene_order=["coi", "nd1"])
         with caplog.at_level(logging.WARNING, logger="g2t.organize"):
             organize(str(inp), str(tmp_path / "out.csv"), cfg)
@@ -379,10 +429,7 @@ class TestL23UnknownGenesAndKeys:
     def test_empty_group_keys_become_separate_unknown_rows(self, tmp_path):
         inp = tmp_path / "in.csv"
         inp.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            ",Sp X,coi,X1.1\n"
-            ",Sp Y,16s,Y1.1\n"
-            "Sp_D_1,Sp D,coi,D1.1\n"
+            "species_voucher_new,organism,gene_type,LocusID\n,Sp X,coi,X1.1\n,Sp Y,16s,Y1.1\nSp_D_1,Sp D,coi,D1.1\n"
         )
         out = tmp_path / "out.csv"
         assert organize(str(inp), str(out)).success

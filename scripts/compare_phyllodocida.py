@@ -11,6 +11,7 @@ Compares:
     - g2t organized_species_voucher.csv (with mtgenome propagation)
     - Reference: ceshi2/TableS1_Oct2024.xlsx (88 species x 7 gene types)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -178,6 +179,7 @@ def build_accession_organism_map(assigned_path: Path) -> dict[str, str]:
 def ncbi_lookup_accession(accession: str, email: str, api_key: str = None) -> dict:
     try:
         from Bio import Entrez
+
         Entrez.email = email
         if api_key:
             Entrez.api_key = api_key
@@ -203,10 +205,8 @@ def ncbi_lookup_accession(accession: str, email: str, api_key: str = None) -> di
 
 def parse_args():
     p = argparse.ArgumentParser(description="Compare g2t output with literature reference")
-    p.add_argument("--no-mtgenome-fill", action="store_true",
-                   help="Disable mtgenome fill for missing sub-genes")
-    p.add_argument("--ncbi-lookup", action="store_true",
-                   help="Do NCBI reverse lookup for still-unmatched species")
+    p.add_argument("--no-mtgenome-fill", action="store_true", help="Disable mtgenome fill for missing sub-genes")
+    p.add_argument("--ncbi-lookup", action="store_true", help="Do NCBI reverse lookup for still-unmatched species")
     p.add_argument("--email", default="deyuanyang@example.com")
     p.add_argument("--api-key", default=os.environ.get("NCBI_API_KEY"))
     return p.parse_args()
@@ -491,9 +491,9 @@ def main():
         if org != "NOT MATCHED" and normalize_species(sp) != normalize_species(org):
             name_note = f"  (g2t name: {org})"
         report_lines.append("")
-        report_lines.append(f"{'='*70}")
+        report_lines.append(f"{'=' * 70}")
         report_lines.append(f"{sp}{name_note}")
-        report_lines.append(f"{'='*70}")
+        report_lines.append(f"{'=' * 70}")
 
         for glit in gene_labels:
             g2t_key = GENE_MAP[glit]
@@ -532,9 +532,9 @@ def main():
     # Summary header
     summary = []
     summary.append("")
-    summary.append(f"{'#'*70}")
+    summary.append(f"{'#' * 70}")
     summary.append("# Comparison Report: 88 reference species vs g2t")
-    summary.append(f"{'#'*70}")
+    summary.append(f"{'#' * 70}")
     summary.append("")
     summary.append("Legend:")
     summary.append("  OK   = literature accession found in g2t")
@@ -542,7 +542,7 @@ def main():
     summary.append("  EXTRA = g2t has data but literature does not")
     summary.append("")
     summary.append(f"Totals:  {total_ok} OK,  {total_miss} MISS,  {total_extra} EXTRA")
-    summary.append(f"Match rate: {total_ok}/{total_ok+total_miss} ({total_ok/(total_ok+total_miss)*100:.1f}%)")
+    summary.append(f"Match rate: {total_ok}/{total_ok + total_miss} ({total_ok / (total_ok + total_miss) * 100:.1f}%)")
     summary.append("")
 
     # Print to terminal

@@ -120,8 +120,10 @@ def run(
 
     def _fail(msg: str) -> PipelineResult:
         return PipelineResult(
-            success=False, output_dir=str(out_root),
-            steps_completed=steps_completed, elapsed=time.time() - start_time,
+            success=False,
+            output_dir=str(out_root),
+            steps_completed=steps_completed,
+            elapsed=time.time() - start_time,
             log=log_lines + [msg],
         )
 
@@ -137,10 +139,17 @@ def run(
     if extract_extra:
         step1_kwargs.update(extract_extra)
     err = _run_step(
-        step_num=1, skip=skip_extract, resume=resume,
-        output_path=out_final_csv, module_path="g2t.extract", func_name="extract",
-        kwargs=step1_kwargs, quiet=quiet, log_lines=log_lines,
-        fallback_dir=extract_dir, fallback_glob="*final*.csv",
+        step_num=1,
+        skip=skip_extract,
+        resume=resume,
+        output_path=out_final_csv,
+        module_path="g2t.extract",
+        func_name="extract",
+        kwargs=step1_kwargs,
+        quiet=quiet,
+        log_lines=log_lines,
+        fallback_dir=extract_dir,
+        fallback_glob="*final*.csv",
     )
     if err:
         return _fail(err)
@@ -155,10 +164,17 @@ def run(
     if classify_extra:
         step2_kwargs.update(classify_extra)
     err = _run_step(
-        step_num=2, skip=skip_classify, resume=resume,
-        output_path=out_assigned_all, module_path="g2t.classify", func_name="classify",
-        kwargs=step2_kwargs, quiet=quiet, log_lines=log_lines,
-        fallback_dir=classify_dir, fallback_glob="*assigned*all*.csv",
+        step_num=2,
+        skip=skip_classify,
+        resume=resume,
+        output_path=out_assigned_all,
+        module_path="g2t.classify",
+        func_name="classify",
+        kwargs=step2_kwargs,
+        quiet=quiet,
+        log_lines=log_lines,
+        fallback_dir=classify_dir,
+        fallback_glob="*assigned*all*.csv",
     )
     if err:
         return _fail(err)
@@ -175,11 +191,17 @@ def run(
     if voucher_extra:
         step3_kwargs.update(voucher_extra)
     err = _run_step(
-        step_num=3, skip=skip_voucher, resume=resume,
-        output_path=out_updated_voucher, module_path="g2t.voucher",
+        step_num=3,
+        skip=skip_voucher,
+        resume=resume,
+        output_path=out_updated_voucher,
+        module_path="g2t.voucher",
         func_name="build_species_vouchers",
-        kwargs=step3_kwargs, quiet=quiet, log_lines=log_lines,
-        fallback_dir=voucher_dir, fallback_glob="updated_species_voucher*.csv",
+        kwargs=step3_kwargs,
+        quiet=quiet,
+        log_lines=log_lines,
+        fallback_dir=voucher_dir,
+        fallback_glob="updated_species_voucher*.csv",
     )
     if err:
         return _fail(err)
@@ -204,12 +226,21 @@ def run(
     organize_input = out_updated_voucher
     if not skip_reconcile:
         from g2t.reconcile import ReconcileConfig
+
         err = _run_step(
-            step_num="3b", skip=False, resume=resume_late,
-            output_path=out_reconciled, module_path="g2t.reconcile", func_name="reconcile",
-            kwargs=dict(input_file=str(out_updated_voucher), output_dir=str(voucher_dir),
-                        config=ReconcileConfig(min_confidence=reconcile_min_confidence)),
-            quiet=quiet, log_lines=log_lines,
+            step_num="3b",
+            skip=False,
+            resume=resume_late,
+            output_path=out_reconciled,
+            module_path="g2t.reconcile",
+            func_name="reconcile",
+            kwargs=dict(
+                input_file=str(out_updated_voucher),
+                output_dir=str(voucher_dir),
+                config=ReconcileConfig(min_confidence=reconcile_min_confidence),
+            ),
+            quiet=quiet,
+            log_lines=log_lines,
         )
         if err:
             return _fail(err)
@@ -225,9 +256,15 @@ def run(
     if organize_extra:
         step4_kwargs.update(organize_extra)
     err = _run_step(
-        step_num=4, skip=skip_organize, resume=resume_late,
-        output_path=out_organized, module_path="g2t.organize", func_name="organize",
-        kwargs=step4_kwargs, quiet=quiet, log_lines=log_lines,
+        step_num=4,
+        skip=skip_organize,
+        resume=resume_late,
+        output_path=out_organized,
+        module_path="g2t.organize",
+        func_name="organize",
+        kwargs=step4_kwargs,
+        quiet=quiet,
+        log_lines=log_lines,
     )
     if err:
         return _fail(err)

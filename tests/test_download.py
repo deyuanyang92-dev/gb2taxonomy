@@ -7,10 +7,20 @@ from g2t.ncbi_genes import GENES, canon, clause
 
 
 class TestGenes:
-    @pytest.mark.parametrize("name,expected", [
-        ("coi", "COI"), ("COX1", "COI"), ("co1", "COI"), ("18s", "18S"), ("SSU", "18S"),
-        ("ef1alpha", "EF1A"), ("5.8S", "5.8S"), ("cob", "CYTB"), ("ITS2", "ITS"),
-    ])
+    @pytest.mark.parametrize(
+        "name,expected",
+        [
+            ("coi", "COI"),
+            ("COX1", "COI"),
+            ("co1", "COI"),
+            ("18s", "18S"),
+            ("SSU", "18S"),
+            ("ef1alpha", "EF1A"),
+            ("5.8S", "5.8S"),
+            ("cob", "CYTB"),
+            ("ITS2", "ITS"),
+        ],
+    )
     def test_canon(self, name, expected):
         assert canon(name) == expected
 

@@ -37,19 +37,46 @@ from pathlib import Path
 
 import pandas as pd
 
-GENE_TOKENS = (r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
-               r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO")
+GENE_TOKENS = (
+    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
+    r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO"
+)
 _PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 _SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
 KEY_COLUMNS = ["row_id", "voucher", "accession", "organism_match", "user_row"]
 BASELINE_SHEET = "baseline (do not edit)"
-TEMPLATE_FIELDS = ["organism", "lat_lon", "geo_loc_name", "country", "collection_date", "collected_by",
-                   "identified_by", "Ref1Authors", "Ref1Title", "Ref1Journal", "curation_source"]
-DEFAULT_GENES = ["mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3", "18s", "28s", "its1-its2",
-                 "18-28s", "ef-1", "h3"]
+TEMPLATE_FIELDS = [
+    "organism",
+    "lat_lon",
+    "geo_loc_name",
+    "country",
+    "collection_date",
+    "collected_by",
+    "identified_by",
+    "Ref1Authors",
+    "Ref1Title",
+    "Ref1Journal",
+    "curation_source",
+]
+DEFAULT_GENES = [
+    "mtgenome",
+    "coi",
+    "16s",
+    "12s",
+    "cob",
+    "cox2",
+    "cox3",
+    "18s",
+    "28s",
+    "its1-its2",
+    "18-28s",
+    "ef-1",
+    "h3",
+]
 
 
 # --------------------------------------------------------------------------- vouchers
+
 
 def normalize_voucher(raw) -> str:
     """'COI_ZMMU_MSU_WS2585' -> 'ZMMU_MSU_WS2585'; 'ZMMU:WS30980' -> 'ZMMU_WS30980'."""
@@ -94,7 +121,7 @@ def to_insdc(norm: str) -> str:
             break
     if not codes or len(codes) > 2:
         return norm
-    return ":".join(codes + ["_".join(toks[len(codes):])])
+    return ":".join(codes + ["_".join(toks[len(codes) :])])
 
 
 def standardize_vouchers(values) -> tuple[str, bool]:
@@ -114,6 +141,7 @@ def standardize_vouchers(values) -> tuple[str, bool]:
 
 
 # --------------------------------------------------------------------------- curation
+
 
 def _acc(a) -> str:
     return str(a).strip().split(".")[0].upper()
@@ -136,16 +164,20 @@ def _voucher_forms(row: pd.Series) -> set[str]:
 
 def _blank(v) -> bool:
     try:
-        if v is None or pd.isna(v):     # float NaN, pd.NA, NaT
+        if v is None or pd.isna(v):  # float NaN, pd.NA, NaT
             return True
-    except (TypeError, ValueError):     # arrays / lists: not a scalar
+    except (TypeError, ValueError):  # arrays / lists: not a scalar
         pass
     return str(v).strip() == "" or str(v).lower() == "nan"
 
 
-def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None,
-                  key_column: str = "species_voucher_new",
-                  baseline: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def apply_updates(
+    matrix: pd.DataFrame,
+    updates: pd.DataFrame,
+    gene_columns=None,
+    key_column: str = "species_voucher_new",
+    baseline: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """-> (curated matrix, change log, problems). See module docstring.
 
     ``baseline``: the values a pre-filled template was made from (rows joined on ``row_id``). With it,
@@ -178,9 +210,16 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
         acc = "" if _blank(r.get("accession")) else str(r.get("accession")).strip()
         vou = "" if _blank(r.get("voucher")) else str(r.get("voucher")).strip()
         org = "" if _blank(r.get("organism_match")) else str(r.get("organism_match")).strip()
-        keys = "; ".join(x for x in (f"accession={acc}" if acc else "", f"voucher={vou}" if vou else "",
-                                     f"organism_match={org}" if org else "") if x)
-        rownum = n + 2                                   # spreadsheet row (header = 1)
+        keys = "; ".join(
+            x
+            for x in (
+                f"accession={acc}" if acc else "",
+                f"voucher={vou}" if vou else "",
+                f"organism_match={org}" if org else "",
+            )
+            if x
+        )
+        rownum = n + 2  # spreadsheet row (header = 1)
         if not acc and not vou:
             problems.append({"update_row": rownum, "keys": keys, "problem": "no accession or voucher given"})
             continue
@@ -189,27 +228,44 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
             per_acc = [acc_index.get(_acc(x), set()) for x in re.split(r"[;,\s]+", acc) if x.strip()]
             found = [h for h in per_acc if h]
             if len({frozenset(h) for h in found}) > 1:
-                problems.append({"update_row": rownum, "keys": keys,
-                                 "problem": "accessions point to different matrix rows; not applied"})
+                problems.append(
+                    {
+                        "update_row": rownum,
+                        "keys": keys,
+                        "problem": "accessions point to different matrix rows; not applied",
+                    }
+                )
                 continue
             hit_a = found[0] if found else set()
         q = normalize_voucher(vou).upper()
         # a matrix form may be contained in the user's voucher (matrix has only the isolate "WS399"),
         # but not when it is a tiny token such as "12", which is a substring of too many vouchers
-        hit_v = ({i for i, f in forms.items()
-                  if any(_contains(x, q) or ((len(_tokens(x)) > 1 or len(x) >= 4) and _contains(q, x)) for x in f)}
-                 if vou else None)
+        hit_v = (
+            {
+                i
+                for i, f in forms.items()
+                if any(_contains(x, q) or ((len(_tokens(x)) > 1 or len(x) >= 4) and _contains(q, x)) for x in f)
+            }
+            if vou
+            else None
+        )
         if org:
             keep = {i for i in out.index if str(out.at[i, "organism"]).strip() == org} if "organism" in out else set()
             hit_a = hit_a & keep if hit_a is not None else None
             hit_v = hit_v & keep if hit_v is not None else None
         if acc and not hit_a and hit_v:
-            problems.append({"update_row": rownum, "keys": keys,
-                             "problem": "accession not found in the matrix; not applied"})
+            problems.append(
+                {"update_row": rownum, "keys": keys, "problem": "accession not found in the matrix; not applied"}
+            )
             continue
         if hit_a is not None and hit_v is not None and hit_a != hit_v:
-            problems.append({"update_row": rownum, "keys": keys,
-                             "problem": "accession and voucher point to different rows; not applied"})
+            problems.append(
+                {
+                    "update_row": rownum,
+                    "keys": keys,
+                    "problem": "accession and voucher point to different rows; not applied",
+                }
+            )
             continue
         hits = hit_a if hit_a is not None else hit_v
         if not hits:
@@ -217,9 +273,14 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
             continue
         if len(hits) > 1:
             names = ", ".join(str(out.at[i, key_column]) for i in sorted(hits)) if key_column in out else ""
-            problems.append({"update_row": rownum, "keys": keys,
-                             "problem": f"matches {len(hits)} matrix rows ({names}); add organism_match or "
-                                        "use an accession; not applied"})
+            problems.append(
+                {
+                    "update_row": rownum,
+                    "keys": keys,
+                    "problem": f"matches {len(hits)} matrix rows ({names}); add organism_match or "
+                    "use an accession; not applied",
+                }
+            )
             continue
         i = next(iter(hits))
         by = "accession" if acc else "voucher"
@@ -236,24 +297,41 @@ def apply_updates(matrix: pd.DataFrame, updates: pd.DataFrame, gene_columns=None
             if base is not None and c in base.index:
                 was = str(base[c]).strip()
                 if new == was:
-                    continue                      # not edited by the user
+                    continue  # not edited by the user
                 if cur != was:
-                    problems.append({"update_row": rownum, "keys": keys,
-                                     "problem": f"{c}: GenBank value changed since the template was made "
-                                                f"('{was}' -> '{cur}'); your value '{new}' not applied"})
+                    problems.append(
+                        {
+                            "update_row": rownum,
+                            "keys": keys,
+                            "problem": f"{c}: GenBank value changed since the template was made "
+                            f"('{was}' -> '{cur}'); your value '{new}' not applied",
+                        }
+                    )
                     continue
             if cur == new:
                 continue
             out.at[i, c] = new
-            done = [] if _blank(out.at[i, "curated_fields"]) else \
-                [x for x in str(out.at[i, "curated_fields"]).split("; ") if x]
+            done = (
+                []
+                if _blank(out.at[i, "curated_fields"])
+                else [x for x in str(out.at[i, "curated_fields"]).split("; ") if x]
+            )
             if c not in done:
                 out.at[i, "curated_fields"] = "; ".join(done + [c])
-            log.append({"specimen": out.at[i, key_column] if key_column in out else i, "field": c,
-                        "old_value": "" if _blank(old) else old, "new_value": new, "matched_by": by,
-                        "keys": keys, "update_row": rownum})
-    log_df = pd.DataFrame(log, columns=["specimen", "field", "old_value", "new_value", "matched_by", "keys",
-                                        "update_row"])
+            log.append(
+                {
+                    "specimen": out.at[i, key_column] if key_column in out else i,
+                    "field": c,
+                    "old_value": "" if _blank(old) else old,
+                    "new_value": new,
+                    "matched_by": by,
+                    "keys": keys,
+                    "update_row": rownum,
+                }
+            )
+    log_df = pd.DataFrame(
+        log, columns=["specimen", "field", "old_value", "new_value", "matched_by", "keys", "update_row"]
+    )
     prob_df = pd.DataFrame(problems, columns=["update_row", "keys", "problem"])
     return out, log_df, prob_df
 
@@ -267,10 +345,24 @@ _ALIASES = [
     ("latitude", [r"^lat$", r"latitude", r"纬度"]),
     ("longitude", [r"^lon$", r"^long$", r"^lng$", r"longitude", r"经度"]),
     ("accession", [r"accession", r"genbank", r"登录号", r"^acc(\.|_no)?$"]),
-    ("voucher", [r"voucher", r"catalog", r"catalogue", r"museum.?(no|number|id)", r"specimen.?(no|number|id)?$",
-                 r"凭证", r"标本号", r"标本编号", r"馆藏号"]),
-    ("organism", [r"^species$", r"scientific.?name", r"^organism$", r"^taxon$", r"拉丁名", r"^学名$", r"^物种$",
-                  r"^种名$"]),
+    (
+        "voucher",
+        [
+            r"voucher",
+            r"catalog",
+            r"catalogue",
+            r"museum.?(no|number|id)",
+            r"specimen.?(no|number|id)?$",
+            r"凭证",
+            r"标本号",
+            r"标本编号",
+            r"馆藏号",
+        ],
+    ),
+    (
+        "organism",
+        [r"^species$", r"scientific.?name", r"^organism$", r"^taxon$", r"拉丁名", r"^学名$", r"^物种$", r"^种名$"],
+    ),
     ("geo_loc_name", [r"geo_loc_name", r"locality", r"^location$", r"^site$", r"采集地", r"产地", r"^地点$"]),
     ("country", [r"^country$", r"国家"]),
     ("collection_date", [r"collection.?date", r"^date$", r"采集日期", r"采集时间", r"^日期$"]),
@@ -280,8 +372,21 @@ _ALIASES = [
     ("collected_by", [r"collector", r"collected.?by", r"采集人"]),
     ("identified_by", [r"identifier", r"identified.?by", r"determiner", r"鉴定人"]),
 ]
-_SINGLE = {"voucher", "organism", "latitude", "longitude", "lat_lon", "geo_loc_name", "country",
-           "collection_date", "Ref1Title", "Ref1Authors", "Ref1Journal", "collected_by", "identified_by"}
+_SINGLE = {
+    "voucher",
+    "organism",
+    "latitude",
+    "longitude",
+    "lat_lon",
+    "geo_loc_name",
+    "country",
+    "collection_date",
+    "Ref1Title",
+    "Ref1Authors",
+    "Ref1Journal",
+    "collected_by",
+    "identified_by",
+}
 _PREFER = re.compile(r"实测|measured|actual|final|corrected|校正|修正", re.I)
 _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -330,9 +435,11 @@ def genbank_lat_lon(lat, lon) -> str:
     la, lo = _num(lat), _num(lon)
     if la is None or lo is None:
         return ""
+
     def part(raw, v, pos, neg):
         txt = str(raw).strip().lstrip("+-")
         return f"{txt} {pos if v >= 0 else neg}"
+
     return f"{part(lat, la, 'N', 'S')} {part(lon, lo, 'E', 'W')}"
 
 
@@ -352,9 +459,13 @@ def genbank_date(v) -> str:
     return s
 
 
-def apply_user_table(matrix: pd.DataFrame, user: pd.DataFrame, key_column: str = "species_voucher_new",
-                     gene_columns=None, column_map: dict | None = None
-                     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def apply_user_table(
+    matrix: pd.DataFrame,
+    user: pd.DataFrame,
+    key_column: str = "species_voucher_new",
+    gene_columns=None,
+    column_map: dict | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Update the NCBI matrix from the user's own table (any column names).
     -> (updated matrix, change log, problems, column mapping)."""
     user = user.fillna("").astype(str)
@@ -363,15 +474,25 @@ def apply_user_table(matrix: pd.DataFrame, user: pd.DataFrame, key_column: str =
     inv = {t: c for c, t in mapping.items() if t in _SINGLE}
     rows = []
     for n, r in user.iterrows():
-        row = {"user_row": n + 2,
-               "accession": "; ".join(str(r[c]).strip() for c in acc_cols if str(r[c]).strip()),
-               "voucher": str(r[inv["voucher"]]).strip() if "voucher" in inv else ""}
+        row = {
+            "user_row": n + 2,
+            "accession": "; ".join(str(r[c]).strip() for c in acc_cols if str(r[c]).strip()),
+            "voucher": str(r[inv["voucher"]]).strip() if "voucher" in inv else "",
+        }
         if "latitude" in inv and "longitude" in inv:
             row["lat_lon"] = genbank_lat_lon(r[inv["latitude"]], r[inv["longitude"]])
         elif "lat_lon" in inv:
             row["lat_lon"] = str(r[inv["lat_lon"]]).strip()
-        for t in ("organism", "geo_loc_name", "country", "Ref1Title", "Ref1Authors", "Ref1Journal",
-                  "collected_by", "identified_by"):
+        for t in (
+            "organism",
+            "geo_loc_name",
+            "country",
+            "Ref1Title",
+            "Ref1Authors",
+            "Ref1Journal",
+            "collected_by",
+            "identified_by",
+        ):
             if t in inv:
                 row[t] = str(r[inv[t]]).strip()
         if "collection_date" in inv:
@@ -382,11 +503,22 @@ def apply_user_table(matrix: pd.DataFrame, user: pd.DataFrame, key_column: str =
         rows.append(row)
     upd = pd.DataFrame(rows)
     out, log, problems = apply_updates(matrix, upd, gene_columns=gene_columns, key_column=key_column)
-    map_df = pd.DataFrame([{"user_column": c, "used_as": t if not t.startswith("user:") else "(added as a new column)",
-                            "note": "combined into lat_lon (GenBank format)" if t in ("latitude", "longitude")
-                            else ("converted to GenBank date format" if t == "collection_date" else
-                                  ("located the specimen" if t in ("voucher", "accession") else ""))}
-                           for c, t in mapping.items()])
+    map_df = pd.DataFrame(
+        [
+            {
+                "user_column": c,
+                "used_as": t if not t.startswith("user:") else "(added as a new column)",
+                "note": "combined into lat_lon (GenBank format)"
+                if t in ("latitude", "longitude")
+                else (
+                    "converted to GenBank date format"
+                    if t == "collection_date"
+                    else ("located the specimen" if t in ("voucher", "accession") else "")
+                ),
+            }
+            for c, t in mapping.items()
+        ]
+    )
     return out, log, problems, map_df
 
 
@@ -395,11 +527,16 @@ def make_template(matrix: pd.DataFrame, gene_columns=None, fields=None) -> pd.Da
     genes = _gene_cols(matrix, gene_columns)
     rows: list[dict] = []
     for _, r in matrix.iterrows():
-        acc = next((str(r[g]).split(";")[0].strip() for g in genes
-                    if str(r[g]).strip() and str(r[g]).lower() != "nan"), "")
+        acc = next(
+            (str(r[g]).split(";")[0].strip() for g in genes if str(r[g]).strip() and str(r[g]).lower() != "nan"), ""
+        )
         voucher = r.get("voucher_standardized", "")
-        row = {"row_id": len(rows) + 1, "voucher": "" if _blank(voucher) else voucher, "accession": acc,
-               "organism_match": r.get("organism", "")}
+        row = {
+            "row_id": len(rows) + 1,
+            "voucher": "" if _blank(voucher) else voucher,
+            "accession": acc,
+            "organism_match": r.get("organism", ""),
+        }
         for f in fields or TEMPLATE_FIELDS:
             v = r.get(f, "")
             row[f] = "" if _blank(v) else v
@@ -451,15 +588,24 @@ def read_corrections(path: str) -> tuple[pd.DataFrame, pd.DataFrame | None]:
 
 
 _ACC_CELL = re.compile(r"^[A-Z]{1,6}_?\d{5,}(\.\d+)?$")
-_NOT_GENE_COLUMNS = {"voucher_standardized", "voucher_as_submitted", "specimen_voucher", "isolate",
-                     "culture_collection", "clone", "strain", "LocusID", "ACCESSION"}
+_NOT_GENE_COLUMNS = {
+    "voucher_standardized",
+    "voucher_as_submitted",
+    "specimen_voucher",
+    "isolate",
+    "culture_collection",
+    "clone",
+    "strain",
+    "LocusID",
+    "ACCESSION",
+}
 
 
 def matrix_gene_columns(matrix: pd.DataFrame) -> list[str]:
     """Gene columns = columns whose filled cells are all accession(.version)s."""
     out = []
     for c in matrix.columns:
-        if c in _NOT_GENE_COLUMNS:      # a voucher like "USNM123456" looks like an accession
+        if c in _NOT_GENE_COLUMNS:  # a voucher like "USNM123456" looks like an accession
             continue
         vals = [str(v).strip() for v in matrix[c] if not _blank(v)]
         if vals and all(_ACC_CELL.match(v) for v in vals):
@@ -497,11 +643,18 @@ def is_template(path: str) -> bool:
     return "row_id" in cols
 
 
-def write_curated_workbook(path: str, out: pd.DataFrame, log: pd.DataFrame, problems: pd.DataFrame,
-                           original: pd.DataFrame, mapping: pd.DataFrame | None = None) -> None:
+def write_curated_workbook(
+    path: str,
+    out: pd.DataFrame,
+    log: pd.DataFrame,
+    problems: pd.DataFrame,
+    original: pd.DataFrame,
+    mapping: pd.DataFrame | None = None,
+) -> None:
     """Excel C: Matrix (updated cells highlighted) / Changes / Problems / [Column mapping] / Matrix (GenBank)."""
     from openpyxl.styles import PatternFill
     from openpyxl.utils import get_column_letter
+
     sheets = {"Matrix": out, "Changes": log, "Problems": problems}
     if mapping is not None:
         sheets["Column mapping"] = mapping
@@ -538,18 +691,28 @@ def parse_map(items) -> dict:
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
-        description="Update the NCBI matrix (A) from your own table (B) -> a corrected matrix (C)")
+        description="Update the NCBI matrix (A) from your own table (B) -> a corrected matrix (C)"
+    )
     p.add_argument("-m", "--matrix", required=True, help="matrix A: .xlsx (sheet 'Matrix') / .csv / .tsv")
-    p.add_argument("-u", "--updates", help="table B: your own Excel/csv with any column names "
-                                           "(or a g2t corrections template)")
-    p.add_argument("-o", "--output", help="output C: .xlsx (Matrix / Changes / Problems / Column mapping / "
-                                          "Matrix (GenBank)) or .csv (log and problems written next to it)")
+    p.add_argument(
+        "-u", "--updates", help="table B: your own Excel/csv with any column names (or a g2t corrections template)"
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        help="output C: .xlsx (Matrix / Changes / Problems / Column mapping / "
+        "Matrix (GenBank)) or .csv (log and problems written next to it)",
+    )
     p.add_argument("--sheet", default=0, help="sheet of table B (name or 0-based number; default first)")
-    p.add_argument("--map", action="append", metavar="COLUMN=FIELD",
-                   help="force a column of B to a field, e.g. --map '编号=voucher' --map 'Lat=latitude'; "
-                        "FIELD = voucher, accession, organism, latitude, longitude, lat_lon, geo_loc_name, "
-                        "country, collection_date, Ref1Title, Ref1Authors, Ref1Journal, collected_by, "
-                        "identified_by, or user:<new column>")
+    p.add_argument(
+        "--map",
+        action="append",
+        metavar="COLUMN=FIELD",
+        help="force a column of B to a field, e.g. --map '编号=voucher' --map 'Lat=latitude'; "
+        "FIELD = voucher, accession, organism, latitude, longitude, lat_lon, geo_loc_name, "
+        "country, collection_date, Ref1Title, Ref1Authors, Ref1Journal, collected_by, "
+        "identified_by, or user:<new column>",
+    )
     p.add_argument("--key", help="matrix key column (default: specimen_key / species_voucher_new)")
     p.add_argument("--template", help="write a pre-filled corrections template (.csv or .xlsx) and exit")
     a = p.parse_args(argv)
@@ -570,8 +733,9 @@ def main(argv: list[str] | None = None) -> None:
     else:
         sheet = int(a.sheet) if str(a.sheet).isdigit() else a.sheet
         table = _read(a.updates, sheet)
-        out, log, problems, mapping = apply_user_table(matrix, table, key_column=key, gene_columns=genes,
-                                                       column_map=parse_map(a.map))
+        out, log, problems, mapping = apply_user_table(
+            matrix, table, key_column=key, gene_columns=genes, column_map=parse_map(a.map)
+        )
     o = Path(a.output)
     if o.suffix.lower() == ".xlsx":
         write_curated_workbook(str(o), out, log, problems, matrix, mapping)
@@ -581,8 +745,10 @@ def main(argv: list[str] | None = None) -> None:
         problems.to_csv(o.with_name(o.stem + "_curation_problems.csv"), index=False)
         if mapping is not None:
             mapping.to_csv(o.with_name(o.stem + "_column_mapping.csv"), index=False)
-    print(f"Curated: {o} ({len(log)} changes in {log['specimen'].nunique() if len(log) else 0} specimens; "
-          f"{len(problems)} problems)")
+    print(
+        f"Curated: {o} ({len(log)} changes in {log['specimen'].nunique() if len(log) else 0} specimens; "
+        f"{len(problems)} problems)"
+    )
     if mapping is not None:
         for _, r in mapping.iterrows():
             print(f"  {r['user_column']!s:<24} -> {r['used_as']}")

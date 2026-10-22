@@ -23,9 +23,18 @@ FINAL_CSV = BASE / "haplotaxis_output3/gb_metadata/final.csv"
 OUTPUT = BASE / "ncbi_source_update.tsv"
 
 MONTH_ABBR = {
-    "jan": "Jan", "feb": "Feb", "mar": "Mar", "apr": "Apr",
-    "may": "May", "jun": "Jun", "jul": "Jul", "aug": "Aug",
-    "sep": "Sep", "oct": "Oct", "nov": "Nov", "dec": "Dec",
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Apr",
+    "may": "May",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Dec",
 }
 
 
@@ -142,9 +151,23 @@ def load_literature() -> dict:
     """Load literature Excel into accession → metadata lookup."""
     df = pd.read_excel(EXCEL, sheet_name="Blad1", header=2)
     df.columns = [
-        "Species", "Specimen_no", "Voucher", "Country", "State",
-        "Municipality", "Locality", "Habitat", "N", "E",
-        "Coll_Date", "Leg", "12S", "16S", "18S", "28S", "COI",
+        "Species",
+        "Specimen_no",
+        "Voucher",
+        "Country",
+        "State",
+        "Municipality",
+        "Locality",
+        "Habitat",
+        "N",
+        "E",
+        "Coll_Date",
+        "Leg",
+        "12S",
+        "16S",
+        "18S",
+        "28S",
+        "COI",
     ]
     df = df.iloc[1:].reset_index(drop=True)
 
@@ -168,7 +191,7 @@ def load_literature() -> dict:
         for gene in ["12S", "16S", "18S", "28S", "COI"]:
             acc = str(row[gene]).strip()
             if acc and acc != "nan" and acc != "-":
-                specimens.setdefault(acc, meta)     # first row wins (same rule as merge_literature_metadata.py)
+                specimens.setdefault(acc, meta)  # first row wins (same rule as merge_literature_metadata.py)
 
     return specimens
 
@@ -186,7 +209,7 @@ def load_gb_state() -> dict:
             "geo_loc_name": row.get("geo_loc_name"),
             "specimen_voucher": row.get("specimen_voucher"),
             "isolate": row.get("isolate"),
-            "isolation_source": row.get("isolation_source"),    # None when final.csv lacks the column
+            "isolation_source": row.get("isolation_source"),  # None when final.csv lacks the column
         }
     return lookup
 
@@ -224,8 +247,10 @@ def main():
         # Country (geo_loc_name) — only if GB lacks it
         if is_empty(gb_meta["geo_loc_name"]):
             val = format_geo_loc_name(
-                lit_meta["country"], lit_meta["state"],
-                lit_meta["municipality"], lit_meta["locality"],
+                lit_meta["country"],
+                lit_meta["state"],
+                lit_meta["municipality"],
+                lit_meta["locality"],
             )
             if val:
                 row["geo_loc_name"] = val

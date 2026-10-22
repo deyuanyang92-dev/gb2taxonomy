@@ -54,7 +54,7 @@ class RecordStore:
         have: set[str] = set()
         lst = list(accs)
         for i in range(0, len(lst), 500):
-            chunk = lst[i:i + 500]
+            chunk = lst[i : i + 500]
             q = "SELECT acc FROM records WHERE acc IN ({})".format(",".join("?" * len(chunk)))
             have.update(r[0] for r in self.db.execute(q, chunk))
         return [a for a in lst if a not in have]

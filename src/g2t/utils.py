@@ -16,6 +16,7 @@ import pandas as pd
 @dataclass
 class StepResult:
     """Standardized result object returned by each pipeline step."""
+
     success: bool
     output_file: str
     rows: int = 0
@@ -24,16 +25,19 @@ class StepResult:
 
 class G2TError(Exception):
     """Base exception for g2t pipeline."""
+
     pass
 
 
 class UnsupportedFormatError(G2TError):
     """Raised when input file format is not supported."""
+
     pass
 
 
 class PipelineStepError(G2TError):
     """Raised when a pipeline step encounters an unrecoverable error."""
+
     pass
 
 

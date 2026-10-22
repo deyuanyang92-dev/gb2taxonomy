@@ -14,25 +14,41 @@ PAPER = "Population genetics reveals a complex Priapulus caudatus"
 
 
 def rec(acc, org, gene, voucher, key, **kw):
-    row = dict(ACCESSION=acc, organism=org, gene_type=gene, specimen_voucher=voucher, isolate="",
-               species_voucher_new=key, Ref1Title="", Ref2Title="", Ref1Authors="", collection_date="",
-               lat_lon="", geo_loc_name="", country="", collected_by="")
+    row = dict(
+        ACCESSION=acc,
+        organism=org,
+        gene_type=gene,
+        specimen_voucher=voucher,
+        isolate="",
+        species_voucher_new=key,
+        Ref1Title="",
+        Ref2Title="",
+        Ref1Authors="",
+        collection_date="",
+        lat_lon="",
+        geo_loc_name="",
+        country="",
+        collected_by="",
+    )
     row.update(kw)
     return row
 
 
 class TestVoucherCore:
-    @pytest.mark.parametrize("raw,core", [
-        ("COI_ZMMU_MSU_WS399", "WS399"),
-        ("28S_ZMMU_WS399", "WS399"),
-        ("WS399", "WS399"),
-        ("ZMMU WS-399", "WS399"),
-        ("WS399_COI", "WS399"),
-        ("18S-XZ4579", "XZ4579"),
-        ("ZMH V13492", "V13492"),
-        ("", ""),
-        ("A1", ""),            # too short to be a reliable identifier
-    ])
+    @pytest.mark.parametrize(
+        "raw,core",
+        [
+            ("COI_ZMMU_MSU_WS399", "WS399"),
+            ("28S_ZMMU_WS399", "WS399"),
+            ("WS399", "WS399"),
+            ("ZMMU WS-399", "WS399"),
+            ("WS399_COI", "WS399"),
+            ("18S-XZ4579", "XZ4579"),
+            ("ZMH V13492", "V13492"),
+            ("", ""),
+            ("A1", ""),  # too short to be a reliable identifier
+        ],
+    )
     def test_core(self, raw, core):
         assert voucher_core(raw) == core
 
@@ -76,11 +92,13 @@ class TestCompare:
 
 class TestReconcile:
     def test_merges_gene_prefixed_vouchers_with_evidence(self):
-        df = pd.DataFrame([
-            rec("A", "Priapulus caudatus", "coi", "COI_ZMMU_MSU_WS399", "Pc_COI_ZMMU_MSU_WS399", Ref1Title=PAPER),
-            rec("B", "Priapulus caudatus", "28s", "28S_ZMMU_WS399", "Pc_28S_ZMMU_WS399", Ref1Title=PAPER),
-            rec("C", "Priapulus caudatus", "16s", "WS399", "Pc_WS399", Ref1Title=PAPER, lat_lon="66.55 N 33.10 E"),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "Priapulus caudatus", "coi", "COI_ZMMU_MSU_WS399", "Pc_COI_ZMMU_MSU_WS399", Ref1Title=PAPER),
+                rec("B", "Priapulus caudatus", "28s", "28S_ZMMU_WS399", "Pc_28S_ZMMU_WS399", Ref1Title=PAPER),
+                rec("C", "Priapulus caudatus", "16s", "WS399", "Pc_WS399", Ref1Title=PAPER, lat_lon="66.55 N 33.10 E"),
+            ]
+        )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1
         assert set(out["match_confidence"]) == {"high"}
@@ -88,45 +106,55 @@ class TestReconcile:
         assert (out["species_voucher_g2t"] == df["species_voucher_new"]).all()
 
     def test_never_merges_across_organisms(self):
-        df = pd.DataFrame([
-            rec("A", "Halicryptus spinulosus", "28s", "28S_ZMMU_WS3020", "Hs_WS3020", Ref1Title=PAPER),
-            rec("B", "Priapulus caudatus", "coi", "COI_ZMMU_MSU_WS3020", "Pc_WS3020", Ref1Title=PAPER),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "Halicryptus spinulosus", "28s", "28S_ZMMU_WS3020", "Hs_WS3020", Ref1Title=PAPER),
+                rec("B", "Priapulus caudatus", "coi", "COI_ZMMU_MSU_WS3020", "Pc_WS3020", Ref1Title=PAPER),
+            ]
+        )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 2
         assert (report["decision"] == "not merged: different organisms").any()
 
     def test_no_evidence_not_merged(self):
-        df = pd.DataFrame([
-            rec("A", "P c", "coi", "COI_WS399", "k1"),
-            rec("B", "P c", "28s", "28S_WS399", "k2"),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "COI_WS399", "k1"),
+                rec("B", "P c", "28s", "28S_WS399", "k2"),
+            ]
+        )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 2
         assert (report["decision"] == "not merged: insufficient evidence").any()
 
     def test_conflict_blocks_merge(self):
-        df = pd.DataFrame([
-            rec("A", "P c", "coi", "COI_WS399", "k1", Ref1Title=PAPER, geo_loc_name="Russia"),
-            rec("B", "P c", "28s", "28S_WS399", "k2", Ref1Title=PAPER, geo_loc_name="Chile"),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "COI_WS399", "k1", Ref1Title=PAPER, geo_loc_name="Russia"),
+                rec("B", "P c", "28s", "28S_WS399", "k2", Ref1Title=PAPER, geo_loc_name="Chile"),
+            ]
+        )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 2
         assert report["decision"].str.startswith("not merged: conflicting").any()
 
     def test_same_gene_twice_needs_strong_evidence(self):
-        df = pd.DataFrame([
-            rec("A", "P c", "coi", "COI_WS399", "k1", collected_by="X", geo_loc_name="Russia: A"),
-            rec("B", "P c", "coi", "WS399", "k2", collected_by="X", geo_loc_name="Russia: A"),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "COI_WS399", "k1", collected_by="X", geo_loc_name="Russia: A"),
+                rec("B", "P c", "coi", "WS399", "k2", collected_by="X", geo_loc_name="Russia: A"),
+            ]
+        )
         out, _ = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 2
 
     def test_medium_confidence_threshold(self):
-        df = pd.DataFrame([
-            rec("A", "P c", "coi", "COI_WS399", "k1", collected_by="X", geo_loc_name="Russia: A"),
-            rec("B", "P c", "28s", "WS399", "k2", collected_by="X", geo_loc_name="Russia: A"),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "COI_WS399", "k1", collected_by="X", geo_loc_name="Russia: A"),
+                rec("B", "P c", "28s", "WS399", "k2", collected_by="X", geo_loc_name="Russia: A"),
+            ]
+        )
         out, _ = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1
         assert set(out["match_confidence"]) == {"medium"}
@@ -156,9 +184,11 @@ class TestRowOrderIndependence:
         assert len(results) == 1
 
     def test_punctuation_only_voucher_falls_back_to_isolate(self):
-        df = pd.DataFrame([
-            rec("A", "P c", "coi", "..", "Pc_WS399", isolate="WS399", Ref1Title=PAPER),
-            rec("B", "P c", "28s", "28S_ZMMU_WS399", "Pc_28S_ZMMU_WS399", Ref1Title=PAPER),
-        ])
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "..", "Pc_WS399", isolate="WS399", Ref1Title=PAPER),
+                rec("B", "P c", "28s", "28S_ZMMU_WS399", "Pc_28S_ZMMU_WS399", Ref1Title=PAPER),
+            ]
+        )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1

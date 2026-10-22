@@ -3,6 +3,7 @@
 用法:
   python scripts/compare_results.py
 """
+
 import re
 from pathlib import Path
 
@@ -54,8 +55,7 @@ def compare_ophelidae():
             for i, (ov, nv) in enumerate(zip(old_vals, new_vals)):
                 if ov != nv:
                     key_val = df_old.at[i, key_col] if key_col in df_old.columns else i
-                    rows.append(dict(file=label, column=col, key=key_val,
-                                     old_value=ov[:200], new_value=nv[:200]))
+                    rows.append(dict(file=label, column=col, key=key_val, old_value=ov[:200], new_value=nv[:200]))
 
     if rows:
         pd.DataFrame(rows).to_csv(out, index=False)
@@ -96,8 +96,11 @@ def match_species(lit_species, g2t_organisms):
     lit_prefix = re.sub(r"\s+sp\.?\s*[A-Z]?$", "", lit_norm).strip()
     for org in g2t_organisms:
         org_prefix = re.sub(r"\s+sp\.?\s*[A-Z]?$", "", normalize_species(org)).strip()
-        if lit_prefix and org_prefix and (lit_prefix == org_prefix or lit_prefix in org_prefix
-                                           or org_prefix in lit_prefix):
+        if (
+            lit_prefix
+            and org_prefix
+            and (lit_prefix == org_prefix or lit_prefix in org_prefix or org_prefix in lit_prefix)
+        ):
             return org
     # 尝试属名+种名前几个字符
     lit_parts = lit_norm.split()
@@ -138,9 +141,11 @@ def compare_hesionidae():
 
     # 2. 读取 g2t assigned 表，按 organism + gene_type 聚合 LocusID
     assigned_df = pd.read_csv(g2t_assigned, low_memory=False)
-    agg = (assigned_df.groupby(["organism", "gene_type"])["LocusID"]
-           .apply(lambda x: "; ".join(str(v) for v in x.dropna()))
-           .reset_index())
+    agg = (
+        assigned_df.groupby(["organism", "gene_type"])["LocusID"]
+        .apply(lambda x: "; ".join(str(v) for v in x.dropna()))
+        .reset_index()
+    )
     locus_lookup = {}
     for _, r in agg.iterrows():
         locus_lookup[(r["organism"], r["gene_type"])] = r["LocusID"]

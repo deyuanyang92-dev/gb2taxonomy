@@ -35,13 +35,17 @@ from g2t.recstore import DirStore, RecordStore, iter_records
 # Organelle records are never length-capped. plastid[filter] matches nothing and mitochondri* is truncated by Entrez.
 LARGE_BP = 100_000
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-TIMEOUT = 60          # s without data before a request is retried
-ORGANELLE = ("(mitochondrion[filter] OR chloroplast[filter] OR mitochondrion[Title] OR mitochondrial[Title] "
-             "OR chloroplast[Title] OR plastid[Title])")
+TIMEOUT = 60  # s without data before a request is retried
+ORGANELLE = (
+    "(mitochondrion[filter] OR chloroplast[filter] OR mitochondrion[Title] OR mitochondrial[Title] "
+    "OR chloroplast[Title] OR plastid[Title])"
+)
 # also matches "<species> genome assembly, organelle: mitochondrion" (Darwin Tree of Life); no upper length
-MITOGENOME = ('AND (mitochondrion[filter] OR mitochondrion[Title] OR mitochondrial[Title]) AND (complete genome[Title] '
-              'OR "complete mitochondrial genome"[Title] OR mitogenome[Title] OR "mitochondrial genome"[Title] '
-              'OR "genome assembly"[Title]) AND 10000:999999999[SLEN]')
+MITOGENOME = (
+    "AND (mitochondrion[filter] OR mitochondrion[Title] OR mitochondrial[Title]) AND (complete genome[Title] "
+    'OR "complete mitochondrial genome"[Title] OR mitogenome[Title] OR "mitochondrial genome"[Title] '
+    'OR "genome assembly"[Title]) AND 10000:999999999[SLEN]'
+)
 
 warnings.filterwarnings("ignore", category=UserWarning, module="Bio.Entrez")
 
@@ -59,8 +63,8 @@ class DownloadOptions:
     include_mrna: bool = False
     include_refseq: bool = False
     include_large: bool = False
-    since: str = ""           # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
-    no_store: bool = False    # keep records only in the selection's batch files (no SQLite store)
+    since: str = ""  # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
+    no_store: bool = False  # keep records only in the selection's batch files (no SQLite store)
     batch: int = 500
     workers: int = 3
     tag: str = ""
@@ -77,22 +81,23 @@ class DownloadResult:
     out_dir: str
     composition: dict[str, int] = field(default_factory=dict)
     per_gene: dict[str, int] = field(default_factory=dict)
-    batches: int = 0          # batches fetched from NCBI in this run
-    fetched: int = 0          # records fetched from NCBI in this run
-    reused: int = 0           # records taken from the local store
-    to_fetch: int = 0         # records not in the store (dry run: would be fetched)
-    failed: int = 0           # records that failed after all retries and batch splitting
-    new: int = 0              # changes against the previous accession list of this selection
+    batches: int = 0  # batches fetched from NCBI in this run
+    fetched: int = 0  # records fetched from NCBI in this run
+    reused: int = 0  # records taken from the local store
+    to_fetch: int = 0  # records not in the store (dry run: would be fetched)
+    failed: int = 0  # records that failed after all retries and batch splitting
+    new: int = 0  # changes against the previous accession list of this selection
     updated: int = 0
     removed: int = 0
-    query_changed: bool = False   # the selection's query differs from the previous run (g2t default changed)
-    since: str = ""               # Entrez date of an incremental run (records modified since then)
-    candidates: int = 0           # records modified since that date
+    query_changed: bool = False  # the selection's query differs from the previous run (g2t default changed)
+    since: str = ""  # Entrez date of an incremental run (records modified since then)
+    candidates: int = 0  # records modified since that date
 
 
 def setup_entrez(email: str | None = None, api_key: str | None = None) -> float:
     """Configure Bio.Entrez; returns the delay between requests (s)."""
     from Bio import Entrez
+
     Entrez.email = email or os.environ.get("NCBI_EMAIL") or None  # type: ignore[assignment]
     Entrez.api_key = api_key or os.environ.get("NCBI_API_KEY") or None  # type: ignore[assignment]
     Entrez.tool = "g2t"
@@ -101,7 +106,8 @@ def setup_entrez(email: str | None = None, api_key: str | None = None) -> float:
 
 def _call(fn: Callable, parse: bool, retries: int = 5, **kw):
     from Bio import Entrez
-    socket.setdefaulttimeout(TIMEOUT)   # Bio.Entrez opens URLs without a timeout; a stalled request would hang
+
+    socket.setdefaulttimeout(TIMEOUT)  # Bio.Entrez opens URLs without a timeout; a stalled request would hang
     for i in range(retries):
         try:
             h = fn(**kw)
@@ -111,7 +117,7 @@ def _call(fn: Callable, parse: bool, retries: int = 5, **kw):
         except Exception as e:  # noqa: BLE001 - urllib/http/parse errors
             if i == retries - 1:
                 raise
-            wait = 2 ** i * 2
+            wait = 2**i * 2
             print(f"   retry {i + 1}/{retries - 1} ({type(e).__name__}: {str(e)[:80]}) in {wait}s", file=sys.stderr)
             time.sleep(wait)
 
@@ -119,6 +125,7 @@ def _call(fn: Callable, parse: bool, retries: int = 5, **kw):
 def resolve_taxon(taxon: str) -> tuple[str, str, str, str]:
     """Name or taxid -> (taxid, scientific name, rank, lineage)."""
     from Bio import Entrez
+
     if str(taxon).isdigit():
         tid = str(taxon)
     else:
@@ -144,8 +151,11 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
         q.append("NOT srcdb_refseq_model[PROP]")
         if not o.include_refseq:
             q.append("NOT refseq[filter]")
-        tag += [f"incl-{x}" for x, on in (("wgs", o.include_wgs), ("mrna", o.include_mrna),
-                                          ("refseq", o.include_refseq)) if on]
+        tag += [
+            f"incl-{x}"
+            for x, on in (("wgs", o.include_wgs), ("mrna", o.include_mrna), ("refseq", o.include_refseq))
+            if on
+        ]
     if o.mitogenome:
         q.append(MITOGENOME)
         tag.append("mitogenome")
@@ -174,6 +184,7 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
 
 def count(term: str) -> int:
     from Bio import Entrez
+
     return int(_call(Entrez.esearch, True, db="nuccore", term=term, retmax=0)["Count"])
 
 
@@ -197,13 +208,15 @@ def _batch_complete(text: str, ids: list[str]) -> bool:
 def _efetch_text(ids: list[str]) -> str:
     """One efetch POST with gzip transfer and a timeout (Bio.Entrez does neither)."""
     from Bio import Entrez
+
     params = {"db": "nuccore", "id": ",".join(ids), "rettype": "gbwithparts", "retmode": "text", "tool": "g2t"}
     if Entrez.email:
         params["email"] = Entrez.email
     if Entrez.api_key:
         params["api_key"] = Entrez.api_key
-    req = urllib.request.Request(EFETCH_URL, data=urllib.parse.urlencode(params).encode(),
-                                 headers={"Accept-Encoding": "gzip"})
+    req = urllib.request.Request(
+        EFETCH_URL, data=urllib.parse.urlencode(params).encode(), headers={"Accept-Encoding": "gzip"}
+    )
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310 - fixed NCBI https URL
         raw: bytes = r.read()
     if raw[:2] == b"\x1f\x8b":
@@ -221,7 +234,7 @@ def _fetch_batch(ids: list[str]) -> tuple[list[str], str | None]:
             print(f"   batch of {len(ids)}: got {_n_records(txt)} records, retrying", file=sys.stderr)
         except Exception as e:  # noqa: BLE001
             print(f"   batch of {len(ids)}: {type(e).__name__}, retrying", file=sys.stderr)
-        time.sleep(2 ** attempt)
+        time.sleep(2**attempt)
     return ids, None
 
 
@@ -251,15 +264,25 @@ def _changes(old: list[str], new: list[str]) -> list[tuple[str, str, str]]:
 def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
     """accession.version list of a query; pages are fetched in parallel."""
     from Bio import Entrez
+
     if total == 0:
         return []
     r = _call(Entrez.esearch, True, db="nuccore", term=term, usehistory="y", retmax=0)
-    total = int(r.get("Count", total))    # page the set we actually hold, not an earlier count
+    total = int(r.get("Count", total))  # page the set we actually hold, not an earlier count
     pages: dict[int, list[str]] = {}
 
     def _page(start: int) -> tuple[int, list[str]]:
-        txt = _call(Entrez.efetch, False, db="nuccore", rettype="acc", retmode="text", retstart=start,
-                    retmax=5000, webenv=r["WebEnv"], query_key=r["QueryKey"])
+        txt = _call(
+            Entrez.efetch,
+            False,
+            db="nuccore",
+            rettype="acc",
+            retmode="text",
+            retstart=start,
+            retmax=5000,
+            webenv=r["WebEnv"],
+            query_key=r["QueryKey"],
+        )
         return start, [x.strip() for x in txt.split() if x.strip()]
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
@@ -273,7 +296,7 @@ def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
     return list(dict.fromkeys(a for p in sorted(pages) for a in pages[p]))
 
 
-SINCE_MARGIN_DAYS = 3   # NCBI may index records a few days after their modification date
+SINCE_MARGIN_DAYS = 3  # NCBI may index records a few days after their modification date
 
 
 def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: bool) -> str:
@@ -281,8 +304,7 @@ def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: boo
     if not since:
         return ""
     if not prev_list or query_changed or not prev.get("complete"):
-        print("   --since: no complete earlier download of this selection, downloading the full list",
-              file=sys.stderr)
+        print("   --since: no complete earlier download of this selection, downloading the full list", file=sys.stderr)
         return ""
     if since == "auto":
         d = date.fromisoformat(prev["date"]) - timedelta(days=SINCE_MARGIN_DAYS)
@@ -290,9 +312,17 @@ def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: boo
     return date.fromisoformat(since.replace("/", "-")).strftime("%Y/%m/%d")
 
 
-def download(taxon: str, out_root: str, options: DownloadOptions | None = None, dry_run: bool = False,
-             email: str | None = None, api_key: str | None = None, progress: bool = True,
-             store: str | None = None, report: bool = False) -> DownloadResult:
+def download(
+    taxon: str,
+    out_root: str,
+    options: DownloadOptions | None = None,
+    dry_run: bool = False,
+    email: str | None = None,
+    api_key: str | None = None,
+    progress: bool = True,
+    store: str | None = None,
+    report: bool = False,
+) -> DownloadResult:
     """Resolve taxon, report composition, and download the selection into <out_root>/<tag>/.
 
     Records are kept in an accession-level store (``store``, default ``<out_root>/_records.sqlite``);
@@ -305,9 +335,14 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     term, tag = build_query(tid, o)
     total = count(term)
     base = f"txid{tid}[Organism:exp]"
-    comp_q = [("all", ""), ("wgs", " AND wgs[filter]"), ("mrna", " AND biomol_mrna[PROP]"),
-              ("refseq_model", " AND srcdb_refseq_model[PROP]"), ("mito", " AND mitochondrion[filter]"),
-              ("large", f" AND {LARGE_BP + 1}:999999999[SLEN] NOT {ORGANELLE}")]
+    comp_q = [
+        ("all", ""),
+        ("wgs", " AND wgs[filter]"),
+        ("mrna", " AND biomol_mrna[PROP]"),
+        ("refseq_model", " AND srcdb_refseq_model[PROP]"),
+        ("mito", " AND mitochondrion[filter]"),
+        ("large", f" AND {LARGE_BP + 1}:999999999[SLEN] NOT {ORGANELLE}"),
+    ]
     gene_q = [(g, f"({term}) AND {clause(g)}") for g in MITO_GENES + NUCLEAR_GENES]
     # composition and per-gene counts are ~23 slow searches: only for dry runs or report=True
     jobs = ([(k, base + q) for k, q in comp_q] + gene_q) if (dry_run or report) else []
@@ -322,16 +357,27 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     comp = {k: counts[k] for k, _ in comp_q if k in counts}
     per_gene = {g: counts[g] for g, _ in gene_q if counts.get(g)}
     out = Path(out_root) / tag
-    res = DownloadResult(taxid=tid, name=name, rank=rank, tag=tag, query=term, count=total, out_dir=str(out),
-                         composition=comp, per_gene=per_gene)
+    res = DownloadResult(
+        taxid=tid,
+        name=name,
+        rank=rank,
+        tag=tag,
+        query=term,
+        count=total,
+        out_dir=str(out),
+        composition=comp,
+        per_gene=per_gene,
+    )
     mfile = out / "manifest.json"
     if total == 0 and not mfile.exists():
         return res
     old_q = json.loads(mfile.read_text(encoding="utf-8")).get("query") if mfile.exists() else None
     res.query_changed = bool(old_q and old_q != term)
-    if o.tag and res.query_changed:   # a user-named directory is never silently re-purposed
-        raise ValueError(f"{out} holds records of a different query:\n  {old_q}\n"
-                         f"current query:\n  {term}\nUse another --tag or output directory.")
+    if o.tag and res.query_changed:  # a user-named directory is never silently re-purposed
+        raise ValueError(
+            f"{out} holds records of a different query:\n  {old_q}\n"
+            f"current query:\n  {term}\nUse another --tag or output directory."
+        )
     prev = json.loads(mfile.read_text(encoding="utf-8")) if mfile.exists() else {}
     prev_list = _previous_list(out)
     since = _since_date(o.since, prev, prev_list, res.query_changed) if total else ""
@@ -367,7 +413,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
         # it is stored already, but stale, so it is fetched again
         stale = [a for a in cand if a in set(accs) and a not in set(missing)]
         if stale and not dry_run and isinstance(st, DirStore):
-            st.prune(set(st.where) - set(stale))     # drop the old copies, or prune would keep both
+            st.prune(set(st.where) - set(stale))  # drop the old copies, or prune would keep both
         missing += stale
     res.reused = len(accs) - len(missing)
     res.to_fetch = len(missing)
@@ -375,7 +421,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
         st.close()
         return res
     out.mkdir(parents=True, exist_ok=True)
-    batches = [missing[i:i + o.batch] for i in range(0, len(missing), o.batch)]
+    batches = [missing[i : i + o.batch] for i in range(0, len(missing), o.batch)]
     res.batches = len(batches)
     t0 = time.time()
     failed_ids: list[str] = []
@@ -393,8 +439,11 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
             else:
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             if progress:
-                print(f"   [{i}/{len(batches)}] {'OK' if txt else 'FAILED, will split'}  {time.time() - t0:.0f}s",
-                      file=sys.stderr, flush=True)
+                print(
+                    f"   [{i}/{len(batches)}] {'OK' if txt else 'FAILED, will split'}  {time.time() - t0:.0f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
     # split failing batches until the failing records are isolated
     while retry:
         ids = retry.pop()
@@ -407,7 +456,7 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
             else:
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             continue
-        for half in (ids[:len(ids) // 2], ids[len(ids) // 2:]):
+        for half in (ids[: len(ids) // 2], ids[len(ids) // 2 :]):
             half, txt = _fetch_batch(half)
             if txt is None:
                 retry.append(half)
@@ -421,15 +470,19 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     else:
         # write the selection view from the store, in NCBI list order
         nb = (len(have) + o.batch - 1) // o.batch
-        unchanged = (not failed_ids and prev.get("complete") and prev.get("query") == term
-                     and prev.get("options", {}).get("batch") == o.batch
-                     and prev.get("accessions_sha1") == hashlib.sha1("\n".join(accs).encode()).hexdigest()
-                     and sorted(f.name for f in out.glob("batch_*.gb")) == [f"batch_{b + 1:04d}.gb" for b in range(nb)])
-        for b in range(0 if unchanged else nb):     # nothing new: keep the existing batch files
+        unchanged = (
+            not failed_ids
+            and prev.get("complete")
+            and prev.get("query") == term
+            and prev.get("options", {}).get("batch") == o.batch
+            and prev.get("accessions_sha1") == hashlib.sha1("\n".join(accs).encode()).hexdigest()
+            and sorted(f.name for f in out.glob("batch_*.gb")) == [f"batch_{b + 1:04d}.gb" for b in range(nb)]
+        )
+        for b in range(0 if unchanged else nb):  # nothing new: keep the existing batch files
             f = out / f"batch_{b + 1:04d}.gb"
             tmp = f.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as fh:
-                for a in have[b * o.batch:(b + 1) * o.batch]:
+                for a in have[b * o.batch : (b + 1) * o.batch]:
                     fh.write(st.get(a) or "")
             tmp.replace(f)
         for f in sorted(out.glob("batch_*.gb")):
@@ -444,8 +497,9 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     if ch:
         if res.query_changed:
             ch = [(f"{st_}(query changed)", a, p) for st_, a, p in ch]
-        (out / "changes.tsv").write_text("status\taccession\tprevious\n" +
-                                         "".join(f"{s}\t{a}\t{p}\n" for s, a, p in ch), encoding="utf-8")
+        (out / "changes.tsv").write_text(
+            "status\taccession\tprevious\n" + "".join(f"{s}\t{a}\t{p}\n" for s, a, p in ch), encoding="utf-8"
+        )
         hist = out / "changes_history.tsv"
         new_h = not hist.exists()
         with open(hist, "a", encoding="utf-8") as fh:
@@ -457,15 +511,34 @@ def download(taxon: str, out_root: str, options: DownloadOptions | None = None, 
     (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
     # date of the last check against the full NCBI list (a --since run cannot see withdrawn records)
     full_check = prev.get("last_full_check") if since else date.today().isoformat()
-    manifest = dict(taxon=taxon, ncbi_taxid=tid, ncbi_name=name, ncbi_rank=rank, ncbi_lineage=lineage,
-                    query=term, tag=tag, date=date.today().isoformat(), count=len(accs),
-                    accessions_sha1=hashlib.sha1("\n".join(accs).encode()).hexdigest(),
-                    complete=res.failed == 0, failed_batches=res.failed, failed_records=len(failed_ids),
-                    fetched=res.fetched, reused=res.reused, new=res.new, updated=res.updated,
-                    removed=res.removed, query_changed=res.query_changed,
-                    store=None if o.no_store else str(spath), since=since or None,
-                    since_candidates=res.candidates if since else None, last_full_check=full_check,
-                    taxon_composition=comp, per_gene=per_gene, options=asdict(o))
+    manifest = dict(
+        taxon=taxon,
+        ncbi_taxid=tid,
+        ncbi_name=name,
+        ncbi_rank=rank,
+        ncbi_lineage=lineage,
+        query=term,
+        tag=tag,
+        date=date.today().isoformat(),
+        count=len(accs),
+        accessions_sha1=hashlib.sha1("\n".join(accs).encode()).hexdigest(),
+        complete=res.failed == 0,
+        failed_batches=res.failed,
+        failed_records=len(failed_ids),
+        fetched=res.fetched,
+        reused=res.reused,
+        new=res.new,
+        updated=res.updated,
+        removed=res.removed,
+        query_changed=res.query_changed,
+        store=None if o.no_store else str(spath),
+        since=since or None,
+        since_candidates=res.candidates if since else None,
+        last_full_check=full_check,
+        taxon_composition=comp,
+        per_gene=per_gene,
+        options=asdict(o),
+    )
     mfile.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return res
 
@@ -484,9 +557,11 @@ def describe(res: DownloadResult, dry_run: bool = False) -> list[str]:
     lines = [head]
     c = res.composition
     if c:
-        lines.append(f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
-                     f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
-                     f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}")
+        lines.append(
+            f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
+            f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
+            f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}"
+        )
     if res.per_gene:
         lines.append("per gene: " + ", ".join(f"{g} {n}" for g, n in res.per_gene.items()))
     return lines + [f"query: {res.query}", f"output: {res.out_dir}"]
@@ -521,13 +596,21 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--include-wgs", action="store_true", help="keep WGS contigs")
     g.add_argument("--include-mrna", action="store_true", help="keep mRNA records")
     g.add_argument("--include-refseq", action="store_true", help="keep RefSeq records")
-    g.add_argument("--include-large", action="store_true",
-                   help=f"keep nuclear records > {LARGE_BP // 1000} kb (organelle records are always kept)")
+    g.add_argument(
+        "--include-large",
+        action="store_true",
+        help=f"keep nuclear records > {LARGE_BP // 1000} kb (organelle records are always kept)",
+    )
     g.add_argument("--tag", default="", metavar="NAME", help="output sub-directory (default: from the selection)")
 
     u = p.add_argument_group("update")
-    u.add_argument("--since", type=_since_arg, default="", metavar="auto|DATE",
-                   help="fetch only records modified since the last run or DATE (YYYY-MM-DD)")
+    u.add_argument(
+        "--since",
+        type=_since_arg,
+        default="",
+        metavar="auto|DATE",
+        help="fetch only records modified since the last run or DATE (YYYY-MM-DD)",
+    )
     x = u.add_mutually_exclusive_group()
     x.add_argument("--store", default=None, metavar="FILE", help="record store (default: OUTPUT/_records.sqlite)")
     x.add_argument("--no-store", action="store_true", help="keep records only in the batch files")
@@ -535,18 +618,39 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
     r = p.add_argument_group("run")
     r.add_argument("-n", "--dry-run", action="store_true", help="report counts and records to fetch; write nothing")
     r.add_argument("--report", action="store_true", help="also count records per gene (extra NCBI searches)")
-    r.add_argument("-b", "--batch-size", type=_positive, default=500, metavar="N",
-                   help="records per request and batch file (default: %(default)s)")
-    r.add_argument("-w", "--workers", type=_positive, default=3, metavar="N",
-                   help="parallel NCBI requests (default: %(default)s)")
+    r.add_argument(
+        "-b",
+        "--batch-size",
+        type=_positive,
+        default=500,
+        metavar="N",
+        help="records per request and batch file (default: %(default)s)",
+    )
+    r.add_argument(
+        "-w", "--workers", type=_positive, default=3, metavar="N", help="parallel NCBI requests (default: %(default)s)"
+    )
     r.add_argument("-q", "--quiet", action="store_true", help="no progress output")
 
 
 def options_from_args(a: argparse.Namespace) -> DownloadOptions:
-    return DownloadOptions(all=a.all, mito=a.mito, mitogenome=a.mitogenome, gene=a.gene, minlen=a.minlen,
-                           maxlen=a.maxlen, query=a.query, include_wgs=a.include_wgs, include_mrna=a.include_mrna,
-                           include_refseq=a.include_refseq, include_large=a.include_large,
-                           since=a.since, no_store=a.no_store, batch=a.batch_size, workers=a.workers, tag=a.tag)
+    return DownloadOptions(
+        all=a.all,
+        mito=a.mito,
+        mitogenome=a.mitogenome,
+        gene=a.gene,
+        minlen=a.minlen,
+        maxlen=a.maxlen,
+        query=a.query,
+        include_wgs=a.include_wgs,
+        include_mrna=a.include_mrna,
+        include_refseq=a.include_refseq,
+        include_large=a.include_large,
+        since=a.since,
+        no_store=a.no_store,
+        batch=a.batch_size,
+        workers=a.workers,
+        tag=a.tag,
+    )
 
 
 EPILOG = """examples:
@@ -559,23 +663,37 @@ Re-running skips records already downloaded. Exit status 1 if records failed."""
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="g2t-download", description="Download GenBank records of a taxon from NCBI.",
-                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog=EPILOG)
+    p = argparse.ArgumentParser(
+        prog="g2t-download",
+        description="Download GenBank records of a taxon from NCBI.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=EPILOG,
+    )
     p.add_argument("-t", "--taxon", required=True, metavar="NAME|TAXID", help="taxon name or NCBI taxid")
     p.add_argument("-o", "--output", metavar="DIR", help="output root; records go to DIR/TAG/ (default: <taxon>_gb)")
     p.add_argument("-e", "--email", metavar="ADDR", help="e-mail for NCBI (default: $NCBI_EMAIL)")
     p.add_argument("-k", "--api-key", metavar="KEY", help="NCBI API key (default: $NCBI_API_KEY)")
     p.add_argument("--validate", action="store_true", help="parse the batch files with Biopython afterwards")
-    p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)   # resuming is automatic
+    p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)  # resuming is automatic
     add_selection_args(p)
     a = p.parse_args(argv)
     out = a.output or f"{str(a.taxon).replace(' ', '_')}_gb"
-    res = download(a.taxon, out, options_from_args(a), dry_run=a.dry_run, email=a.email, api_key=a.api_key,
-                   progress=not a.quiet, store=a.store, report=a.report)
+    res = download(
+        a.taxon,
+        out,
+        options_from_args(a),
+        dry_run=a.dry_run,
+        email=a.email,
+        api_key=a.api_key,
+        progress=not a.quiet,
+        store=a.store,
+        report=a.report,
+    )
     for line in describe(res, a.dry_run):
         print(line)
     if a.validate and not a.dry_run:
         from Bio import SeqIO
+
         n = sum(1 for f in sorted(Path(res.out_dir).glob("batch_*.gb")) for _ in SeqIO.parse(str(f), "genbank"))
         print(f"validated: {n} records parse with Biopython")
     return 1 if res.failed else 0

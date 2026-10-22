@@ -29,14 +29,16 @@ def config():
 
 @pytest.fixture
 def sample_group():
-    return pd.DataFrame({
-        "species_voucher_new": ["sp1", "sp1", "sp1"],
-        "organism": ["Homo sapiens", "Homo sapiens", "Homo sapiens"],
-        "gene_type": ["coi", "16s", "18s"],
-        "LocusID": ["LOC1", "LOC2", "LOC3"],
-        "Class": ["Mammalia", "Mammalia", "Mammalia"],
-        "Order": ["Primates", "Primates", "Primates"],
-    })
+    return pd.DataFrame(
+        {
+            "species_voucher_new": ["sp1", "sp1", "sp1"],
+            "organism": ["Homo sapiens", "Homo sapiens", "Homo sapiens"],
+            "gene_type": ["coi", "16s", "18s"],
+            "LocusID": ["LOC1", "LOC2", "LOC3"],
+            "Class": ["Mammalia", "Mammalia", "Mammalia"],
+            "Order": ["Primates", "Primates", "Primates"],
+        }
+    )
 
 
 # --- OrganizeConfig ---
@@ -202,46 +204,56 @@ class TestCollectLocusidsPerGene:
         assert result["18s"] == "LOC3"
 
     def test_empty_group(self, config):
-        empty = pd.DataFrame({
-            "species_voucher_new": [],
-            "organism": [],
-            "gene_type": [],
-            "LocusID": [],
-        })
+        empty = pd.DataFrame(
+            {
+                "species_voucher_new": [],
+                "organism": [],
+                "gene_type": [],
+                "LocusID": [],
+            }
+        )
         result = collect_locusids_per_gene(empty, config)
         for gene in config.gene_order:
             assert result[gene] == ""
 
     def test_multi_gene_row(self, config):
-        group = pd.DataFrame({
-            "gene_type": ["coi,16s"],
-            "LocusID": ["LOC1"],
-        })
+        group = pd.DataFrame(
+            {
+                "gene_type": ["coi,16s"],
+                "LocusID": ["LOC1"],
+            }
+        )
         result = collect_locusids_per_gene(group, config)
         assert "LOC1" in result["coi"]
         assert "LOC1" in result["16s"]
 
     def test_deduplication(self, config):
-        group = pd.DataFrame({
-            "gene_type": ["coi", "coi"],
-            "LocusID": ["LOC1", "LOC1"],
-        })
+        group = pd.DataFrame(
+            {
+                "gene_type": ["coi", "coi"],
+                "LocusID": ["LOC1", "LOC1"],
+            }
+        )
         result = collect_locusids_per_gene(group, config)
         assert result["coi"] == "LOC1"
 
     def test_nan_gene_type_skipped(self, config):
-        group = pd.DataFrame({
-            "gene_type": [np.nan],
-            "LocusID": ["LOC1"],
-        })
+        group = pd.DataFrame(
+            {
+                "gene_type": [np.nan],
+                "LocusID": ["LOC1"],
+            }
+        )
         result = collect_locusids_per_gene(group, config)
         assert result["coi"] == ""
 
     def test_mtgenome_propagation(self, config):
-        group = pd.DataFrame({
-            "gene_type": ["mtgenome"],
-            "LocusID": ["MG1"],
-        })
+        group = pd.DataFrame(
+            {
+                "gene_type": ["mtgenome"],
+                "LocusID": ["MG1"],
+            }
+        )
         result = collect_locusids_per_gene(group, config)
         assert "MG1" in result["coi"]
         assert "MG1" in result["16s"]
@@ -297,10 +309,12 @@ class TestMetadataAll:
 
 class TestMetadataPerGene:
     def test_basic(self):
-        df = pd.DataFrame({
-            "gene_type": ["coi", "16s"],
-            "country": ["China", "Japan"],
-        })
+        df = pd.DataFrame(
+            {
+                "gene_type": ["coi", "16s"],
+                "country": ["China", "Japan"],
+            }
+        )
         result = metadata_per_gene(df, ["coi", "16s"], ["country"])
         assert "China" in result["country"]
         assert "Japan" in result["country"]
@@ -313,21 +327,25 @@ class TestMetadataPerGene:
 
 class TestMetadataAdvanced:
     def test_basic(self):
-        df = pd.DataFrame({
-            "LocusID": ["LOC1", "LOC2"],
-            "gene_type": ["coi", "16s"],
-            "country": ["China", "Japan"],
-        })
+        df = pd.DataFrame(
+            {
+                "LocusID": ["LOC1", "LOC2"],
+                "gene_type": ["coi", "16s"],
+                "country": ["China", "Japan"],
+            }
+        )
         gene_locusids = {"coi": "LOC1", "16s": "LOC2"}
         result = metadata_advanced(df, gene_locusids, ["country"])
         assert result["country"] != ""
 
     def test_empty_data(self):
-        df = pd.DataFrame({
-            "LocusID": [],
-            "gene_type": [],
-            "country": [],
-        })
+        df = pd.DataFrame(
+            {
+                "LocusID": [],
+                "gene_type": [],
+                "country": [],
+            }
+        )
         result = metadata_advanced(df, {"coi": ""}, ["country"])
         assert result["country"] == ""
 
@@ -355,8 +373,7 @@ class TestProcessGroup:
 
 class TestBuildHeader:
     def test_basic_order(self, config):
-        sample_row = {"species_voucher_new": "", "organism": "",
-                      "coi": "", "16s": "", "18s": ""}
+        sample_row = {"species_voucher_new": "", "organism": "", "coi": "", "16s": "", "18s": ""}
         header = build_header(config, sample_row)
         assert header[0] == "species_voucher_new"
         assert header[1] == "organism"
@@ -365,8 +382,7 @@ class TestBuildHeader:
         assert "16s" in header
 
     def test_no_duplicates(self, config):
-        sample_row = {"species_voucher_new": "", "organism": "",
-                      "coi": "", "TaxonID": ""}
+        sample_row = {"species_voucher_new": "", "organism": "", "coi": "", "TaxonID": ""}
         header = build_header(config, sample_row)
         assert len(header) == len(set(header))
 
@@ -404,10 +420,7 @@ class TestOrganizeIntegration:
 
     def test_organize_creates_output_dir(self, tmp_path):
         input_csv = tmp_path / "input.csv"
-        input_csv.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            "sp1,Org1,coi,LOC1\n"
-        )
+        input_csv.write_text("species_voucher_new,organism,gene_type,LocusID\nsp1,Org1,coi,LOC1\n")
         output_path = tmp_path / "subdir" / "output.csv"
         result = organize(str(input_csv), str(output_path))
         assert result.success is True
@@ -415,11 +428,7 @@ class TestOrganizeIntegration:
 
     def test_organize_with_nan_group(self, tmp_path):
         input_csv = tmp_path / "input.csv"
-        input_csv.write_text(
-            "species_voucher_new,organism,gene_type,LocusID\n"
-            ",Org1,coi,LOC1\n"
-            "sp1,Org2,16s,LOC2\n"
-        )
+        input_csv.write_text("species_voucher_new,organism,gene_type,LocusID\n,Org1,coi,LOC1\nsp1,Org2,16s,LOC2\n")
         output_csv = tmp_path / "output.csv"
         result = organize(str(input_csv), str(output_csv))
         assert result.success is True
@@ -429,8 +438,9 @@ class TestOrganizeIntegration:
 
 class TestNonIdentifierColumnNames:
     def test_per_gene_and_advanced_read_columns_with_spaces(self):
-        df = pd.DataFrame({"LocusID": ["L1", "L2"], "gene_type": ["coi", "16s"],
-                           "Depth (m)": ["10", "20"], "class": ["Mam", "Mam"]})
+        df = pd.DataFrame(
+            {"LocusID": ["L1", "L2"], "gene_type": ["coi", "16s"], "Depth (m)": ["10", "20"], "class": ["Mam", "Mam"]}
+        )
         per = metadata_per_gene(df, ["coi", "16s"], ["Depth (m)", "class"])
         assert "10" in per["Depth (m)"] and "20" in per["Depth (m)"] and "Mam" in per["class"]
         adv = metadata_advanced(df, {"coi": "L1", "16s": "L2"}, ["Depth (m)", "class"])

@@ -22,8 +22,8 @@ import sys
 def _configure_logging():
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
@@ -73,6 +73,7 @@ def check_dependencies():
 
     if missing_optional:
         import logging
+
         logging.warning(f"Optional dependencies not installed: {', '.join(missing_optional)}")
 
 
@@ -85,29 +86,35 @@ def main_pipeline(argv=None):
         prog="g2t",
         description="GenBank to Taxonomy pipeline: extract -> classify -> voucher -> reconcile -> organize",
     )
-    ap.add_argument("-i", "--input", nargs="+", required=True,
-                    help="GenBank files or directories")
+    ap.add_argument("-i", "--input", nargs="+", required=True, help="GenBank files or directories")
     ap.add_argument("-o", "--output", required=True, help="Root output directory")
-    ap.add_argument("--stream", action="store_true",
-                    help="Use streaming mode for extraction (recommended for large files)")
+    ap.add_argument(
+        "--stream", action="store_true", help="Use streaming mode for extraction (recommended for large files)"
+    )
     ap.add_argument("--batch", action="store_true", help="Use batch parallel processing")
     ap.add_argument("--max_tasks", type=int, default=1, help="Max parallel tasks for batch mode")
-    ap.add_argument("--resume", action="store_true",
-                    help="Skip steps whose output already exists")
+    ap.add_argument("--resume", action="store_true", help="Skip steps whose output already exists")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--skip_extract", action="store_true")
     ap.add_argument("--skip_classify", action="store_true")
     ap.add_argument("--skip_voucher", action="store_true")
     ap.add_argument("--skip_organize", action="store_true")
-    ap.add_argument("--skip_reconcile", action="store_true",
-                    help="Do not merge voucher variants (organize exact-match vouchers only)")
-    ap.add_argument("--reconcile_min_confidence", choices=["high", "medium"], default="medium",
-                    help="Evidence needed to merge voucher variants (default: medium)")
-    ap.add_argument("--normalize_columns", action="store_true",
-                    help="Normalize column names (spaces to underscores)")
+    ap.add_argument(
+        "--skip_reconcile",
+        action="store_true",
+        help="Do not merge voucher variants (organize exact-match vouchers only)",
+    )
+    ap.add_argument(
+        "--reconcile_min_confidence",
+        choices=["high", "medium"],
+        default="medium",
+        help="Evidence needed to merge voucher variants (default: medium)",
+    )
+    ap.add_argument("--normalize_columns", action="store_true", help="Normalize column names (spaces to underscores)")
     args = ap.parse_args(argv)
 
     from g2t._pipeline import run
+
     result = run(
         input_files=args.input,
         output_dir=args.output,
@@ -143,6 +150,7 @@ def main_download(argv=None):
     """g2t-download — Download GenBank records of a taxon from NCBI."""
     check_dependencies()
     from g2t.download import main
+
     return main(argv)
 
 
@@ -151,6 +159,7 @@ def main_extract(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.extract import main
+
     return main(argv)
 
 
@@ -159,6 +168,7 @@ def main_classify(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.classify import main
+
     return main(argv)
 
 
@@ -167,6 +177,7 @@ def main_voucher(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.voucher import main
+
     return main(argv)
 
 
@@ -175,6 +186,7 @@ def main_reconcile(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.reconcile import main
+
     return main(argv)
 
 
@@ -182,6 +194,7 @@ def main_curate(argv=None):
     """g2t-curate — Correct matrix metadata from a table keyed by accession or voucher."""
     check_dependencies()
     from g2t.curate import main
+
     return main(argv)
 
 
@@ -190,4 +203,5 @@ def main_organize(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.organize import main
+
     return main(argv)

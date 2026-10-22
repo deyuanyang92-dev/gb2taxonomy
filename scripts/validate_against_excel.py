@@ -84,7 +84,7 @@ def main():
             g2t_species = acc2organism.get(acc_base, "")
             g2t_voucher = acc2voucher.get(acc_base, "")
 
-            gene_match = (g2t_gene == expected_gene)
+            gene_match = g2t_gene == expected_gene
             sp_match = normalize(g2t_species).startswith(normalize(expected_species.split()[0]))
             lit_v = "" if pd.isna(row["voucher"]) else str(row["voucher"]).strip()
             v_match = (not lit_v) or (normalize(lit_v) in normalize(g2t_voucher))
@@ -107,34 +107,51 @@ def main():
             if not sp_match:
                 reason = categorize_sp_mismatch(expected_species, g2t_species)
 
-            results.append({
-                "accession": acc,
-                "expected_gene": expected_gene,
-                "g2t_gene": g2t_gene,
-                "gene_match": gene_match,
-                "expected_species": expected_species,
-                "g2t_species": g2t_species,
-                "species_match": sp_match,
-                "voucher_match": v_match,
-                "status": status,
-                "reason": reason,
-            })
+            results.append(
+                {
+                    "accession": acc,
+                    "expected_gene": expected_gene,
+                    "g2t_gene": g2t_gene,
+                    "gene_match": gene_match,
+                    "expected_species": expected_species,
+                    "g2t_species": g2t_species,
+                    "species_match": sp_match,
+                    "voucher_match": v_match,
+                    "status": status,
+                    "reason": reason,
+                }
+            )
         elif acc_base in acc_in_extract:
-            results.append({
-                "accession": acc, "expected_gene": expected_gene, "g2t_gene": "(unclassified)",
-                "gene_match": False, "expected_species": expected_species,
-                "g2t_species": acc2organism.get(acc_base, ""), "species_match": False,
-                "voucher_match": False, "status": "UNCLASSIFIED",
-                "reason": "被长度过滤器过滤",
-            })
+            results.append(
+                {
+                    "accession": acc,
+                    "expected_gene": expected_gene,
+                    "g2t_gene": "(unclassified)",
+                    "gene_match": False,
+                    "expected_species": expected_species,
+                    "g2t_species": acc2organism.get(acc_base, ""),
+                    "species_match": False,
+                    "voucher_match": False,
+                    "status": "UNCLASSIFIED",
+                    "reason": "被长度过滤器过滤",
+                }
+            )
             missing_count += 1
         else:
-            results.append({
-                "accession": acc, "expected_gene": expected_gene, "g2t_gene": "(missing)",
-                "gene_match": False, "expected_species": expected_species,
-                "g2t_species": "", "species_match": False, "voucher_match": False,
-                "status": "MISSING", "reason": "g2t 未提取到",
-            })
+            results.append(
+                {
+                    "accession": acc,
+                    "expected_gene": expected_gene,
+                    "g2t_gene": "(missing)",
+                    "gene_match": False,
+                    "expected_species": expected_species,
+                    "g2t_species": "",
+                    "species_match": False,
+                    "voucher_match": False,
+                    "status": "MISSING",
+                    "reason": "g2t 未提取到",
+                }
+            )
             missing_count += 1
 
     res_df = pd.DataFrame(results)
@@ -142,7 +159,7 @@ def main():
 
     total = len(exp)
     classified_total = len(assigned)
-    compared = gene_ok + gene_mismatch or 1      # literature accessions that g2t classified
+    compared = gene_ok + gene_mismatch or 1  # literature accessions that g2t classified
     covered = total - missing_count
 
     print(f"\n{'=' * 60}")

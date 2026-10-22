@@ -7,9 +7,20 @@ from g2t.reconcile import reconcile_dataframe, voucher_cores
 
 
 def row(acc, key, voucher, gene, org="Priapulus caudatus", **kw):
-    r = dict(ACCESSION=acc, LocusID=acc, organism=org, gene_type=gene, specimen_voucher=voucher,
-             species_voucher_new=key, collection_date="", lat_lon="", geo_loc_name="", collected_by="",
-             Ref1Title="", Ref1Authors="")
+    r = dict(
+        ACCESSION=acc,
+        LocusID=acc,
+        organism=org,
+        gene_type=gene,
+        specimen_voucher=voucher,
+        species_voucher_new=key,
+        collection_date="",
+        lat_lon="",
+        geo_loc_name="",
+        collected_by="",
+        Ref1Title="",
+        Ref1Authors="",
+    )
     r.update(kw)
     return r
 
@@ -33,11 +44,11 @@ def test_r1_three_specimens_with_one_core_stay_three():
 
 
 def test_r2_no_transitive_bypass_of_same_gene_rule():
-    a = row("A1", "kA", "WS399", "coi", collection_date="2019-06-12", collected_by="Smith",
-            geo_loc_name="Russia: White Sea")
+    a = row(
+        "A1", "kA", "WS399", "coi", collection_date="2019-06-12", collected_by="Smith", geo_loc_name="Russia: White Sea"
+    )
     b = row("B1", "kB", "WS399", "28s", collection_date="2019-06-12", lat_lon="66.5 N 33.1 E")
-    c = row("C1", "kC", "WS399", "coi", lat_lon="66.5 N 33.1 E", collected_by="Smith",
-            geo_loc_name="Russia: White Sea")
+    c = row("C1", "kC", "WS399", "coi", lat_lon="66.5 N 33.1 E", collected_by="Smith", geo_loc_name="Russia: White Sea")
     out, rep = reconcile_dataframe(pd.DataFrame([a, b, c]))
     groups = specimens(out)
     assert len(groups) == 2
@@ -49,33 +60,35 @@ def test_r3_conflict_across_different_cores_blocks_merge():
     a = row("A1", "kA", "WS399", "coi", collection_date="2001-01-01", geo_loc_name="Norway: Oslo", Ref1Title="Paper X")
     b1 = row("B1", "kB", "WS399", "28s", Ref1Title="Paper X")
     b2 = row("B2", "kB", "WS500", "18s", Ref1Title="Paper X")
-    c = row("C1", "kC", "WS500", "h3", collection_date="2019-06-12", geo_loc_name="Russia: White Sea",
-            Ref1Title="Paper X")
+    c = row(
+        "C1", "kC", "WS500", "h3", collection_date="2019-06-12", geo_loc_name="Russia: White Sea", Ref1Title="Paper X"
+    )
     out, rep = reconcile_dataframe(pd.DataFrame([a, b1, b2, c]))
     assert not any(set(g) >= {"A1", "C1"} for g in specimens(out))
     assert rep["decision"].str.contains("conflicting groups").any()
 
 
 def test_r4_antimeridian_is_close():
-    a = row("A1", "kA", "WS399", "coi", lat_lon="50.0 N 179.99 E", collected_by="Smith",
-            geo_loc_name="Russia: Kuril")
-    b = row("B1", "kB", "WS399", "28s", lat_lon="50.0 N 179.99 W", collected_by="Smith",
-            geo_loc_name="Russia: Kuril")
+    a = row("A1", "kA", "WS399", "coi", lat_lon="50.0 N 179.99 E", collected_by="Smith", geo_loc_name="Russia: Kuril")
+    b = row("B1", "kB", "WS399", "28s", lat_lon="50.0 N 179.99 W", collected_by="Smith", geo_loc_name="Russia: Kuril")
     out, rep = reconcile_dataframe(pd.DataFrame([a, b]))
     assert out["species_voucher_new"].nunique() == 1
     assert not rep["evidence"].str.contains("conflict").any()
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("MNHN-IU-2014-1234", ["IU20141234", "#20141234"]),
-    ("WS399 (holotype)", ["WS399"]),
-    ("WS399.", ["WS399"]),
-    ("WS399, WS400", ["WS399", "WS400"]),
-    ("WS399/WS400", ["WS399", "WS400"]),
-    ("USNM 123456", ["USNM123456", "#123456"]),
-    ("123456", ["123456", "#123456"]),
-    ("2019-123", ["2019123", "#2019123"]),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("MNHN-IU-2014-1234", ["IU20141234", "#20141234"]),
+        ("WS399 (holotype)", ["WS399"]),
+        ("WS399.", ["WS399"]),
+        ("WS399, WS400", ["WS399", "WS400"]),
+        ("WS399/WS400", ["WS399", "WS400"]),
+        ("USNM 123456", ["USNM123456", "#123456"]),
+        ("123456", ["123456", "#123456"]),
+        ("2019-123", ["2019123", "#2019123"]),
+    ],
+)
 def test_r5_voucher_cores(raw, expected):
     assert voucher_cores(raw) == expected
 
