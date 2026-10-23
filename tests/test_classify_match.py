@@ -334,3 +334,34 @@ class TestMultiRegionRibosomal:
             "LocusID": "KY753841",
         }
         assert process_row(row, config)["gene_type"] == "18-28s"
+
+
+class TestNadhAtpGenes:
+    """Mitochondrial ND and ATP genes (Hesionidae: 221 of 284 unmatched records before these types existed)."""
+
+    @pytest.mark.parametrize(
+        "definition,expected",
+        [
+            ("Hesione sp. voucher X12345 ATP synthase Fo subunit 6 gene, partial cds; mitochondrial", "atp6"),
+            ("Hesione sp. NADH dehydrogenase subunit 5 gene, partial cds; mitochondrial", "nd5"),
+            ("Hesione sp. NADH dehydrogenase subunits 4 gene, partial cds; mitochondrial", "nd4"),
+            ("Hesione sp. NADH dehydrogenase subunit 4L (ND4L) gene, partial cds; mitochondrial", "nd4l"),
+            ("Hesione sp. NADH dehydrogenase subunit 1 (ND1) gene, partial cds; mitochondrial", "nd1"),
+            ("Hesione sp. ATP synthase F0 subunit 8 (ATP8) gene, complete cds; mitochondrial", "atp8"),
+        ],
+    )
+    def test_assigned(self, config, definition, expected):
+        row = {"Definition": definition, "organelle": "mitochondrion", "Length": "500", "LocusID": "X1"}
+        assert process_row(row, config)["gene_type"] == expected
+
+    def test_nuclear_atp_synthase_not_typed(self, config):
+        row = {"Definition": "Hesione sp. ATP synthase subunit beta gene, partial cds", "Length": "600", "LocusID": "X"}
+        assert process_row(row, config)["gene_type"] == ""
+
+    def test_columns_and_mitogenome_propagation(self):
+        from g2t.organize import OrganizeConfig
+
+        cfg = OrganizeConfig()
+        for g in ("nd1", "nd4l", "nd6", "atp6", "atp8"):
+            assert g in cfg.gene_order
+            assert g in cfg.get_mito_genes()

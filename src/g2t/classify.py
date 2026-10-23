@@ -207,6 +207,117 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
             ]
         }
     ),
+    "nd1": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 1",
+                "NADH dehydrogenase subunits 1",
+                "NADH dehydrogenase subunit I",
+                "ND1",
+                "NAD1",
+            ]
+        }
+    ),
+    "nd2": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 2",
+                "NADH dehydrogenase subunits 2",
+                "NADH dehydrogenase subunit II",
+                "ND2",
+                "NAD2",
+            ]
+        }
+    ),
+    "nd3": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 3",
+                "NADH dehydrogenase subunits 3",
+                "NADH dehydrogenase subunit III",
+                "ND3",
+                "NAD3",
+            ]
+        }
+    ),
+    "nd4": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 4",
+                "NADH dehydrogenase subunits 4",
+                "NADH dehydrogenase subunit IV",
+                "ND4",
+                "NAD4",
+            ]
+        }
+    ),
+    "nd4l": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 4L",
+                "NADH dehydrogenase subunits 4L",
+                "NADH dehydrogenase subunit IVL",
+                "ND4L",
+                "NAD4L",
+            ]
+        }
+    ),
+    "nd5": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 5",
+                "NADH dehydrogenase subunits 5",
+                "NADH dehydrogenase subunit V",
+                "ND5",
+                "NAD5",
+            ]
+        }
+    ),
+    "nd6": list(
+        {
+            s.lower()
+            for s in [
+                "NADH dehydrogenase subunit 6",
+                "NADH dehydrogenase subunits 6",
+                "NADH dehydrogenase subunit VI",
+                "ND6",
+                "NAD6",
+            ]
+        }
+    ),
+    "atp6": list(
+        {
+            s.lower()
+            for s in [
+                "ATP synthase F0 subunit 6",
+                "ATP synthase Fo subunit 6",
+                "ATP synthase subunit 6",
+                "ATP synthase subunit a",
+                "ATPase subunit 6",
+                "ATPase 6",
+                "ATP6",
+            ]
+        }
+    ),
+    "atp8": list(
+        {
+            s.lower()
+            for s in [
+                "ATP synthase F0 subunit 8",
+                "ATP synthase Fo subunit 8",
+                "ATP synthase subunit 8",
+                "ATPase subunit 8",
+                "ATPase 8",
+                "ATP8",
+            ]
+        }
+    ),
     "18-28s": list(
         {
             s.lower()
@@ -319,7 +430,24 @@ GENE_DICT: dict[str, list[str]] = _load_gene_dict_yaml() or _BUILTIN_GENE_DICT
 
 # P2-21: Gene sets are now managed in MatchConfig, not as module-level mutable globals
 # We keep these as defaults for init_gene_groups backward compatibility
-_DEFAULT_MITO_GENES = {"coi", "cox3", "cox2", "16s", "12s", "cob", "mtgenome"}
+_DEFAULT_MITO_GENES = {
+    "coi",
+    "cox3",
+    "cox2",
+    "16s",
+    "12s",
+    "cob",
+    "mtgenome",
+    "nd1",
+    "nd2",
+    "nd3",
+    "nd4",
+    "nd4l",
+    "nd5",
+    "nd6",
+    "atp6",
+    "atp8",
+}
 _DEFAULT_NUCLEAR_GENES = {"18-28s", "its1-its2", "ef-1", "28s", "18s", "h3"}
 
 
@@ -396,6 +524,15 @@ class MatchConfig:
             "18s": "none",
             "28s": "none",
             "h3": "none",
+            "nd1": "none",
+            "nd2": "none",
+            "nd3": "none",
+            "nd4": "none",
+            "nd4l": "none",
+            "nd5": "none",
+            "nd6": "none",
+            "atp6": "none",
+            "atp8": "none",
         }
     )
 
@@ -1728,7 +1865,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--moleculetype", default="all")
     parser.add_argument("--mol_type", default="all")
 
-    parser.add_argument("--mtgenes_list", default="coi,cox3,cox2,16s,12s,cob,mtgenome")
+    parser.add_argument(
+        "--mtgenes_list", default="coi,cox3,cox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,atp6,atp8"
+    )
     parser.add_argument("--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3")
     parser.add_argument("--path_dict", default=None, help="External gene dictionary file")
 

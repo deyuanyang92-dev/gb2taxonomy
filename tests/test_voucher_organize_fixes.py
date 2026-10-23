@@ -394,9 +394,9 @@ class TestL23UnknownGenesAndKeys:
         inp = tmp_path / "in.csv"
         inp.write_text(
             "species_voucher_new,organism,gene_type,LocusID\n"
-            "Sp_A_1,Sp A,nd1,N1.1\n"
-            'Sp_B_1,Sp B,"nd1,coi",N2.1\n'
-            "Sp_C_1,Sp C,nd6#,N3.1\n"
+            "Sp_A_1,Sp A,rpb2,N1.1\n"
+            'Sp_B_1,Sp B,"rpb2,coi",N2.1\n'
+            "Sp_C_1,Sp C,wnt#,N3.1\n"
             "Sp_D_1,Sp D,coi,C1.1\n"
         )
         out = tmp_path / "out.csv"
@@ -404,8 +404,8 @@ class TestL23UnknownGenesAndKeys:
             assert organize(str(inp), str(out)).success
         msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
         joined = " ".join(msgs)
-        assert "nd1=2" in joined
-        assert "nd6=1" in joined
+        assert "rpb2=2" in joined
+        assert "wnt=1" in joined
         assert "coi=" not in joined
 
     def test_no_warning_when_all_genes_known(self, tmp_path, caplog):

@@ -35,7 +35,30 @@ from collections import defaultdict
 
 import pandas as pd
 
-GENE_COLS = ["mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3", "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"]
+GENE_COLS = [
+    "mtgenome",
+    "coi",
+    "16s",
+    "12s",
+    "cob",
+    "cox2",
+    "cox3",
+    "nd1",
+    "nd2",
+    "nd3",
+    "nd4",
+    "nd4l",
+    "nd5",
+    "nd6",
+    "atp6",
+    "atp8",
+    "18s",
+    "28s",
+    "its1-its2",
+    "18-28s",
+    "ef-1",
+    "h3",
+]
 
 
 def _base(acc) -> str:

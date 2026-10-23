@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- **新增线粒体基因类型 nd1–nd6、nd4l、atp6、atp8**（共 22 类）：原来这些记录全部未归类（Hesionidae 284 条未归类记录中 221 条是 ATP6/ND4/ND5）。同义词含 “NADH dehydrogenase subunits 4”、“ATP synthase Fo subunit 6” 等实际写法；核基因 “ATP synthase subunit beta” 不归入。矩阵新增 9 列（cox3 之后），线粒体基因组的登录号也复制到这些列。
 - **下载断网不再退出**：NCBI 请求失败最多重试 10 次（等待 2、4、8… 秒，单次不超过 120 秒，合计约 8 分钟），原来 5 次共约 30 秒，Phyllodocida 下载中一次 `RemoteDisconnected` 即退出。
 - **同一凭证号、物种名写法不同 → 同一标本（一行）**：如 SIO:BIC:A10920 的 18S/28S/线粒体基因组登记为 *Bathykurila* sp.，H3 登记为 *Bathykurila* sp. AH-2023，原来分成两行。现在凭证号相同（忽略大小写和标点，如 `SIO:BIC:A6302` = `SIO-BIC A6302`）且属名相同即合并，`match_evidence` 注明 “organism names differ”。属名不同（WS3020：*Halicryptus* / *Priapulus*）仍为两行，两行的 `match_evidence` 写 “same voucher as … (different genus, not merged; check)”，并打印警告。
 - **两组都有同一基因时，“同一篇论文”不再足以合并**：CE438 与 CE438_2（Martin et al. 2024 列为两个标本，各有一条 28S）原来因同一篇论文被并成一行（28S 格两个登录号）。现在需要同一采集日期或同一坐标（同一凭证号在这种情况下也只算中等证据）；未合并的两组在 `match_evidence` 写 “similar voucher to … (both have the same gene, not merged; check)”。
