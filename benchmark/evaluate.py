@@ -55,6 +55,8 @@ GENE_COLS_PLANT = [
     "psbe-petl",
     "rbcl-atpb",
     "trnk",
+    "rps4",
+    "atpb",
 ]
 GENE_COLS = [
     "mtgenome",
@@ -122,7 +124,10 @@ def supercrunch_clusters(run_dir: str, parse_loci: str) -> dict[str, object]:
     out: dict[str, object] = {}
     for _, r in meta.iterrows():
         title = f">{r.get('Version') or r['ACCESSION']} {r['Definition']}"
-        _, sp, _, _, voucher = mod.parse_fasta_record(title, set(), set(), True)
+        try:
+            _, sp, _, _, voucher = mod.parse_fasta_record(title, set(), set(), True)
+        except IndexError:  # SuperCRUNCH fails on titles ending in 'voucher'/'isolate'; count as no code
+            sp, voucher = "NA", "NA"
         acc = _base(r["ACCESSION"])
         out[acc] = (sp, voucher) if voucher != "NA" else ("single", acc)
     return out
@@ -171,6 +176,10 @@ def core_only_clusters(run_dir: str) -> dict[str, object]:
         for c in VOUCHER_FIELDS:
             v = str(r.get(c, ""))
             if any(ch.isalnum() for ch in v):
+                # identical identifiers (as in exact_any_field) plus any shared core
+                norm = re.sub(r"[^A-Z0-9]", "", v.upper())
+                if len(norm) >= 3:
+                    parent[find(acc)] = find(f"{r['Organism']}|={norm}")
                 for core in voucher_cores(v):
                     parent[find(acc)] = find(f"{r['Organism']}|{core}")
     return {a: find(a) for a in list(parent) if "|" not in a}
@@ -322,6 +331,11 @@ def main() -> None:
     ap.add_argument("--run", required=True, help="g2t output directory (default settings)")
     ap.add_argument("--run-exact", help="g2t output directory built with --skip_reconcile")
     ap.add_argument("--run-high", help="g2t output directory built with --reconcile_min_confidence high")
+    ap.add_argument(
+        "--all-accessions",
+        action="store_true",
+        help="score linking on all gold accessions, also those g2t leaves out of the matrix",
+    )
     ap.add_argument("--bootstrap", type=int, default=0, help="bootstrap resamples for 95%% intervals (e.g. 1000)")
     ap.add_argument("--details", help="write per-accession gene results here (TSV)")
     ap.add_argument("--supercrunch", help="path to SuperCRUNCH's Parse_Loci.py (adds the 'supercrunch' method)")
@@ -350,10 +364,21 @@ def main() -> None:
             methods["supercrunch"] = supercrunch_clusters(a.run, a.supercrunch)
         if a.run_exact:
             methods["g2t_exact"] = matrix_clusters(a.run_exact)
-        result["linking"] = {k: linking_scores(gold, v) for k, v in methods.items()}
+        # Linking is scored on the gold accessions that g2t places in its matrix, for every method: a record whose
+        # gene g2t cannot type (e.g. nuclear pgiC) is a gene-coverage miss, reported under gene_type, and must not
+        # be credited to a baseline that links all records regardless of gene.
+        link_gold = gold
+        if not a.all_accessions:
+            in_matrix = set(methods["g2t"])
+            link_gold = gold[gold.accession.isin(in_matrix)]
+            result["linking_scope"] = {
+                "gold_accessions_specimen_level": int(gold[gold.specimen_level].accession.nunique()),
+                "scored (in g2t matrix)": int(link_gold[link_gold.specimen_level].accession.nunique()),
+            }
+        result["linking"] = {k: linking_scores(link_gold, v) for k, v in methods.items()}
         if a.bootstrap:
             result["bootstrap_95"] = bootstrap(
-                gold, {k: v for k, v in methods.items() if k != "singleton"}, a.bootstrap
+                link_gold, {k: v for k, v in methods.items() if k != "singleton"}, a.bootstrap
             )
     print(json.dumps(result, indent=1, default=str))
 

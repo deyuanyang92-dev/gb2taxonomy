@@ -44,6 +44,8 @@ GENES_EXTRA = [
     "psbe-petl",
     "rbcl-atpb",
     "trnk",
+    "rps4",
+    "atpb",
 ]
 GENES = [
     "mtgenome",

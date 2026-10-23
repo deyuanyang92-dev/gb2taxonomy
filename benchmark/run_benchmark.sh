@@ -6,7 +6,7 @@
 #
 # Needs network access (NCBI E-utilities). Set NCBI_API_KEY for faster downloads.
 # Set SUPERCRUNCH_PARSE_LOCI=/path/to/SuperCRUNCH/supercrunch-scripts/Parse_Loci.py to add SuperCRUNCH's parser.
-# Results: WORKDIR/results/<dataset>.json, WORKDIR/results/timing.tsv
+# Results: WORKDIR/results/<dataset>.json, WORKDIR/results/timing.tsv (appended to when it exists)
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(realpath -m "${1:?usage: run_benchmark.sh WORKDIR [NCBI_EMAIL]}")"
@@ -14,7 +14,7 @@ work="$(realpath -m "${1:?usage: run_benchmark.sh WORKDIR [NCBI_EMAIL]}")"
 mkdir -p "$work/results"
 gold="$here/gold/gold_standard.tsv"
 timing="$work/results/timing.tsv"
-printf "dataset\tmode\tseconds\tmax_rss_mb\n" > "$timing"
+[ -s "$timing" ] || printf "dataset\tmode\tseconds\tmax_rss_mb\n" > "$timing"
 
 timed() {  # timed NAME MODE CMD...
   local name=$1 mode=$2; shift 2
@@ -41,7 +41,8 @@ declare -A INPUT=(
 declare -A GOLD=([haplotaxidae]=Haplotaxidae [hesionidae]=Hesionidae [opheliidae]=Opheliidae [phyllodocida]=Polynoidae
   [priapulidae]=none [nymphaeaceae]=none [ginkgoaceae]=none [ophioglossaceae]=none)
 
-for name in haplotaxidae hesionidae opheliidae phyllodocida priapulidae nymphaeaceae ginkgoaceae ophioglossaceae; do
+# DATASETS="priapulidae nymphaeaceae" re-runs only those (timing rows are appended)
+for name in ${DATASETS:-haplotaxidae hesionidae opheliidae phyllodocida priapulidae nymphaeaceae ginkgoaceae ophioglossaceae}; do
   src="${INPUT[$name]}"
   if [ -f "$src" ]; then
     in="$src"
