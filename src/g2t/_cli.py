@@ -27,6 +27,16 @@ def _configure_logging():
     )
 
 
+def _version_flag(argv, prog: str) -> None:
+    """``--version`` for every command (the step modules parse their own options)."""
+    args = sys.argv[1:] if argv is None else argv
+    if "--version" in args:
+        from g2t import __version__
+
+        print(f"{prog} {__version__}")
+        raise SystemExit(0)
+
+
 def check_dependencies():
     """Check required and optional dependencies, print helpful messages if missing."""
     missing_required = []
@@ -79,6 +89,7 @@ def check_dependencies():
 
 def main_pipeline(argv=None):
     """g2t — Run the full GenBank-to-Taxonomy pipeline."""
+    _version_flag(argv, "g2t")
     # Check dependencies first
     check_dependencies()
 
@@ -86,6 +97,7 @@ def main_pipeline(argv=None):
         prog="g2t",
         description="GenBank to Taxonomy pipeline: extract -> classify -> voucher -> reconcile -> organize",
     )
+    ap.add_argument("--version", action="store_true", help="Print the g2t version and exit")
     ap.add_argument("-i", "--input", nargs="+", required=True, help="GenBank files or directories")
     ap.add_argument("-o", "--output", required=True, help="Root output directory")
     ap.add_argument(
@@ -148,6 +160,7 @@ def main_pipeline(argv=None):
 
 def main_download(argv=None):
     """g2t-download — Download GenBank records of a taxon from NCBI."""
+    _version_flag(argv, "g2t-download")
     check_dependencies()
     from g2t.download import main
 
@@ -156,6 +169,7 @@ def main_download(argv=None):
 
 def main_extract(argv=None):
     """g2t-extract — Extract metadata from GenBank files."""
+    _version_flag(argv, "g2t-extract")
     check_dependencies()
     _configure_logging()
     from g2t.extract import main
@@ -165,6 +179,7 @@ def main_extract(argv=None):
 
 def main_classify(argv=None):
     """g2t-classify — Classify gene types from metadata CSV."""
+    _version_flag(argv, "g2t-classify")
     check_dependencies()
     _configure_logging()
     from g2t.classify import main
@@ -174,6 +189,7 @@ def main_classify(argv=None):
 
 def main_voucher(argv=None):
     """g2t-voucher — Build species voucher identifiers."""
+    _version_flag(argv, "g2t-voucher")
     check_dependencies()
     _configure_logging()
     from g2t.voucher import main
@@ -183,6 +199,7 @@ def main_voucher(argv=None):
 
 def main_reconcile(argv=None):
     """g2t-reconcile — Merge voucher variants using evidence from the records."""
+    _version_flag(argv, "g2t-reconcile")
     check_dependencies()
     _configure_logging()
     from g2t.reconcile import main
@@ -192,6 +209,7 @@ def main_reconcile(argv=None):
 
 def main_curate(argv=None):
     """g2t-curate — Correct matrix metadata from a table keyed by accession or voucher."""
+    _version_flag(argv, "g2t-curate")
     check_dependencies()
     from g2t.curate import main
 
@@ -200,6 +218,7 @@ def main_curate(argv=None):
 
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
+    _version_flag(argv, "g2t-organize")
     check_dependencies()
     _configure_logging()
     from g2t.organize import main

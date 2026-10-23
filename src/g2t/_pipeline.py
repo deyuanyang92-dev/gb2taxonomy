@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib
 import json
+import platform
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,6 +70,25 @@ def _run_step(
     return None
 
 
+def provenance(params: dict[str, Any]) -> dict[str, Any]:
+    """Versions and settings of a run, written to ``g2t_run.json`` so a matrix can be reproduced."""
+    from g2t import __version__
+
+    versions: dict[str, str | None] = {"g2t": __version__, "python": platform.python_version()}
+    for mod, name in (("Bio", "biopython"), ("pandas", "pandas"), ("ete3", "ete3"), ("yaml", "pyyaml")):
+        try:
+            versions[name] = importlib.import_module(mod).__version__
+        except Exception:  # not installed, or (ete3 on Python 3.13) not importable
+            versions[name] = None
+    return {
+        "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "command": sys.argv,
+        "platform": platform.platform(),
+        "versions": versions,
+        "parameters": params,
+    }
+
+
 def run(
     input_files: list[str],
     output_dir: str,
@@ -98,6 +119,7 @@ def run(
     Returns a PipelineResult with status and output paths.
     """
     start_time = time.time()
+    run_params = {k: v for k, v in locals().items() if k != "start_time"}
     log_lines: list[str] = []
     steps_completed = 0
 
@@ -272,6 +294,14 @@ def run(
         steps_completed += 1
 
     elapsed = time.time() - start_time
+    prov = provenance(run_params)
+    prov["inputs"] = [
+        {"path": str(Path(p).resolve()), "bytes": Path(p).stat().st_size if Path(p).is_file() else None}
+        for p in input_files
+        if Path(p).exists()
+    ]
+    prov["steps_completed"], prov["elapsed_s"] = steps_completed, round(elapsed, 1)
+    (out_root / "g2t_run.json").write_text(json.dumps(prov, indent=1, default=str), encoding="utf-8")
     return PipelineResult(
         success=True,
         output_dir=str(out_root),
