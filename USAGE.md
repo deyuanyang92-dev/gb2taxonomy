@@ -12,10 +12,10 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 - Python ≥ 3.9
 - pandas ≥ 1.5
 - biopython ≥ 1.80
+- openpyxl ≥ 3.0: Step 5（`g2t-curate`）读写 Excel 文件
 
 **可选依赖**:
-- pyyaml: 读取自带的 `gene_dict.yaml`；未安装时使用内置的相同副本
-- openpyxl: Step 5（`g2t-curate`）读写 Excel 文件
+- pyyaml: 读取自带的 `gene_dict.yaml`；未安装时使用内置的相同副本（不提示）
 - ete3: NCBI 分类学查询（用于 Class/Order/Family/Genus；不可用时——如 Python 3.13——改为按 TaxonID 从 NCBI Taxonomy 在线获取一次并缓存到 `gb_metadata/taxonomy_cache.json`；无网络时这几列为空并给出警告）
 - pytest: 开发测试
 
@@ -23,7 +23,7 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 
 ### 方法 1: 使用现有环境 (推荐)
 
-如果你的环境已经有 pandas 和 biopython，可以直接安装：
+如果你的环境已经有 pandas、biopython 和 openpyxl，可以直接安装：
 
 ```bash
 pip install -e /path/to/gb2taxonomy
@@ -52,7 +52,7 @@ pip install -e /path/to/gb2taxonomy
 ### 方法 3: 仅安装依赖
 
 ```bash
-pip install pandas biopython
+pip install pandas biopython openpyxl
 ```
 
 ### 验证安装
@@ -86,16 +86,17 @@ g2t -i /path/to/files -o /path/to/output --resume
 
 ### Step 0: 下载 (download)
 
-按类群从 NCBI 下载 GenBank 记录。默认只下"标记基因"：排除 WGS contig、mRNA、RefSeq（预测模型及 NC_ 等与 INSDC 重复的拷贝），大类群中这几类常占 95% 以上，对多基因表无用。
+按类群从 NCBI 下载 GenBank 记录。默认只下"标记基因"：排除 WGS contig、mRNA、TSA（转录组组装）contig、RefSeq（预测模型及 NC_ 等与 INSDC 重复的拷贝），大类群中这几类常占 95% 以上，对多基因表无用。
 
 ```bash
-g2t-download -t Priapulidae -o gb_out --dry-run                # 类群构成 + 各基因条数 + 检索式
+g2t-download -t Priapulidae -o gb_out --dry-run                # 类群构成（WGS、mRNA、TSA 等）+ 各基因条数 + 检索式
 g2t-download -t Priapulidae -o gb_out                          # gb_out/markers/
 g2t-download -t Priapulidae -o gb_out --mito                   # 线粒体记录
 g2t-download -t Priapulidae -o gb_out --mitogenome             # 完整线粒体基因组 (≥10 kb, 无上限; 含 "genome assembly, organelle: mitochondrion")
 g2t-download -t Priapulidae -o gb_out --gene COI,18S,28S       # 指定基因 (g2t/ncbi_genes.py)
 g2t-download -t Priapulidae -o gb_out --gene COI --minlen 500
 g2t-download -t Priapulidae -o gb_out --query 'Russia[Country]'
+g2t-download -t Priapulidae -o gb_out --include-tsa            # 标记基因 + TSA contig (默认以 NOT "tsa"[Keyword] 排除)
 g2t-download -t Priapulidae -o gb_out --all                    # 全部 (可能极大)
 ```
 
@@ -140,9 +141,11 @@ g2t-classify -i final.csv -o /path/to/out
 |------|----------|
 | 线粒体基因 | coi, 16s, 12s, cob, mtgenome, cox3, cox2, nd1, nd2, nd3, nd4, nd4l, nd5, nd6, atp6, atp8 |
 | 核基因 | 18-28s, its1-its2, ef-1, 28s, 18s, h3 |
-| 叶绿体基因（植物） | plastome, rbcl, matk, trnl-trnf, psba-trnh, rpl16, rps16, ndhf, rpoc1, ycf1, rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk |
+| 叶绿体基因（植物） | plastome, rbcl, matk, trnl-trnf, psba-trnh, rpl16, rps16, ndhf, rpoc1, ycf1, rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk, rps4, atpb |
 
 Definition 同时写有 ITS 和 18S 或 28S 的跨区段 rRNA 记录（如 "small subunit ribosomal RNA gene and internal transcribed spacer 1"、"internal transcribed spacer 2 and large subunit ribosomal RNA gene"）得到它覆盖的每个类型，如 `gene_type` 为 `18s,its1-its2` 或 `28s,its1-its2`，`Assignment_reason` 注明 "multi-region rDNA"。完整的 18S–28S 记录仍为 `18-28s`。
+
+匹配到多个基因的线粒体记录，只有标题写明 genome（"mitochondrion, complete genome"、"mitochondrial genome" 等；单独的 "complete sequence" 不算）才归为 `mtgenome`，否则保留各基因并标记冲突。环状（circular）记录归为其细胞器的基因组（叶绿体 → `plastome`，否则 `mtgenome`）。植物（Viridiplantae 或叶绿体记录）第二轮匹配到其它细胞器的基因时丢弃（叶绿体 16S 不归入线粒体 `16s`，线粒体 rrn26 不归入 `28s`）；动物保留该基因并标记。
 
 **输出文件**: `assigned_genes_types_all.csv`
 
@@ -164,6 +167,8 @@ g2t-voucher -i assigned_genes_types_all.csv -o /path/to/out
 5. strain
 6. ACCESSION（兜底）
 
+不含数字的占位值（`n/d`、`s.n.`、`no voucher`、`NA`、`unvouchered` 等）视为空，改用下一个字段。
+
 **输出文件**: `updated_species_voucher.csv`
 
 ---
@@ -177,9 +182,11 @@ g2t-voucher -i assigned_genes_types_all.csv -o /path/to/out
 | 候选 | 共享核心编号（取自每个编号字段：specimen_voucher、isolate、culture_collection、clone、strain），并且同一物种，或同一属且编号完全相同（忽略大小写和标点，如 `SIO:BIC:A6302` = `SIO-BIC A6302`；同一标本以 *Bathykurila* sp. 和 *Bathykurila* sp. AH-2023 两个名称提交）。核心编号：去掉基因名、末尾注释如 "(holotype)" 和标点；`2014-1234` 这类年份–序号整体保留；`WS399, WS400` 这类列表每个编号各算一个；≥5 位的数字去掉前缀后也可配对（`USNM 123456` ~ `123456`）。其他配对（不同物种、或物种名缺失）只报告、不合并；不同属的完全相同编号在两行的 `match_evidence` 中标注（"same voucher as … (different genus, …)"） |
 | 强 | 编号完全相同（忽略大小写和标点；两组含同一基因时只算中等）、同一篇论文（不含 Direct Submission）、完整采集日期相同、坐标相差 ≤0.01° |
 | 中 | 第一作者相同、采集人相同、详细地点相同、坐标相差 ≤0.5°、两组含同一基因时编号完全相同 |
-| 矛盾（阻止合并） | 两组都有 specimen_voucher 且毫无共同编号（即使 isolate 相同，如采集事件号）；共享核心后接不同的尾号（批号或子样本号：`BIOUG06836-E01` / `-E02`、`SIO:BIC:A9392-1` / `-2`），或只有一边多出数字尾号（`CE438` / `CE438_2`；多出的是含字母的编号如 `WS16799` / `WS16799_Pr21` 不算矛盾）、日期不符、国家不同、坐标相差 >0.5° |
+| 矛盾（阻止合并） | 两组都有 specimen_voucher 且毫无共同编号（即使 isolate 相同，如采集事件号）；共享核心后接不同的尾号（批号或子样本号：`BIOUG06836-E01` / `-E02`、`SIO:BIC:A9392-1` / `-2`），或只有一边多出数字尾号（`CE438` / `CE438_2`；多出的是含字母的编号如 `WS16799` / `WS16799_Pr21` 不算矛盾）；共享核心两边是不同的机构、采集人或样品编号（`USNM 123456` / `MCZ 123456`、`Juslen s.n. 2003` / `Muola s.n. 2003`、`Polychaeta1D9_St95` / `Polychaeta1G8_St95`；一边没有这类词时照旧可合并：`WS399` / `COI_ZMMU_MSU_WS399`、`H & W 16149` / `C.B. Hellquist, J.H. Wiersema 16149`）、日期不符、国家不同、坐标相差 >0.5° |
 
 判定：有强证据 → 合并（high）；中等证据 ≥2 → 合并（medium）；否则不合并。两组已含同一基因时，只有采集日期相同或坐标相同才能合并（同一篇论文不够，因为一篇论文报道许多标本）；这样未合并的配对在 `match_evidence` 中标注（"similar voucher … check"）。合并两个标本前会检查它们的每一对记录，所以 A–B–C 这样的链条不会把互相矛盾、物种不同（上述同属规则除外）、或会让同一基因在一个标本中出现两次而又没有日期/坐标证据的 A 和 C 并在一起。
+
+一个凭证号可能是一个批次或一张标本台纸：同一凭证号下不同 isolate 测了同一基因（MCZ 70173 的 7 条 COI）时，每个 isolate 一行，`match_evidence` 注明 "one voucher, several individuals"。合并后的新名字取这些记录中出现最多的物种名。
 
 ```bash
 g2t-reconcile -i updated_species_voucher.csv -o /path/to/out [--min_confidence high]
@@ -199,10 +206,12 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 **输出格式**:
 
-| species_voucher_new | organism | coi | 16s | 18s | ... |
-|---------------------|----------|-----|-----|-----|-----|
-| SpeciesA_voucher1 | Species A | LC123456 | LC123457 | LC123458 | |
-| SpeciesB_voucher2 | Species B | LC123459 | | LC123460 | |
+| species_voucher_new | organism | organism_names | coi | 16s | 18s | ... |
+|---------------------|----------|----------------|-----|-----|-----|-----|
+| SpeciesA_voucher1 | Species A | | LC123456 | LC123457 | LC123458 | |
+| SpeciesB_voucher2 | Species B | Species B; Species B sp. 1 | LC123459 | | LC123460 | |
+
+`organism` 取该标本记录中出现最多的名字；`organism` 之后的 `organism_names` 列在名字不一致时列出全部名字，否则为空。
 
 单元格内为该标本对应基因的 LocusID，多个序列用分号分隔。
 
@@ -212,7 +221,7 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ### 矩阵中的凭证号
 
-矩阵在 `organism` 之后有三列：`voucher_as_submitted`（该标本在 GenBank 中出现过的全部 specimen_voucher 原样写法，用于看出提交差异）、`voucher_standardized`（每个标本一个统一凭证号，只由 specimen_voucher 生成，只有 isolate 等编号的标本此列为空；去基因名前缀、取信息最全的写法，按 INSDC `/specimen_voucher` 格式 `[机构代码:[收藏代码:]]标本号` 书写，如 `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU:MSU:WS2585`，`ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`）、`voucher_note`（几种写法不只是前缀/分隔符不同时提示人工核对）。
+矩阵在 `organism`、`organism_names` 之后有三列：`voucher_as_submitted`（该标本在 GenBank 中出现过的全部 specimen_voucher 原样写法，用于看出提交差异）、`voucher_standardized`（每个标本一个统一凭证号，只由 specimen_voucher 生成，只有 isolate 等编号的标本此列为空；去基因名前缀、取信息最全的写法，按 INSDC `/specimen_voucher` 格式 `[机构代码:[收藏代码:]]标本号` 书写，如 `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU:MSU:WS2585`，`ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`）、`voucher_note`（几种写法不只是前缀/分隔符不同时提示人工核对）。
 
 ### Step 5: 校正元数据 (curate，可选)
 
@@ -288,8 +297,9 @@ output/
 │   ├── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
 │   ├── reconciled_species_voucher.csv # Step 3b 输出：凭证号核对后
 │   └── reconcile_report.csv         # Step 3b：每对候选的证据与判定
-└── organized_genes/
-    └── organized_species_voucher.csv # Step 4 输出：最终矩阵
+├── organized_genes/
+│   └── organized_species_voucher.csv # Step 4 输出：最终矩阵
+└── g2t_run.json                     # 完整流程：日期、命令、各软件版本、全部参数、输入 GenBank 文件（路径、大小、SHA-256）、分类信息来源
 ```
 
 ---
@@ -356,16 +366,16 @@ pip install pandas biopython
 
 ## 不足与已知限制
 
-1. **基因类型按 DEFINITION 整条判定。** 跨区段的 rRNA 记录（如"18S … ITS1""ITS2 … 28S"）放入它覆盖的每一列（`18s,its1-its2`、`28s,its1-its2`）：同一登录号出现在两列，代表整条记录，而不是单独的区段。匹配到其他基因组合的记录得到全部匹配类型（如 `16s,coi`、`28s,h3`），并标记 `Conflict=True`（`Conflict_reason` 为 "Multiple candidates…"）；匹配到两个以上线粒体基因且长度 ≥3,000 bp 的记录归为 `mtgenome`。详见 [BUGS.md](BUGS.md)。
+1. **基因类型按 DEFINITION 整条判定。** 跨区段的 rRNA 记录（如"18S … ITS1""ITS2 … 28S"）放入它覆盖的每一列（`18s,its1-its2`、`28s,its1-its2`）：同一登录号出现在两列，代表整条记录，而不是单独的区段。匹配到其他基因组合的记录得到全部匹配类型（如 `16s,coi`、`28s,h3`），并标记 `Conflict=True`（`Conflict_reason` 为 "Multiple candidates…"）；匹配到两个以上线粒体基因且长度 ≥3,000 bp 的记录，只有标题写明 genome 时才归为 `mtgenome`。详见 [BUGS.md](BUGS.md)。
 2. **不切分序列。** 线粒体基因组（`mtgenome`）的登录号会被复制到全部线粒体基因列（coi、16s、12s、cob、cox2、cox3），18S–ITS–28S 记录（`18-28s`）复制到 18s、28s、its1-its2，**不论该记录是否真的注释了这个基因**（如 FN689349 没有 12S 注释，仍出现在 12s 列）。可用 `g2t-organize --mtgenome_includes coi 16s` 限定列。不会切出各基因的序列；比对前需另行提取。
 3. **长度过滤。** 默认长度 150–50,000 bp 以外（以及缺长度、LocusID 重复）的记录在分类前被去掉。它们不会静默消失：逐条列在 `filtered_records.csv`（含原因），`record_status.csv` 给每条输入记录恰好一个状态。若要让它们也参与分类，三个范围都要放宽：`g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`。
-4. **只识别 39 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非加入基因词典（见常见问题"如何添加自定义基因类型"）。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
-5. **凭证号与元数据。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 还会合并同一属中以不同名称提交、编号完全相同（忽略大小写和标点，任一编号字段）的组（*Bathykurila* sp. / *Bathykurila* sp. AH-2023）；两组含同一基因时需采集日期或坐标相同；不同属的相同编号不合并，并在 `match_evidence` 中标注。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）；两组已含同一基因时，同一篇论文不够，该配对改为标注。只差批号或子样本尾号的编号（`CE438` / `CE438_2`）视为不同标本。矩阵中的地点、日期等元数据逐列取该标本第一条有值的记录，因此可能来自不同记录；任一记录被标记冲突，`Conflict` 即为 True。
+4. **只识别 41 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非加入基因词典（见常见问题"如何添加自定义基因类型"）。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
+5. **凭证号与元数据。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 还会合并同一属中以不同名称提交、编号完全相同（忽略大小写和标点，任一编号字段）的组（*Bathykurila* sp. / *Bathykurila* sp. AH-2023）；两组含同一基因时需采集日期或坐标相同；不同属的相同编号不合并，并在 `match_evidence` 中标注。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）；两组已含同一基因时，同一篇论文不够，该配对改为标注。只差批号或子样本尾号的编号（`CE438` / `CE438_2`），或编号两边的机构、采集人、样品编号不同（`USNM 123456` / `MCZ 123456`），视为不同标本。矩阵中的地点、日期等元数据逐列取该标本第一条有值的记录，因此可能来自不同记录；任一记录被标记冲突，`Conflict` 即为 True。
 6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样，除非在 Step 5 中校正。
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
 9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
-10. **代码状态。** v0.04 为早期版本，511 项单元测试在 Python 3.9、3.12、3.13 上全部通过（本地测试）；`ruff` 与 `mypy` 无警告。
+10. **代码状态。** v0.04 为早期版本，545 项单元测试在 Python 3.9、3.12、3.13 上全部通过（本地测试）；`ruff` 与 `mypy` 无警告。
 
 ---
 
