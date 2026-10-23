@@ -262,7 +262,7 @@ try:
 except ImportError:
     psutil = None
 
-GB_EXTENSIONS = (".gb", ".gbk", ".genbank", ".gbff")
+GB_EXTENSIONS = (".gb", ".gbf", ".gbk", ".gbff", ".genbank")
 
 # ===============================
 # Assembly regex (pre-compiled)

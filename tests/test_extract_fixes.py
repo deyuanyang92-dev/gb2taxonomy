@@ -685,3 +685,14 @@ class TestReviewFixes:
         write(tmp_path / "a.gb", make_record("DIR000001"))
         files, _, _ = ex.discover_gb_files([str(tmp_path)], recursive=False)
         assert [os.path.basename(f) for f in files] == ["a.gb"]
+
+    def test_all_genbank_extensions_are_found(self, tmp_path):
+        names = ["a.gb", "b.gbf", "c.gbk", "d.gbff", "e.genbank", "f.GBF"]
+        for i, n in enumerate(names):
+            write(tmp_path / n, make_record(f"EXT00000{i}"))
+        write(tmp_path / "notes.txt", "x")
+        files, total, skipped = ex.discover_gb_files([str(tmp_path)])
+        assert sorted(os.path.basename(f) for f in files) == sorted(names)
+        assert (total, skipped) == (7, 1)
+        files, _, _ = ex.discover_gb_files([str(tmp_path / "b.gbf")])
+        assert [os.path.basename(f) for f in files] == ["b.gbf"]

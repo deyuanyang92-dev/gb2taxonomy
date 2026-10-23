@@ -1,5 +1,9 @@
 # 更新日志 / Changelog
 
+## 未发布
+
+- **输入扩展名**：`g2t`/`g2t-extract` 现在识别 `.gbf`（NCBI 及很多工具导出的 GenBank 文件扩展名）；全部支持 `.gb`、`.gbf`、`.gbk`、`.gbff`、`.genbank`（不区分大小写）。此前 `.gbf` 文件被跳过，报 “no GenBank files found”。
+
 ## v0.04（2026-10-22）
 
 包内版本 `0.0.4`。本版重写下载步骤（按记录增量、`--since`、`--no-store`），并修复全库代码审查发现的问题。
