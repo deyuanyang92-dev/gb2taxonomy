@@ -5,6 +5,7 @@
 #   bash benchmark/run_benchmark.sh WORKDIR [NCBI_EMAIL]
 #
 # Needs network access (NCBI E-utilities). Set NCBI_API_KEY for faster downloads.
+# Set SUPERCRUNCH_PARSE_LOCI=/path/to/SuperCRUNCH/supercrunch-scripts/Parse_Loci.py to add SuperCRUNCH's parser.
 # Results: WORKDIR/results/<dataset>.json, WORKDIR/results/timing.tsv
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -46,7 +47,8 @@ for name in haplotaxidae hesionidae opheliidae phyllodocida; do
   timed "$name" g2t_exact g2t -i "$in" -o "$work/out_${name}_exact" --stream --quiet --skip_reconcile
   python "$here/evaluate.py" --gold "$gold" --dataset "${GOLD[$name]}" \
     --run "$work/out_$name" --run-exact "$work/out_${name}_exact" \
-    --details "$work/results/${name}_genes.tsv" > "$work/results/$name.json"
+    --details "$work/results/${name}_genes.tsv" ${SUPERCRUNCH_PARSE_LOCI:+--supercrunch "$SUPERCRUNCH_PARSE_LOCI"} \
+    > "$work/results/$name.json"
 done
 rm -f "$work/results/.rss"
 python "$here/summarize.py" "$work"

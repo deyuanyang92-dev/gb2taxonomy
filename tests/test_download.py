@@ -62,3 +62,31 @@ class TestBuildQuery:
         q, tag = build_query("1", opts)
         assert "wgs[filter]" not in q and "NOT refseq[filter]" not in q
         assert "AND (Russia[Country])" in q and tag == "x"
+
+
+def test_call_waits_out_a_long_network_outage(monkeypatch):
+    """A connection drop lasting minutes must not end the download (NCBI RemoteDisconnected, 2026-10-23)."""
+    import http.client
+
+    import g2t.download as dl
+
+    waits = []
+    monkeypatch.setattr(dl.time, "sleep", lambda s: waits.append(s))
+    calls = {"n": 0}
+
+    class H:
+        def read(self):
+            return "ok"
+
+        def close(self):
+            pass
+
+    def flaky(**kw):
+        calls["n"] += 1
+        if calls["n"] < 9:
+            raise http.client.RemoteDisconnected("Remote end closed connection without response")
+        return H()
+
+    assert dl._call(flaky, False) == "ok"
+    assert sum(waits) >= 300  # several minutes of waiting in total
+    assert max(waits) <= 120

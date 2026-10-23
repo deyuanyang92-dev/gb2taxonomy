@@ -104,7 +104,9 @@ def setup_entrez(email: str | None = None, api_key: str | None = None) -> float:
     return 0.11 if Entrez.api_key else 0.34
 
 
-def _call(fn: Callable, parse: bool, retries: int = 5, **kw):
+def _call(fn: Callable, parse: bool, retries: int = 10, **kw):
+    """Entrez call with retries: waits 2, 4, 8 … s, at most 120 s each (about 8 min in total), so a dropped
+    connection or a short NCBI outage does not end a long download."""
     from Bio import Entrez
 
     socket.setdefaulttimeout(TIMEOUT)  # Bio.Entrez opens URLs without a timeout; a stalled request would hang
@@ -117,7 +119,7 @@ def _call(fn: Callable, parse: bool, retries: int = 5, **kw):
         except Exception as e:  # noqa: BLE001 - urllib/http/parse errors
             if i == retries - 1:
                 raise
-            wait = 2**i * 2
+            wait = min(2**i * 2, 120)
             print(f"   retry {i + 1}/{retries - 1} ({type(e).__name__}: {str(e)[:80]}) in {wait}s", file=sys.stderr)
             time.sleep(wait)
 
