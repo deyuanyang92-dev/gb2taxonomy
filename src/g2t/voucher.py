@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import time
 import warnings
@@ -78,11 +79,22 @@ def normalize_columns_inplace(df: pd.DataFrame, lowercase: bool = True) -> None:
     df.columns = fixed
 
 
+# placeholders submitted instead of a voucher ('n/d', 's.n.', 'no voucher', 'FCO:n./d.'); a value with digits is kept
+_PLACEHOLDER = re.compile(
+    r"^(?:.*:)?\s*(?:n\.?\s*/?\s*d\.?|s\.?\s*n\.?|n/?a|none|nil|unknown|unvouchered|not available|"
+    r"no voucher|without voucher|not vouchered|voucher not available)\s*$",
+    re.IGNORECASE,
+)
+
+
 def _is_blank_value(v) -> bool:
-    """True for NA, empty, whitespace-only and punctuation-only strings (no letter/digit at all)."""
+    """True for NA, empty, punctuation-only strings and voucher placeholders without digits (n/d, s.n., no voucher)."""
     if pd.isna(v):
         return True
-    return not any(ch.isalnum() for ch in str(v))
+    text = str(v).strip()
+    if not any(ch.isalnum() for ch in text):
+        return True
+    return not any(ch.isdigit() for ch in text) and bool(_PLACEHOLDER.match(text))
 
 
 def _blank_to_na(series: pd.Series) -> pd.Series:

@@ -53,12 +53,7 @@ def check_dependencies():
     except ImportError:
         missing_required.append("biopython")
 
-    # Optional dependencies
-    try:
-        import yaml  # noqa: F401
-    except ImportError:
-        missing_optional.append("pyyaml (optional, for custom gene dictionaries)")
-
+    # Optional dependencies (pyyaml is not listed: without it g2t uses its identical built-in gene dictionary)
     try:
         import ete3  # noqa: F401
     except ImportError:

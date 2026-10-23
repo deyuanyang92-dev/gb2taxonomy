@@ -62,6 +62,7 @@ from pathlib import Path
 import pandas as pd
 
 from g2t.utils import StepResult, read_table
+from g2t.voucher import _is_blank_value
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,75 @@ def _sub_ids(ids: list[str], core: str) -> set[str]:
             end = ""
         out.add(end)
     return out
+
+
+_ID_STOPWORDS = {
+    "VOUCHER",
+    "ISOLATE",
+    "SPECIMEN",
+    "PERSONAL",
+    "COLLECTION",
+    "COLL",
+    "LEG",
+    "DET",
+    "HERB",
+    "HERBARIUM",
+    "MUSEUM",
+    "NO",
+    "NR",
+    "NUM",
+    "NUMBER",
+    "TISSUE",
+    "DNA",
+    "ID",
+    "CAT",
+    "CATALOG",
+    "LAB",
+    "FIELD",
+    "SAMPLE",
+    "SN",
+    "AND",
+    "ET",
+    "AL",
+    "DE",
+    "LA",
+    "VAN",
+    "VON",
+}
+
+
+def _id_parts(identifier: str, core: str) -> tuple[set[str], set[str]]:
+    """(words, other identifiers) of one identifier, apart from its core: words are names or institution codes
+    ('USNM', 'Christenhusz'), other identifiers are letter+digit tokens ('Polychaeta1D9'). Gene names, initials and
+    generic words ('voucher', 'coll.') are ignored."""
+    c = core.lstrip("#")
+    words, others = set(), set()
+    for t in re.split(r"[^A-Za-z0-9]+", _clean_id(identifier)):
+        u = t.upper()
+        if not u or c in u or u in c or GENE_FULL.fullmatch(u):
+            continue
+        if u.isalpha():
+            if len(u) >= 2 and u not in _ID_STOPWORDS:
+                words.add(u)
+        elif any(ch.isalpha() for ch in u) and any(ch.isdigit() for ch in u):
+            others.add(u)
+    return words, others
+
+
+def _compatible_ids(ids_a: list[str], ids_b: list[str], core: str) -> bool:
+    """False when every pair of identifiers holding the core names different collectors/institutions or different
+    samples: USNM 123456 / MCZ 123456, Juslen s.n. 2003 / Muola s.n. 2003, Polychaeta1D9_St95 / Polychaeta1G8_St95.
+    One side without such words is compatible (WS399 / COI_ZMMU_MSU_WS399; H & W 16149 / Hellquist, Wiersema 16149)."""
+    c = core.lstrip("#")
+    a = [_id_parts(v, core) for v in ids_a if c in _norm_voucher(v)]
+    b = [_id_parts(v, core) for v in ids_b if c in _norm_voucher(v)]
+    if not a or not b:
+        return True
+    for wa, oa in a:
+        for wb, ob in b:
+            if not (wa and wb and not (wa & wb)) and not (oa and ob and not (oa & ob)):
+                return True
+    return False
 
 
 def _different_specimens(ends_a: set[str], ends_b: set[str]) -> bool:
@@ -356,7 +426,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     def raw_voucher(row) -> str:
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if any(ch.isalnum() for ch in v) and v.lower() != "nan":  # same rule as voucher.py (L-22)
+            if not _is_blank_value(v) and v.lower() != "nan":  # same rule as voucher.py (blank, placeholder)
                 return v
         return ""
 
@@ -370,7 +440,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         out = []
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if any(ch.isalnum() for ch in v) and v.lower() != "nan":
+            if not _is_blank_value(v) and v.lower() != "nan":
                 out += [p for p in SPLIT.split(v) if p.strip()]
         return out
 
@@ -381,6 +451,32 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     df["match_basis"] = "exact"
     df["match_confidence"] = ""
     df["match_evidence"] = ""
+
+    # A voucher can be a lot or a herbarium sheet holding several individuals (MCZ 70173: 7 COI from different
+    # isolates). When records of one key carry different isolates and the same gene, each isolate becomes its own
+    # specimen; records without an isolate stay under the voucher.
+    if "isolate" in df.columns:
+        iso = df["isolate"].fillna("").astype(str).str.strip()
+        for k, g in list(df.groupby(key, sort=False)):
+            vals = {iso[i] for i in g.index if not _is_blank_value(iso[i]) and iso[i].lower() != "nan"}
+            if len(vals) < 2:
+                continue
+            owner: dict[str, str] = {}
+            repeated = False
+            for i in g.index:
+                if iso[i] not in vals:
+                    continue
+                for gene in str(df.at[i, "gene_type"]).split(","):
+                    gene = gene.strip()
+                    if gene and gene != "nan" and owner.setdefault(gene, iso[i]) != iso[i]:
+                        repeated = True
+            if not repeated:
+                continue
+            note = "one voucher, several individuals (different isolates with the same gene): one row per isolate"
+            for i in g.index:
+                if iso[i] in vals:
+                    df.at[i, key] = f"{k}_{re.sub(r'[^A-Za-z0-9]+', '_', iso[i]).strip('_')}"
+                    df.at[i, "match_evidence"] = note
 
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
@@ -432,6 +528,11 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                         f"different sub-identifiers after {shared[0].lstrip('#')} "
                         f"({', '.join(sorted(x or '-' for x in a))} vs {', '.join(sorted(x or '-' for x in b))})"
                     )
+            # the shared core carries different collectors/institutions or sample codes around it
+            if shared and all(not _compatible_ids(group_ids[ka], group_ids[kb], c) for c in shared):
+                ev.conflicts.append(
+                    f"different institutions, collectors or sample codes around {shared[0].lstrip('#')}"
+                )
             # both groups name a specimen voucher and the vouchers share nothing: different specimens, even when
             # another field (an isolate that is a collecting-event code) is identical (RUMF:ZO-00076 / ZO-00070)
             va, vb = voucher_only[ka], voucher_only[kb]
@@ -550,8 +651,9 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         if len(member_keys) < 2:
             continue
         sub = df[df[key].isin(member_keys)]
-        orgs = sorted(_vals(sub, org))
-        organism = orgs[0] if orgs else "unknown"
+        names = sub[org].dropna().astype(str).str.strip()
+        names = names[names != ""]
+        organism = names.value_counts().index[0] if len(names) else "unknown"  # most frequent name
         # the key's core may come from another identifier field than voucher_core ('s.n.' + isolate AB1234)
         shared = set.intersection(*(group_cores[k] for k in member_keys))
         key_cores = (

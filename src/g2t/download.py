@@ -61,6 +61,7 @@ class DownloadOptions:
     query: str = ""
     include_wgs: bool = False
     include_mrna: bool = False
+    include_tsa: bool = False  # transcriptome shotgun assembly contigs (Phyllodocida: 86% of all records)
     include_refseq: bool = False
     include_large: bool = False
     since: str = ""  # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
@@ -150,12 +151,19 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
             q.append("NOT wgs[filter]")
         if not o.include_mrna:
             q.append("NOT biomol_mrna[PROP]")
+        if not o.include_tsa:
+            q.append('NOT "tsa"[Keyword]')
         q.append("NOT srcdb_refseq_model[PROP]")
         if not o.include_refseq:
             q.append("NOT refseq[filter]")
         tag += [
             f"incl-{x}"
-            for x, on in (("wgs", o.include_wgs), ("mrna", o.include_mrna), ("refseq", o.include_refseq))
+            for x, on in (
+                ("wgs", o.include_wgs),
+                ("mrna", o.include_mrna),
+                ("tsa", o.include_tsa),
+                ("refseq", o.include_refseq),
+            )
             if on
         ]
     if o.mitogenome:
@@ -341,6 +349,7 @@ def download(
         ("all", ""),
         ("wgs", " AND wgs[filter]"),
         ("mrna", " AND biomol_mrna[PROP]"),
+        ("tsa", ' AND "tsa"[Keyword]'),
         ("refseq_model", " AND srcdb_refseq_model[PROP]"),
         ("mito", " AND mitochondrion[filter]"),
         ("large", f" AND {LARGE_BP + 1}:999999999[SLEN] NOT {ORGANELLE}"),
@@ -560,7 +569,7 @@ def describe(res: DownloadResult, dry_run: bool = False) -> list[str]:
     c = res.composition
     if c:
         lines.append(
-            f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, "
+            f"taxon total {c.get('all')}: WGS {c.get('wgs')}, mRNA {c.get('mrna')}, TSA {c.get('tsa')}, "
             f"RefSeq models {c.get('refseq_model')}, mitochondrial {c.get('mito')}, "
             f"nuclear > {LARGE_BP // 1000} kb {c.get('large')}"
         )
@@ -597,6 +606,7 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--query", default="", metavar="CLAUSE", help="extra Entrez clause, e.g. 'Russia[Country]'")
     g.add_argument("--include-wgs", action="store_true", help="keep WGS contigs")
     g.add_argument("--include-mrna", action="store_true", help="keep mRNA records")
+    g.add_argument("--include-tsa", action="store_true", help="keep transcriptome shotgun assembly (TSA) contigs")
     g.add_argument("--include-refseq", action="store_true", help="keep RefSeq records")
     g.add_argument(
         "--include-large",
@@ -645,6 +655,7 @@ def options_from_args(a: argparse.Namespace) -> DownloadOptions:
         query=a.query,
         include_wgs=a.include_wgs,
         include_mrna=a.include_mrna,
+        include_tsa=a.include_tsa,
         include_refseq=a.include_refseq,
         include_large=a.include_large,
         since=a.since,

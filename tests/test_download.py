@@ -57,6 +57,13 @@ class TestBuildQuery:
         assert tag == "gene-COI_18S-len500-max"
         assert "COX1[Gene]" in q and "18S[Title]" in q and "500:999999999[SLEN]" in q
 
+    def test_tsa_excluded_by_default(self):
+        """Phyllodocida: 162,319 of 188,770 'marker' records were TSA contigs (reviewers 1 and 2)."""
+        q, _ = build_query("1", DownloadOptions())
+        assert 'NOT "tsa"[Keyword]' in q
+        q, tag = build_query("1", DownloadOptions(include_tsa=True))
+        assert "tsa" not in q.lower() and tag == "incl-tsa"
+
     def test_includes_and_custom(self):
         opts = DownloadOptions(include_wgs=True, include_refseq=True, query="Russia[Country]", tag="x")
         q, tag = build_query("1", opts)

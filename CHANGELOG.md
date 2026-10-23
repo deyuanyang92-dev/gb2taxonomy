@@ -2,6 +2,13 @@
 
 ## 未发布
 
+- **审稿意见（R1–R3）标本连接修复**：
+  - 编号主体相同，但两边都有不同的机构代码 / 采集人姓名（`USNM 123456` / `MCZ 123456`，`Christenhusz 5678 (K)` / `Hassemer 5678 (FLOR)`，`Juslen s.n. 2003` / `Muola s.n. 2003`）或不同的样品编号（`Polychaeta1D9_St95` / `Polychaeta1G8_St95`，同一站位的两个样品）→ 不同标本。一边没有这类词时照旧可合并（`WS399` / `COI_ZMMU_MSU_WS399`；`H & W 16149` / `C.B. Hellquist, J.H. Wiersema 16149`）。
+  - 占位凭证号（`n/d`、`FCO:n./d.`、`s.n.`、`no voucher`、`NA`、`unvouchered` 等，且不含数字）视为没有凭证号，改用 isolate 等字段。
+  - 一个凭证号是一个批次 / 一张标本台纸：同一凭证号下不同 isolate 测了同一基因（MCZ 70173 的 7 条 COI）→ 每个 isolate 一行，`match_evidence` 注明 “one voucher, several individuals”。
+  - 矩阵物种名取该标本记录中出现最多的名字（原为字母序第一个）；名字不一致时新列 `organism_names` 列出全部。
+- **下载默认排除转录组组装（TSA）**：`NOT "tsa"[Keyword]`，`--include-tsa` 加回；预检报告显示 TSA 条数（Phyllodocida 188,770 条中 162,319 条是 TSA）。
+- `g2t_run.json` 记录每个输入 GenBank 文件的 SHA-256 和分类信息来源；openpyxl 改为必装依赖；不再提示缺少 pyyaml（内置词典与 yaml 相同）。
 - **审稿意见（R2 M5）植物修复**：① mtgenome 同义词去掉过宽的 “complete sequence”“complete genome”（银杏 5 kb 的 rrn26+trnY 片段曾被当作完整线粒体基因组并复制进全部线粒体列），改为 “mitochondrion, complete sequence”“mitochondrial DNA, complete genome” 等；多基因记录只有标题写明 genome 才归为 mtgenome，否则保留各基因并标记冲突；② 第二轮 “circular” 先看细胞器：叶绿体 → plastome（银杏 AB684440 原被判为 mtgenome），并补 “chloroplast DNA, complete genome”“organelle: plastid”；③ 植物记录（Viridiplantae 或叶绿体组）第二轮丢弃其它细胞器的基因（叶绿体 16S/23S 不再进动物线粒体 16s 列；线粒体 rrn26 不进 28s）；动物保持原设计（“18S…; mitochondrial” 仍归 18s 并标记）；④ 新增蕨类常用 `rps4`、`atpb`。动物 5 个数据集归类结果不变（逐条对比）；Ophioglossaceae 新增 61 条 rps4、44 条 atpB。
 - **再防两类错误合并**（Phyllodocida 复查）：① 尾号按原始分隔符判断，`R1941-END07-19-1` / `-2` 是批号（原来去掉分隔符后 “END07191” 被误当作第二个编号）；② 两组都有 specimen_voucher 且毫无共同编号时判为不同标本，即使 isolate 相同（`RUMF:ZO-00076` / `ZO-00070` 共用采集事件号 CF21112021）。
 - **批号规则细化**：一边无尾号、另一边尾号含字母（`28S_ZMMU_MSU_WS16799_Pr21` / `COI_ZMMU_MSU_WS16799`，Pr21 为附加样品号）不再视为不同标本；只有两边尾号不同（`-E01`/`-E02`）或一边多出纯数字尾号（`CE438`/`CE438_2`）才算。Priapulidae 4 对因此恢复合并。

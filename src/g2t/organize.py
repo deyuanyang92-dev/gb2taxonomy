@@ -483,9 +483,15 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, Any]
     out[config.first_col_name] = group[config.group_column].iloc[0]
 
     if config.second_col_name in group.columns:
-        out[config.second_col_name] = get_first_nonempty(group[config.second_col_name])
+        # most frequent name of the specimen's records; all distinct names in organism_names when they differ
+        names = group[config.second_col_name].dropna().astype(str).str.strip()
+        names = names[names != ""]
+        counts = names.value_counts(sort=True)
+        out[config.second_col_name] = counts.index[0] if len(counts) else ""
+        out["organism_names"] = "; ".join(counts.index) if len(counts) > 1 else ""
     else:
         out[config.second_col_name] = ""
+        out["organism_names"] = ""
 
     if config.voucher_columns:
         out.update(voucher_summary(group))
@@ -532,7 +538,7 @@ def process_group(group: pd.DataFrame, config: OrganizeConfig) -> dict[str, Any]
 
 
 def build_header(config: OrganizeConfig, sample_row: dict[str, Any]) -> list[str]:
-    header = [config.first_col_name, config.second_col_name]
+    header = [config.first_col_name, config.second_col_name, "organism_names"]
     if config.voucher_columns:
         header.extend(VOUCHER_COLUMNS)
     header.extend(config.gene_order)

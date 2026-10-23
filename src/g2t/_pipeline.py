@@ -70,6 +70,16 @@ def _run_step(
     return None
 
 
+def _sha256(path: str) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def provenance(params: dict[str, Any]) -> dict[str, Any]:
     """Versions and settings of a run, written to ``g2t_run.json`` so a matrix can be reproduced."""
     from g2t import __version__
@@ -295,11 +305,17 @@ def run(
 
     elapsed = time.time() - start_time
     prov = provenance(run_params)
+    from g2t.extract import discover_gb_files
+
+    gb_files, _, _ = discover_gb_files([p for p in input_files if Path(p).exists()])
     prov["inputs"] = [
-        {"path": str(Path(p).resolve()), "bytes": Path(p).stat().st_size if Path(p).is_file() else None}
-        for p in input_files
-        if Path(p).exists()
+        {"path": str(Path(f).resolve()), "bytes": Path(f).stat().st_size, "sha256": _sha256(f)} for f in gb_files
     ]
+    prov["taxonomy_source"] = (
+        "ete3 local NCBI taxonomy database"
+        if prov["versions"].get("ete3")
+        else "NCBI Taxonomy via Entrez, cached in gb_metadata/taxonomy_cache.json (empty without network)"
+    )
     prov["steps_completed"], prov["elapsed_s"] = steps_completed, round(elapsed, 1)
     (out_root / "g2t_run.json").write_text(json.dumps(prov, indent=1, default=str), encoding="utf-8")
     return PipelineResult(

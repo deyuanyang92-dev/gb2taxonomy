@@ -64,6 +64,10 @@ def test_run_record_written(result):
     assert prov["versions"]["g2t"] == g2t.__version__
     assert prov["parameters"]["input_files"] == [str(EXAMPLE)]
     assert prov["inputs"][0]["bytes"] == EXAMPLE.stat().st_size
+    import hashlib
+
+    assert prov["inputs"][0]["sha256"] == hashlib.sha256(EXAMPLE.read_bytes()).hexdigest()
+    assert "taxonomy_source" in prov
     assert prov["steps_completed"] == 5
 
 
