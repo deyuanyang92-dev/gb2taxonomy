@@ -28,7 +28,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
 
-from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, canon, clause
+from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, PLASTID_GENES, canon, clause
 from g2t.recstore import DirStore, RecordStore, iter_records
 
 # Nuclear records above LARGE_BP (chromosomes, scaffolds, TSA masters) are skipped unless --include-large.
@@ -345,7 +345,7 @@ def download(
         ("mito", " AND mitochondrion[filter]"),
         ("large", f" AND {LARGE_BP + 1}:999999999[SLEN] NOT {ORGANELLE}"),
     ]
-    gene_q = [(g, f"({term}) AND {clause(g)}") for g in MITO_GENES + NUCLEAR_GENES]
+    gene_q = [(g, f"({term}) AND {clause(g)}") for g in MITO_GENES + NUCLEAR_GENES + PLASTID_GENES]
     # composition and per-gene counts are ~23 slow searches: only for dry runs or report=True
     jobs = ([(k, base + q) for k, q in comp_q] + gene_q) if (dry_run or report) else []
     counts: dict[str, int] = {}

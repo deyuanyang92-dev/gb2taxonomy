@@ -140,6 +140,7 @@ g2t-classify -i final.csv -o /path/to/out
 |------|----------|
 | 线粒体基因 | coi, 16s, 12s, cob, mtgenome, cox3, cox2, nd1, nd2, nd3, nd4, nd4l, nd5, nd6, atp6, atp8 |
 | 核基因 | 18-28s, its1-its2, ef-1, 28s, 18s, h3 |
+| 叶绿体基因（植物） | plastome, rbcl, matk, trnl-trnf, psba-trnh, rpl16, rps16, ndhf, rpoc1, ycf1, rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk |
 
 Definition 同时写有 ITS 和 18S 或 28S 的跨区段 rRNA 记录（如 "small subunit ribosomal RNA gene and internal transcribed spacer 1"、"internal transcribed spacer 2 and large subunit ribosomal RNA gene"）得到它覆盖的每个类型，如 `gene_type` 为 `18s,its1-its2` 或 `28s,its1-its2`，`Assignment_reason` 注明 "multi-region rDNA"。完整的 18S–28S 记录仍为 `18-28s`。
 
@@ -358,13 +359,13 @@ pip install pandas biopython
 1. **基因类型按 DEFINITION 整条判定。** 跨区段的 rRNA 记录（如"18S … ITS1""ITS2 … 28S"）放入它覆盖的每一列（`18s,its1-its2`、`28s,its1-its2`）：同一登录号出现在两列，代表整条记录，而不是单独的区段。匹配到其他基因组合的记录得到全部匹配类型（如 `16s,coi`、`28s,h3`），并标记 `Conflict=True`（`Conflict_reason` 为 "Multiple candidates…"）；匹配到两个以上线粒体基因且长度 ≥3,000 bp 的记录归为 `mtgenome`。详见 [BUGS.md](BUGS.md)。
 2. **不切分序列。** 线粒体基因组（`mtgenome`）的登录号会被复制到全部线粒体基因列（coi、16s、12s、cob、cox2、cox3），18S–ITS–28S 记录（`18-28s`）复制到 18s、28s、its1-its2，**不论该记录是否真的注释了这个基因**（如 FN689349 没有 12S 注释，仍出现在 12s 列）。可用 `g2t-organize --mtgenome_includes coi 16s` 限定列。不会切出各基因的序列；比对前需另行提取。
 3. **长度过滤。** 默认长度 150–50,000 bp 以外（以及缺长度、LocusID 重复）的记录在分类前被去掉。它们不会静默消失：逐条列在 `filtered_records.csv`（含原因），`record_status.csv` 给每条输入记录恰好一个状态。若要让它们也参与分类，三个范围都要放宽：`g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`。
-4. **只识别 22 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非加入基因词典（见常见问题"如何添加自定义基因类型"）。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
+4. **只识别 39 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非加入基因词典（见常见问题"如何添加自定义基因类型"）。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
 5. **凭证号与元数据。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 还会合并同一属中以不同名称提交、编号完全相同（忽略大小写和标点，任一编号字段）的组（*Bathykurila* sp. / *Bathykurila* sp. AH-2023）；两组含同一基因时需采集日期或坐标相同；不同属的相同编号不合并，并在 `match_evidence` 中标注。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）；两组已含同一基因时，同一篇论文不够，该配对改为标注。只差批号或子样本尾号的编号（`CE438` / `CE438_2`）视为不同标本。矩阵中的地点、日期等元数据逐列取该标本第一条有值的记录，因此可能来自不同记录；任一记录被标记冲突，`Conflict` 即为 True。
 6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样，除非在 Step 5 中校正。
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
 9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
-10. **代码状态。** v0.04 为早期版本，483 项单元测试在 Python 3.9、3.12、3.13 上全部通过（本地测试）；`ruff` 与 `mypy` 无警告。
+10. **代码状态。** v0.04 为早期版本，511 项单元测试在 Python 3.9、3.12、3.13 上全部通过（本地测试）；`ruff` 与 `mypy` 无警告。
 
 ---
 

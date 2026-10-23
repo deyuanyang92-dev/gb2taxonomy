@@ -33,6 +33,24 @@ logger = logging.getLogger(__name__)
 _DEFAULT_GENE_INCLUDES: dict[str, list[str]] = {
     "18-28s": ["18s", "28s", "its1-its2"],
     "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
+    "plastome": [
+        "rbcl",
+        "matk",
+        "trnl-trnf",
+        "psba-trnh",
+        "rpl16",
+        "rps16",
+        "ndhf",
+        "rpoc1",
+        "ycf1",
+        "rpl32-trnl",
+        "trns-trng",
+        "atpf-atph",
+        "petb-petd",
+        "psbe-petl",
+        "rbcl-atpb",
+        "trnk",
+    ],
 }
 
 
@@ -70,6 +88,23 @@ class OrganizeConfig:
             "18-28s",
             "ef-1",
             "h3",
+            "plastome",
+            "rbcl",
+            "matk",
+            "trnl-trnf",
+            "psba-trnh",
+            "rpl16",
+            "rps16",
+            "ndhf",
+            "rpoc1",
+            "ycf1",
+            "rpl32-trnl",
+            "trns-trng",
+            "atpf-atph",
+            "petb-petd",
+            "psbe-petl",
+            "rbcl-atpb",
+            "trnk",
         ]
     )
 
@@ -114,6 +149,7 @@ class OrganizeConfig:
     mtgenome_prefer_nc: bool = False
     organize_18_28s: bool = True
     organize_mtgenome: bool = True
+    organize_plastome: bool = True
 
     gene_includes: dict[str, list[str]] = field(default_factory=_default_gene_includes)
 
@@ -205,6 +241,8 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> di
         _propagate_locusids(gene_ids, "18-28s", config.gene_includes.get("18-28s", []))
     if config.organize_mtgenome:
         _propagate_locusids(gene_ids, "mtgenome", _mtgenome_children(config))
+    if config.organize_plastome:
+        _propagate_locusids(gene_ids, "plastome", config.gene_includes.get("plastome", []))
 
     return {gene: ";".join(ids) for gene, ids in gene_ids.items()}
 

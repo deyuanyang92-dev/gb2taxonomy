@@ -90,3 +90,16 @@ def test_call_waits_out_a_long_network_outage(monkeypatch):
     assert dl._call(flaky, False) == "ok"
     assert sum(waits) >= 300  # several minutes of waiting in total
     assert max(waits) <= 120
+
+
+def test_plant_gene_names_for_download():
+    from g2t.ncbi_genes import canon, clause
+
+    assert [canon(n) for n in ("rbcL", "matK", "trnL-F", "trnH-psbA", "COX1")] == [
+        "RBCL",
+        "MATK",
+        "TRNL-TRNF",
+        "PSBA-TRNH",
+        "COI",
+    ]
+    assert "maturase K" in clause("MATK")

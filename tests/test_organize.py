@@ -49,7 +49,7 @@ class TestOrganizeConfig:
         cfg = OrganizeConfig()
         assert "coi" in cfg.gene_order
         assert "mtgenome" in cfg.gene_order
-        assert len(cfg.gene_order) == 22
+        assert len(cfg.gene_order) == 39
 
     def test_get_mito_genes(self, config):
         mito = config.get_mito_genes()

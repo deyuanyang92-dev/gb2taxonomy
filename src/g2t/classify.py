@@ -216,6 +216,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit I",
                 "ND1",
                 "NAD1",
+                "NADH1",
             ]
         }
     ),
@@ -228,6 +229,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit II",
                 "ND2",
                 "NAD2",
+                "NADH2",
             ]
         }
     ),
@@ -240,6 +242,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit III",
                 "ND3",
                 "NAD3",
+                "NADH3",
             ]
         }
     ),
@@ -252,6 +255,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit IV",
                 "ND4",
                 "NAD4",
+                "NADH4",
             ]
         }
     ),
@@ -276,6 +280,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit V",
                 "ND5",
                 "NAD5",
+                "NADH5",
             ]
         }
     ),
@@ -288,6 +293,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "NADH dehydrogenase subunit VI",
                 "ND6",
                 "NAD6",
+                "NADH6",
             ]
         }
     ),
@@ -315,6 +321,188 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "ATPase subunit 8",
                 "ATPase 8",
                 "ATP8",
+            ]
+        }
+    ),
+    "plastome": list(
+        {
+            s.lower()
+            for s in [
+                "chloroplast, complete genome",
+                "plastid, complete genome",
+                "chloroplast complete genome",
+                "plastid complete genome",
+                "chloroplast genome",
+                "plastid genome",
+                "complete plastome",
+                "plastome",
+                "chloroplast, partial genome",
+                "plastid, partial genome",
+            ]
+        }
+    ),
+    "rbcl": list(
+        {
+            s.lower()
+            for s in [
+                "(rbcL)",
+                "rbcL gene",
+                "ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit",
+                "ribulose 1,5-bisphosphate carboxylase/oxygenase large subunit",
+                "ribulose-1,5-bisphosphate carboxylase large subunit",
+                "ribulose 1,5-bisphosphate carboxylase large subunit",
+            ]
+        }
+    ),
+    "matk": list(
+        {
+            s.lower()
+            for s in [
+                "(matK)",
+                "matK gene",
+                "maturase K",
+                "maturase-K",
+            ]
+        }
+    ),
+    "trnl-trnf": list(
+        {
+            s.lower()
+            for s in [
+                "trnL-trnF",
+                "trnL-F",
+                "trnL intron",
+                "tRNA-Leu (trnL)",
+                "trnL gene",
+                "trnF-trnL",
+            ]
+        }
+    ),
+    "psba-trnh": list(
+        {
+            s.lower()
+            for s in [
+                "psbA-trnH",
+                "trnH-psbA",
+                "psbA-trnH intergenic spacer",
+                "trnH-psbA intergenic spacer",
+            ]
+        }
+    ),
+    "rpl16": list(
+        {
+            s.lower()
+            for s in [
+                "(rpl16)",
+                "rpl16 gene",
+                "ribosomal protein L16",
+            ]
+        }
+    ),
+    "rps16": list(
+        {
+            s.lower()
+            for s in [
+                "(rps16)",
+                "rps16 gene",
+                "ribosomal protein S16",
+            ]
+        }
+    ),
+    "ndhf": list(
+        {
+            s.lower()
+            for s in [
+                "(ndhF)",
+                "ndhF gene",
+                "NADH dehydrogenase subunit F",
+                "NADH-plastoquinone oxidoreductase subunit 5",
+            ]
+        }
+    ),
+    "rpoc1": list(
+        {
+            s.lower()
+            for s in [
+                "(rpoC1)",
+                "rpoC1 gene",
+                "RNA polymerase beta' subunit",
+            ]
+        }
+    ),
+    "ycf1": list(
+        {
+            s.lower()
+            for s in [
+                "(ycf1)",
+                "ycf1 gene",
+                "hypothetical chloroplast RF1",
+            ]
+        }
+    ),
+    "rpl32-trnl": list(
+        {
+            s.lower()
+            for s in [
+                "rpl32-trnL",
+                "trnL-rpl32",
+            ]
+        }
+    ),
+    "trns-trng": list(
+        {
+            s.lower()
+            for s in [
+                "trnS-trnG",
+                "trnG-trnS",
+            ]
+        }
+    ),
+    "atpf-atph": list(
+        {
+            s.lower()
+            for s in [
+                "atpF-atpH",
+                "atpH-atpF",
+            ]
+        }
+    ),
+    "petb-petd": list(
+        {
+            s.lower()
+            for s in [
+                "petB-petD",
+                "petD-petB",
+            ]
+        }
+    ),
+    "psbe-petl": list(
+        {
+            s.lower()
+            for s in [
+                "psbE-petL",
+                "petL-psbE",
+            ]
+        }
+    ),
+    "rbcl-atpb": list(
+        {
+            s.lower()
+            for s in [
+                "rbcL-atpB",
+                "atpB-rbcL",
+            ]
+        }
+    ),
+    "trnk": list(
+        {
+            s.lower()
+            for s in [
+                "trnK intron",
+                "trnK gene, intron",
+                "trnK gene, introns",
+                "(trnK) gene, intron",
+                "(trnK) gene, introns",
             ]
         }
     ),
@@ -358,6 +546,8 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
             s.lower()
             for s in [
                 "28S ribosomal RNA gene",
+                "26S ribosomal RNA",
+                "25S ribosomal RNA",
                 "28S ribosomal RNA gene, partial sequence",
                 "large subunit ribosomal RNA gene, partial sequence",
                 "28S rRNA, partial sequence",
@@ -449,6 +639,25 @@ _DEFAULT_MITO_GENES = {
     "atp8",
 }
 _DEFAULT_NUCLEAR_GENES = {"18-28s", "its1-its2", "ef-1", "28s", "18s", "h3"}
+_DEFAULT_PLASTID_GENES = {
+    "plastome",
+    "rbcl",
+    "matk",
+    "trnl-trnf",
+    "psba-trnh",
+    "rpl16",
+    "rps16",
+    "ndhf",
+    "rpoc1",
+    "ycf1",
+    "rpl32-trnl",
+    "trns-trng",
+    "atpf-atph",
+    "petb-petd",
+    "psbe-petl",
+    "rbcl-atpb",
+    "trnk",
+}
 
 
 # =========================
@@ -479,10 +688,17 @@ def _reset_patterns():
     _precompile_patterns()
 
 
-def init_gene_groups(mtgenes_list: list[str], ntgenes_list: list[str]) -> tuple[set[str], set[str]]:
-    """Initialize mitochondrial/nuclear gene sets. Returns (mito_genes, nuclear_genes)."""
+def init_gene_groups(
+    mtgenes_list: list[str], ntgenes_list: list[str], cpgenes_list: list[str] | None = None
+) -> tuple[set[str], ...]:
+    """Initialize gene sets. Returns (mito_genes, nuclear_genes), plus plastid_genes when cpgenes_list is given."""
     mito_genes = {g.strip().lower() for g in mtgenes_list}
     nuclear_genes = {g.strip().lower() for g in ntgenes_list}
+    plastid_genes = {g.strip().lower() for g in cpgenes_list or []}
+    for gene in plastid_genes:
+        if gene not in GENE_DICT:
+            logger.warning(f"Plastid gene '{gene}' not in dictionary, adding empty entry")
+            GENE_DICT[gene] = []
 
     for gene in mito_genes:
         if gene not in GENE_DICT:
@@ -498,7 +714,10 @@ def init_gene_groups(mtgenes_list: list[str], ntgenes_list: list[str]) -> tuple[
 
     logger.info(f"Mitochondrial genes: {', '.join(sorted(mito_genes))}")
     logger.info(f"Nuclear genes: {', '.join(sorted(nuclear_genes))}")
-    return mito_genes, nuclear_genes
+    if cpgenes_list is None:
+        return mito_genes, nuclear_genes
+    logger.info(f"Plastid genes: {', '.join(sorted(plastid_genes))}")
+    return mito_genes, nuclear_genes, plastid_genes
 
 
 # =========================
@@ -510,11 +729,13 @@ class MatchConfig:
 
     length2_mtgenes: str = "150:50000"
     length2_ntgenes: str = "150:50000"
+    length2_cpgenes: str = "150:300000"  # plastomes are ~120-220 kb; plastid records bypass the global filter
     global_length_range: str = "150:50000"
 
     gene_length_ranges: dict[str, str] = field(
         default_factory=lambda: {
             "mtgenome": "3000:500000",
+            "plastome": "20000:300000",
             "18-28s": "5000:15000",
             "coi": "none",
             "its1-its2": "none",
@@ -542,6 +763,7 @@ class MatchConfig:
     # P2-21: Gene sets as config fields instead of mutable globals
     mito_genes: set[str] = field(default_factory=lambda: _DEFAULT_MITO_GENES.copy())
     nuclear_genes: set[str] = field(default_factory=lambda: _DEFAULT_NUCLEAR_GENES.copy())
+    plastid_genes: set[str] = field(default_factory=lambda: _DEFAULT_PLASTID_GENES.copy())
 
     def get_gene_length_range(self, gene: str) -> str:
         return self.gene_length_ranges.get(gene.lower(), "none")
@@ -919,10 +1141,41 @@ def match_nuclear_genes(definition: str, length_val: int, config: MatchConfig) -
     return matched, notes
 
 
+def match_plastid_genes(definition: str, length_val: int, config: MatchConfig) -> tuple[set[str], list[str]]:
+    """Plastid gene matching: plastome first, then the intergenic-spacer markers (psbA-trnH, trnL-trnF,
+    rpl32-trnL, ...; their names contain gene names, so they must win over the genes), then the other genes."""
+    return _match_gene_loop(
+        definition,
+        length_val,
+        config,
+        gene_set=config.plastid_genes,
+        skip_genes=set(),
+        priority_genes=[
+            "plastome",
+            "psba-trnh",
+            "trnl-trnf",
+            "rpl32-trnl",
+            "trns-trng",
+            "atpf-atph",
+            "petb-petd",
+            "psbe-petl",
+            "rbcl-atpb",
+        ],
+        global_range=config.length2_cpgenes,
+    )
+
+
 def _record_group(organelle: str, definition: str) -> str:
-    """'mito' when /organelle says so or the DEFINITION mentions mitochondri(al/on); else 'nuclear'."""
-    if "mitochondrion" in organelle or "mitochondri" in definition.lower():
+    """'mito' when /organelle or the DEFINITION says mitochondrion/mitochondrial; 'plastid' when /organelle is
+    plastid/chloroplast or the DEFINITION mentions chloroplast/plastid (not 'nuclear gene for chloroplast
+    product'); else 'nuclear'."""
+    d = definition.lower()
+    if "mitochondrion" in organelle or "mitochondri" in d:
         return "mito"
+    if "plastid" in organelle or "chloroplast" in organelle:
+        return "plastid"
+    if ("chloroplast" in d or "plastid" in d) and "nuclear gene for" not in d:
+        return "plastid"
     return "nuclear"
 
 
@@ -943,6 +1196,8 @@ def first_round_match(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
     if group == "mito":
         molecule_type = str(row.get("MoleculeType", "")).lower().strip()
         matched, notes = match_mito_genes(definition, length_val, molecule_type, config)
+    elif group == "plastid":
+        matched, notes = match_plastid_genes(definition, length_val, config)
     else:
         # P2-19: Removed unreachable dead code (mito check in nuclear branch)
         matched, notes = match_nuclear_genes(definition, length_val, config)
@@ -987,15 +1242,21 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> di
 
 
 def conflict_check_and_reassign(
-    gene_type_str: str, definition: str, topology: str, group: str, length_val: int, mt_min: int | None = 3000
+    gene_type_str: str,
+    definition: str,
+    topology: str,
+    group: str,
+    length_val: int,
+    mt_min: int | None = 3000,
+    cp_min: int | None = 20000,
 ) -> dict[str, Any]:
     genes = {g.strip().lower() for g in gene_type_str.split(",") if g.strip()}
     original = gene_type_str
     notes = []
 
-    skip_types = {"mtgenome", "18-28s", "its1-its2"}
+    skip_types = {"mtgenome", "plastome", "18-28s", "its1-its2"}
     if genes & skip_types:
-        notes.append("Special type (mtgenome/18-28s/its1-its2), skip conflict check")
+        notes.append("Special type (mtgenome/plastome/18-28s/its1-its2), skip conflict check")
         return _build_result(gene_type_str, "", notes, original=original)
 
     conflict = False
@@ -1004,6 +1265,8 @@ def conflict_check_and_reassign(
 
     if group.lower() == "mito":
         resolved, conflict, conflict_reason, notes = _conflict_mito(genes, definition, length_val, notes, mt_min)
+    elif group.lower() == "plastid":
+        resolved, conflict, conflict_reason, notes = _conflict_plastid(genes, length_val, notes, cp_min)
     else:
         resolved, conflict, conflict_reason, notes = _conflict_nuclear(genes, definition, length_val, notes)
 
@@ -1059,6 +1322,16 @@ def _conflict_mito(
             return resolved, conflict, conflict_reason, notes
 
     return resolved, conflict, conflict_reason, notes
+
+
+def _conflict_plastid(
+    genes: set[str], length_val: int, notes: list[str], cp_min: int | None = 20000
+) -> tuple[set[str], bool, str, list[str]]:
+    """Like _conflict_mito: more than two plastid genes in a record of plastome size -> plastome."""
+    if len(genes) > 2 and (cp_min is None or length_val >= cp_min):
+        notes.append(f"Plastid multi-match ({len(genes)}) + Length>={cp_min} -> reassigned to plastome")
+        return {"plastome"}, False, "", notes
+    return set(genes), False, "", notes
 
 
 def _conflict_nuclear(
@@ -1203,7 +1476,15 @@ def process_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any]:
     group = _record_group(str(row.get("organelle", "")).lower(), definition)
     length_val = clean_length(row.get("Length", "0"))
 
-    final = conflict_check_and_reassign(gene_type_str, definition, "", group, length_val, mt_min=_mtgenome_min(config))
+    final = conflict_check_and_reassign(
+        gene_type_str,
+        definition,
+        "",
+        group,
+        length_val,
+        mt_min=_mtgenome_min(config),
+        cp_min=parse_interval(config.get_gene_length_range("plastome"))[0],
+    )
 
     if final["match_source"] == "reassign_mode":
         match_source = "first_match -> conflict_check"
@@ -1266,6 +1547,20 @@ def process_prematch(
         keep &= df["Length"] >= lo
     if hi is not None:
         keep &= df["Length"] <= hi
+    # plastid records (plastomes ~120-220 kb) are checked against --length2_cpgenes instead
+    plastid = pd.Series(
+        [
+            _record_group(str(o).lower() if pd.notna(o) else "", str(d) if pd.notna(d) else "") == "plastid"
+            for o, d in zip(
+                df.get("organelle", pd.Series("", index=df.index)), df.get("Definition", pd.Series("", index=df.index))
+            )
+        ],
+        index=df.index,
+        dtype=bool,
+    )
+    cp_lo, cp_hi = parse_interval(config.length2_cpgenes)
+    cp_ok = plastid & (df["Length"] >= (cp_lo or 0)) & (df["Length"] <= (cp_hi if cp_hi is not None else float("inf")))
+    keep |= cp_ok
     removed.extend(
         _filtered_rows(
             df[~keep],
@@ -1365,10 +1660,9 @@ def process_recheck(
     if apply_length_filter:
         df["Length"] = df["Length"].astype(str).str.replace(r"\s*bp\s*", "", regex=True).str.replace(",", "")
         df["Length"] = pd.to_numeric(df["Length"], errors="coerce")
-        lo_mt, hi_mt = parse_interval(config.length2_mtgenes)
-        lo_nt, hi_nt = parse_interval(config.length2_ntgenes)
-        lo = min(lo_mt or 0, lo_nt or 0)
-        hi = max(hi_mt or float("inf"), hi_nt or float("inf"))
+        ranges = [parse_interval(r) for r in (config.length2_mtgenes, config.length2_ntgenes, config.length2_cpgenes)]
+        lo = min(r[0] or 0 for r in ranges)
+        hi = max(r[1] or float("inf") for r in ranges)
         if lo is not None:
             df = df[df["Length"] >= lo]
         if hi is not None and hi != float("inf"):
@@ -1581,13 +1875,15 @@ def _run_cli(args: argparse.Namespace) -> None:
 
     mtgenes = [s.strip() for s in args.mtgenes_list.split(",") if s.strip()]
     ntgenes = [s.strip() for s in args.ntgenes_list.split(",") if s.strip()]
-    mito_genes, nuclear_genes = init_gene_groups(mtgenes, ntgenes)
+    cpgenes = [s.strip() for s in args.cpgenes_list.split(",") if s.strip()]
+    mito_genes, nuclear_genes, plastid_genes = init_gene_groups(mtgenes, ntgenes, cpgenes)
 
     if args.path_dict:
         load_path_dict(args.path_dict)
 
     gene_ranges = {
         "mtgenome": args.length_range2_mtgenome,
+        "plastome": args.length_range2_plastome,
         "18-28s": args.length_range2_18_28s,
         "coi": args.length_range2_coi,
         "its1-its2": args.length_range2_its,
@@ -1608,12 +1904,14 @@ def _run_cli(args: argparse.Namespace) -> None:
         if_remove_matched=args.if_remove_matched_sequences,
         length2_mtgenes=args.length2_mtgenes,
         length2_ntgenes=args.length2_ntgenes,
+        length2_cpgenes=args.length2_cpgenes,
         global_length_range=args.length_range2_all,
         gene_length_ranges=gene_ranges,
         add_assignment_reasons=args.if_add_assigned_gene_types_reasons.lower() == "yes",
         record_conflict_reasons=args.if_recorded_conflict_reasons.lower() == "yes",
         mito_genes=mito_genes,
         nuclear_genes=nuclear_genes,
+        plastid_genes=plastid_genes,
     )
 
     # Round 1
@@ -1723,6 +2021,7 @@ def build_record_status(
             if recheck_ran and lid not in un2_ids:
                 reason += (
                     f"); skipped in round-2 recheck: length outside {config.length2_mtgenes} / {config.length2_ntgenes}"
+                    f" / {config.length2_cpgenes}"
                 )
             else:
                 reason += " and 2)" if recheck_ran else ")"
@@ -1845,6 +2144,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--if_remove_matched_sequences", "-ifrms", default="no")
 
     parser.add_argument("--length_range2_mtgenome", default="3000:500000")
+    parser.add_argument("--length_range2_plastome", default="20000:300000")
     parser.add_argument("--length_range2_18_28s", default="5000:15000")
     parser.add_argument("--length_range2_coi", default="none")
     parser.add_argument("--length_range2_its", default="none")
@@ -1859,6 +2159,7 @@ def main(argv: list[str] | None = None) -> None:
 
     parser.add_argument("--length2_mtgenes", default="150:50000")
     parser.add_argument("--length2_ntgenes", default="150:50000")
+    parser.add_argument("--length2_cpgenes", default="150:300000")
     parser.add_argument("--length_range2_all", default="150:50000")
     parser.add_argument("--length", default="all")
     parser.add_argument("--organelle", default="all")
@@ -1869,6 +2170,10 @@ def main(argv: list[str] | None = None) -> None:
         "--mtgenes_list", default="coi,cox3,cox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,atp6,atp8"
     )
     parser.add_argument("--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3")
+    parser.add_argument(
+        "--cpgenes_list",
+        default="plastome,rbcl,matk,trnl-trnf,psba-trnh,rpl16,rps16,ndhf,rpoc1,ycf1,rpl32-trnl,trns-trng,atpf-atph,petb-petd,psbe-petl,rbcl-atpb,trnk",
+    )
     parser.add_argument("--path_dict", default=None, help="External gene dictionary file")
 
     # P2-15: Fixed typo, with backward-compatible alias

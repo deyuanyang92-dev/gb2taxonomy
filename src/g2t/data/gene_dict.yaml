@@ -6,6 +6,8 @@
 # Gene types are grouped as:
 #   Mitochondrial (default): coi, 16s, 12s, cob, mtgenome, cox3, cox2, nd1-nd6, nd4l, atp6, atp8
 #   Nuclear (default): 18-28s, its1-its2, ef-1, 28s, 18s, h3
+#   Plastid (default): plastome, rbcl, matk, trnl-trnf, psba-trnh, rpl16, rps16, ndhf, rpoc1, ycf1,
+#     rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk
 
 gene_types:
   coi:
@@ -120,6 +122,7 @@ gene_types:
       - NADH dehydrogenase subunit I
       - ND1
       - NAD1
+      - NADH1
 
   nd2:
     synonyms:
@@ -128,6 +131,7 @@ gene_types:
       - NADH dehydrogenase subunit II
       - ND2
       - NAD2
+      - NADH2
 
   nd3:
     synonyms:
@@ -136,6 +140,7 @@ gene_types:
       - NADH dehydrogenase subunit III
       - ND3
       - NAD3
+      - NADH3
 
   nd4:
     synonyms:
@@ -144,6 +149,7 @@ gene_types:
       - NADH dehydrogenase subunit IV
       - ND4
       - NAD4
+      - NADH4
 
   nd4l:
     synonyms:
@@ -160,6 +166,7 @@ gene_types:
       - NADH dehydrogenase subunit V
       - ND5
       - NAD5
+      - NADH5
 
   nd6:
     synonyms:
@@ -168,6 +175,7 @@ gene_types:
       - NADH dehydrogenase subunit VI
       - ND6
       - NAD6
+      - NADH6
 
   atp6:
     synonyms:
@@ -218,6 +226,8 @@ gene_types:
   28s:
     synonyms:
       - 28S ribosomal RNA gene
+      - 26S ribosomal RNA
+      - 25S ribosomal RNA
       - 28S ribosomal RNA gene, partial sequence
       - large subunit ribosomal RNA gene, partial sequence
       - 28S rRNA, partial sequence
@@ -265,3 +275,118 @@ gene_types:
       - H3 histone
       - histone (H3) gene
       - histone 3 gene
+
+  plastome:
+    synonyms:
+      - "chloroplast, complete genome"
+      - "plastid, complete genome"
+      - chloroplast complete genome
+      - plastid complete genome
+      - chloroplast genome
+      - plastid genome
+      - complete plastome
+      - plastome
+      - "chloroplast, partial genome"
+      - "plastid, partial genome"
+
+  rbcl:
+    synonyms:
+      - "(rbcL)"
+      - rbcL gene
+      - "ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit"
+      - "ribulose 1,5-bisphosphate carboxylase/oxygenase large subunit"
+      - "ribulose-1,5-bisphosphate carboxylase large subunit"
+      - "ribulose 1,5-bisphosphate carboxylase large subunit"
+
+  matk:
+    synonyms:
+      - "(matK)"
+      - matK gene
+      - maturase K
+      - maturase-K
+
+  trnl-trnf:
+    synonyms:
+      - trnL-trnF
+      - trnL-F
+      - trnL intron
+      - "tRNA-Leu (trnL)"
+      - trnL gene
+      - trnF-trnL
+
+  psba-trnh:
+    synonyms:
+      - psbA-trnH
+      - trnH-psbA
+      - psbA-trnH intergenic spacer
+      - trnH-psbA intergenic spacer
+
+  rpl16:
+    synonyms:
+      - "(rpl16)"
+      - rpl16 gene
+      - ribosomal protein L16
+
+  rps16:
+    synonyms:
+      - "(rps16)"
+      - rps16 gene
+      - ribosomal protein S16
+
+  ndhf:
+    synonyms:
+      - "(ndhF)"
+      - ndhF gene
+      - NADH dehydrogenase subunit F
+      - NADH-plastoquinone oxidoreductase subunit 5
+
+  rpoc1:
+    synonyms:
+      - "(rpoC1)"
+      - rpoC1 gene
+      - "RNA polymerase beta' subunit"
+
+  ycf1:
+    synonyms:
+      - "(ycf1)"
+      - ycf1 gene
+      - hypothetical chloroplast RF1
+
+  rpl32-trnl:
+    synonyms:
+      - rpl32-trnL
+      - trnL-rpl32
+
+  trns-trng:
+    synonyms:
+      - trnS-trnG
+      - trnG-trnS
+
+  atpf-atph:
+    synonyms:
+      - atpF-atpH
+      - atpH-atpF
+
+  petb-petd:
+    synonyms:
+      - petB-petD
+      - petD-petB
+
+  psbe-petl:
+    synonyms:
+      - psbE-petL
+      - petL-psbE
+
+  rbcl-atpb:
+    synonyms:
+      - rbcL-atpB
+      - atpB-rbcL
+
+  trnk:
+    synonyms:
+      - trnK intron
+      - "trnK gene, intron"
+      - "trnK gene, introns"
+      - "(trnK) gene, intron"
+      - "(trnK) gene, introns"
+

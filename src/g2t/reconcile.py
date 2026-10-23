@@ -515,7 +515,14 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         sub = df[df[key].isin(member_keys)]
         orgs = sorted(_vals(sub, org))
         organism = orgs[0] if orgs else "unknown"
-        core = sorted(set(sub["voucher_core"]) - {""})[0]
+        # the key's core may come from another identifier field than voucher_core ('s.n.' + isolate AB1234)
+        shared = set.intersection(*(group_cores[k] for k in member_keys))
+        key_cores = (
+            sorted(shared - {""})
+            or sorted(set(sub["voucher_core"]) - {""})
+            or sorted(set().union(*all_cores[sub.index]))
+        )
+        core = next((c for c in key_cores if not c.startswith("#")), key_cores[0])
         base_key = f"{re.sub(r'[^A-Za-z0-9]+', '_', organism).strip('_')}_{core.lstrip('#')}"
         new_key, n = base_key, 1
         while new_key in used_keys - member_keys:

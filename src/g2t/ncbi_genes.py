@@ -58,6 +58,23 @@ GENES = {
         '"elongation factor 1 alpha"[Title]',
     ],
     "RPB2": ["RPB2[Gene]", '"RNA polymerase II"[Title]'],
+    # plastid (plant barcodes and phylogenetic markers)
+    "RBCL": ["rbcL[Gene]", '"ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit"[Title]', "rbcL[Title]"],
+    "MATK": ["matK[Gene]", '"maturase K"[Title]', "matK[Title]"],
+    "TRNL-TRNF": ['"trnL-trnF"[Title]', '"trnL-F"[Title]', '"trnL intron"[Title]'],
+    "PSBA-TRNH": ['"psbA-trnH"[Title]', '"trnH-psbA"[Title]'],
+    "RPL16": ["rpl16[Gene]", '"ribosomal protein L16"[Title]', "rpl16[Title]"],
+    "RPS16": ["rps16[Gene]", '"ribosomal protein S16"[Title]', "rps16[Title]"],
+    "NDHF": ["ndhF[Gene]", "ndhF[Title]"],
+    "RPOC1": ["rpoC1[Gene]", "rpoC1[Title]"],
+    "YCF1": ["ycf1[Gene]", "ycf1[Title]"],
+    "RPL32-TRNL": ['"rpl32-trnL"[Title]', '"trnL-rpl32"[Title]'],
+    "TRNS-TRNG": ['"trnS-trnG"[Title]'],
+    "ATPF-ATPH": ['"atpF-atpH"[Title]'],
+    "PETB-PETD": ['"petB-petD"[Title]'],
+    "PSBE-PETL": ['"psbE-petL"[Title]'],
+    "RBCL-ATPB": ['"rbcL-atpB"[Title]', '"atpB-rbcL"[Title]'],
+    "TRNK": ['"trnK intron"[Title]', "trnK[Gene]"],
 }
 ALIASES = {
     "COX1": "COI",
@@ -75,15 +92,19 @@ ALIASES = {
     "ITS1": "ITS",
     "ITS2": "ITS",
     "HISTONE3": "H3",
+    "TRNLF": "TRNL-TRNF",
+    "TRNHPSBA": "PSBA-TRNH",
 }
 
 MITO_GENES = ["COI", "COII", "COIII", "CYTB", "ND1", "ND2", "ND4", "ND5", "ATP6", "12S", "16S"]
 NUCLEAR_GENES = ["18S", "28S", "5.8S", "ITS", "H3", "EF1A", "RPB2"]
+# the dry-run report counts the main plant barcodes only (each gene is one more search)
+PLASTID_GENES = ["RBCL", "MATK", "TRNL-TRNF", "PSBA-TRNH"]
 
 
 def canon(name):
     k = name.strip().upper().replace("-", "").replace(" ", "")
-    k = ALIASES.get(k, k)
+    k = ALIASES.get(k, k).replace("-", "")
     for g in GENES:
         if g.upper().replace("-", "").replace(".", "") == k.replace(".", ""):
             return g

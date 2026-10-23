@@ -361,3 +361,15 @@ class TestSubIdentifiers:
         out, report = reconcile_dataframe(df)
         assert len(report) == 1
         assert out["species_voucher_new"].nunique() == 1
+
+    def test_merge_when_top_field_has_no_core(self):
+        """voucher 's.n.' (no identifier) + isolate AB1234 meets isolate AB1234 (crashed on Nymphaeaceae)."""
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "s.n.", "k1", isolate="AB1234", Ref1Title=PAPER),
+                rec("B", "P c", "16s", "no voucher", "k2", isolate="AB1234", Ref1Title=PAPER),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+        assert out["species_voucher_new"].iloc[0].endswith("AB1234")
