@@ -9,32 +9,34 @@ Exact string matching (Step 3) splits such specimens into one row per gene.
 This step decides merges from evidence in the GenBank records themselves,
 never from the voucher string alone:
 
-1. Candidates: groups of the *same organism* whose vouchers share a core
-   identifier (gene names and collection acronyms stripped; >= 4 characters).
-   Groups of the same genus sharing an identical identifier in any of
-   specimen_voucher/isolate/culture_collection/clone/strain (ignoring case and
-   punctuation, e.g. ``Bathykurila sp.`` / ``Bathykurila sp. AH-2023``, both
-   ``SIO:BIC:A10920``) are candidates too: one specimen deposited under two
-   spellings of its name. Otherwise the same core in different organisms is
-   reported, never merged; an identical voucher in different genera is also
-   flagged in ``match_evidence`` of both rows.
+1. Candidates: groups whose identifiers share a core. Identifiers are taken
+   from every field (specimen_voucher, isolate, culture_collection, clone,
+   strain); a core is what remains after gene names, collection acronyms and
+   separators are removed (>= 4 characters; COI_ZMMU_MSU_WS399 -> WS399).
+   Pairs must be the same organism, or the same genus with an identical
+   identifier (ignoring case and punctuation): one specimen deposited under two
+   spellings of its name (Bathykurila sp. / Bathykurila sp. AH-2023, both
+   SIO:BIC:A10920). Other pairs are reported, never merged; an identical
+   identifier in different genera is also flagged in match_evidence.
 2. Evidence for each candidate pair:
-     strong    - identical voucher (ignoring case and punctuation; moderate
-                 when both groups contain the same gene);
+     strong    - identical identifier (ignoring case and punctuation);
                  a shared publication title (not "Direct Submission");
                  identical full collection date; coordinates within 0.01 deg
      moderate  - same first author; same collector; same detailed locality;
-                 coordinates within 0.5 deg
-     conflict  - incompatible collection dates; different countries;
-                 coordinates > 0.5 deg apart
+                 coordinates within 0.5 deg; an identical identifier when both
+                 groups already contain the same gene
+     conflict  - the shared core is followed by different endings (lot or
+                 sub-sample numbers: BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 /
+                 -2, CE438 / CE438_2); incompatible collection dates; different
+                 countries; coordinates > 0.5 deg apart
 3. Decision: any conflict -> not merged; >= 1 strong -> merge ("high");
    >= 2 moderate -> merge ("medium"); otherwise not merged. If both groups
    already contain the same gene, only the same collection date or the same
-   coordinates can merge them; a shared paper or an identical voucher cannot
-   (CE438 / CE438_2: two specimens of one paper, each with a 28S).
-   Such pairs are noted in match_evidence ("similar voucher ... check").
-   Merges are applied greedily (strongest first) and a merge is skipped if it
-   would put two conflicting groups in one specimen.
+   coordinates can merge them (a paper reports many specimens); such pairs left
+   apart are noted in match_evidence ("similar voucher ... check").
+   Merges are applied strongest first, and a merge is skipped if any two groups
+   it would join conflict, differ in organism (other than the genus rule
+   above) or share a gene without date/coordinate evidence.
 
 Outputs (in ``output_dir``):
   reconciled_species_voucher.csv  input rows + species_voucher_g2t, voucher_core,
@@ -105,12 +107,18 @@ class Evidence:
 # --------------------------------------------------------------------------- parsing helpers
 
 
-def _core_of(part: str, min_len: int) -> str:
+def _clean_id(part: str) -> str:
+    """Identifier without gene-name prefix/suffix and trailing notes ('COI_WS399 (holotype)' -> 'WS399')."""
     v = part
     for _ in range(3):
         v = TRAILING.sub("", v)
         v = GENE_PREFIX.sub("", v)
         v = GENE_SUFFIX.sub("", v)
+    return v
+
+
+def _core_of(part: str, min_len: int) -> str:
+    v = _clean_id(part)
     m = CORE.search(" " + v)
     if not m:
         return ""
@@ -153,6 +161,21 @@ def voucher_core(raw: str, min_len: int = 4) -> str:
 def _norm_voucher(v: str) -> str:
     """'SIO:BIC:A10920', 'SIO-BIC A10920' -> 'SIOBICA10920'."""
     return re.sub(r"[^A-Z0-9]", "", str(v).upper())
+
+
+def _sub_ids(ids: list[str], core: str) -> set[str]:
+    """What follows the core in each identifier, after normalisation: 'SIO:BIC:A9392-1' + core A9392 -> '1';
+    'COI_ZMMU_WS399' + core WS399 -> ''. Identifiers that do not contain the core are skipped."""
+    c = core.lstrip("#")
+    out = set()
+    for v in ids:
+        n = _norm_voucher(_clean_id(v))
+        i = n.rfind(c)
+        if i >= 0:
+            end = n[i + len(c) :]
+            # a second full identifier is not a sub-number (ZMMU_MSU_WS14906_XZ5507 also names WS14906)
+            out.add("" if ID_TOKEN.fullmatch(end) and len(end) >= 4 else end)
+    return out
 
 
 def _genus(organism: str) -> str:
@@ -279,7 +302,7 @@ def _specimen_level(strong: list[str]) -> list[str]:
 def _decide(ev: Evidence, gene_overlap: bool, min_conf: str) -> tuple[str, str]:
     """-> (confidence or '', decision text)."""
     if ev.conflicts:
-        return "", "not merged: conflicting metadata"
+        return "", f"not merged: conflicting metadata ({'; '.join(ev.conflicts)})"
     conf = "high" if ev.strong else ("medium" if len(ev.moderate) >= 2 else "")
     if gene_overlap and not _specimen_level(ev.strong):
         return "", "not merged: same gene in both groups, same date/coordinates required"
@@ -310,14 +333,31 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         return ""
 
     raw = df.apply(raw_voucher, axis=1)
-    all_cores = raw.map(lambda v: voucher_cores(v, config.min_core_length))
-    df["voucher_core"] = all_cores.map(lambda c: next((x for x in c if not x.startswith("#")), c[0] if c else ""))
+    raw_cores = raw.map(lambda v: voucher_cores(v, config.min_core_length))
+    df["voucher_core"] = raw_cores.map(lambda c: next((x for x in c if not x.startswith("#")), c[0] if c else ""))
+
+    # candidates come from every identifier field: one record may give the code as specimen_voucher,
+    # another as isolate (GU901728: voucher SMNH<SWE>:108431 + isolate CE438; PP994571: isolate CE438)
+    def row_ids(row) -> list[str]:
+        out = []
+        for c in VOUCHER_FIELDS:
+            v = str(row.get(c, "") or "").strip()
+            if any(ch.isalnum() for ch in v) and v.lower() != "nan":
+                out += [p for p in SPLIT.split(v) if p.strip()]
+        return out
+
+    ids = df.apply(row_ids, axis=1)
+    all_cores = ids.map(
+        lambda lst: list(dict.fromkeys(c for v in lst for c in voucher_cores(v, config.min_core_length)))
+    )
     df["match_basis"] = "exact"
     df["match_confidence"] = ""
     df["match_evidence"] = ""
 
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
+    group_ids = {k: [v for lst in ids[g.index] for v in lst] for k, g in groups.items()}
+    group_cores = {k: {c for lst in all_cores[g.index] for c in lst} for k, g in groups.items()}
     # every identifier field, not only the one that made the key: one record may carry the code as
     # specimen_voucher, another as isolate (MF001136 'personal collection:...:CE14346' + isolate CE14346)
     norm_vouchers = {
@@ -338,8 +378,8 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         return len(genera(ka) | genera(kb)) == 1
 
     cores: dict[str, list[str]] = {}
-    for k, g in groups.items():
-        for c in sorted({c for lst in all_cores[g.index] for c in lst}):
+    for k in groups:
+        for c in sorted(group_cores[k]):
             cores.setdefault(c, []).append(k)
 
     cache: dict[frozenset, Evidence] = {}
@@ -348,6 +388,18 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         k = frozenset((ka, kb))
         if k not in cache:
             ev = compare_groups(groups[ka], groups[kb])
+            # same core, different endings: lot or sub-sample numbers of different specimens
+            # (BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 / -2, CE438 / CE438_2)
+            shared = sorted(group_cores[ka] & group_cores[kb])
+            if shared:
+                ends = [(_sub_ids(group_ids[ka], c), _sub_ids(group_ids[kb], c)) for c in shared]
+                ends = [(a, b) for a, b in ends if a and b]
+                if ends and all(not (a & b) for a, b in ends):
+                    a, b = ends[0]
+                    ev.conflicts.append(
+                        f"different sub-identifiers after {shared[0].lstrip('#')} "
+                        f"({', '.join(sorted(x or '-' for x in a))} vs {', '.join(sorted(x or '-' for x in b))})"
+                    )
             if norm_vouchers[ka] & norm_vouchers[kb]:
                 oa, ob = _vals(groups[ka], org), _vals(groups[kb], org)
                 names = f" (organism names differ: {'; '.join(sorted(oa | ob))})" if oa != ob else ""

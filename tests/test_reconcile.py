@@ -286,6 +286,18 @@ class TestSameGeneSamePaper:
         )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 2
+        assert report["decision"].str.contains("sub-identifier").any()
+
+    def test_same_gene_and_shared_paper_flagged(self):
+        paper = "Towards an integrative revision of Haplotaxidae"
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "28s", "COI_ZMMU_WS399", "k1", Ref1Title=paper),
+                rec("B", "P c", "28s", "WS399", "k2", Ref1Title=paper),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
         assert report["decision"].str.contains("same gene in both groups").any()
         assert out["match_evidence"].str.contains("similar voucher").all()
 
@@ -298,4 +310,54 @@ class TestSameGeneSamePaper:
             ]
         )
         out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+
+
+class TestSubIdentifiers:
+    """Vouchers that share a core but end in different sub-identifiers are different specimens
+    (lot numbers: BIOUG06836-E01/-E02, SIO:BIC:A9392-1/-2, BP2010-044/-045, CE438/CE438_2)."""
+
+    @pytest.mark.parametrize(
+        "va,vb",
+        [
+            ("BIOUG06836-E01", "BIOUG06836-E02"),
+            ("SIO:BIC:A9392-1", "SIO:BIC:A9392-2"),
+            ("BIOUG<CAN>:BP2010-044", "BIOUG<CAN>:BP2010-045"),
+            ("KIOST-MB-CR255-4", "KIOST-MB-CR255-5"),
+            ("CE438", "CE438_2"),
+        ],
+    )
+    def test_different_suffix_not_merged(self, va, vb):
+        kw = dict(Ref1Title=PAPER, collection_date="12-Jun-2019", lat_lon="66.55 N 33.10 E")
+        df = pd.DataFrame([rec("A", "P c", "coi", va, "k1", **kw), rec("B", "P c", "16s", vb, "k2", **kw)])
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+        assert report["decision"].str.contains("sub-identifier").any()
+
+    @pytest.mark.parametrize(
+        "va,vb",
+        [
+            ("COI_ZMMU_MSU_WS399", "WS399"),
+            ("WS399_COI", "28S_ZMMU_WS399"),
+            ("AM W.51461", "AM:W.51461"),
+            ("personal collection:Christer Erseus:CE14346", "CE14346"),
+        ],
+    )
+    def test_same_suffix_still_merged(self, va, vb):
+        df = pd.DataFrame(
+            [rec("A", "P c", "coi", va, "k1", Ref1Title=PAPER), rec("B", "P c", "16s", vb, "k2", Ref1Title=PAPER)]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+
+    def test_candidate_from_isolate_when_voucher_differs(self):
+        """GU901728: voucher SMNH<SWE>:108431, isolate CE438; PP994571: isolate CE438 only."""
+        df = pd.DataFrame(
+            [
+                rec("GU901728", "H g", "12s", "SMNH<SWE>:108431", "k1", isolate="CE438", Ref1Title=PAPER),
+                rec("PP994571", "H g", "28s", "", "k2", isolate="CE438", Ref1Title=PAPER),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert len(report) == 1
         assert out["species_voucher_new"].nunique() == 1
