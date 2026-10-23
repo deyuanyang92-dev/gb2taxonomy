@@ -12,12 +12,13 @@ Usage:
 """
 
 import math
+import os
 import re
 from pathlib import Path
 
 import pandas as pd
 
-BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi/ceshi5")
+BASE = Path(os.environ.get("G2T_DATA_DIR", "."))  # e.g. <data>/ceshi5
 EXCEL = BASE / "zlae141_suppl_supplementary_tables_s1.xlsx"
 FINAL_CSV = BASE / "haplotaxis_output3/gb_metadata/final.csv"
 OUTPUT = BASE / "ncbi_source_update.tsv"

@@ -4,13 +4,14 @@
   python scripts/compare_results.py
 """
 
+import os
 import re
 from pathlib import Path
 
 import pandas as pd
 from docx import Document
 
-BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi")
+BASE = Path(os.environ.get("G2T_DATA_DIR", "."))
 
 
 # ---------------------------------------------------------------------------

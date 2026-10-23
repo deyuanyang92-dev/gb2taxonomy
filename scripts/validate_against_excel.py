@@ -6,11 +6,12 @@ Usage:
     python scripts/validate_against_excel.py
 """
 
+import os
 from pathlib import Path
 
 import pandas as pd
 
-BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi/ceshi5")
+BASE = Path(os.environ.get("G2T_DATA_DIR", "."))  # e.g. <data>/ceshi5
 EXPECTED = BASE / "expected_mapping.tsv"
 ASSIGNED = BASE / "haplotaxis_output/labeled_genes/assigned_genes_types_all.csv"
 FINAL_CSV = BASE / "haplotaxis_output/gb_metadata/final.csv"

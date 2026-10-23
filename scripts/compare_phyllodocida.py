@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-BASE = Path("/media/deyuan/217ce44c-b5de-45ed-8720-deebdff85ece/CLAUDE/ceshi")
+BASE = Path(os.environ.get("G2T_DATA_DIR", "."))
 G2T_OUTPUT = Path("Phyllodocida_output")
 
 GENE_MAP = {
