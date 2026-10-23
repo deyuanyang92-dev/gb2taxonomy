@@ -87,20 +87,24 @@ _PLACEHOLDER = re.compile(
 )
 
 
-def _is_blank_value(v) -> bool:
-    """True for NA, empty, punctuation-only strings and voucher placeholders without digits (n/d, s.n., no voucher)."""
+def _is_blank_value(v, specimen_voucher: bool = False) -> bool:
+    """True for NA, empty and punctuation-only strings and placeholders without a digit (n/d, s.n., no voucher).
+    For specimen_voucher=True also any value without a digit: an institution code alone (BRLU) names no
+    specimen. Isolate, strain and haplotype labels without digits ('AA', 'C') are kept."""
     if pd.isna(v):
         return True
     text = str(v).strip()
     if not any(ch.isalnum() for ch in text):
         return True
-    return not any(ch.isdigit() for ch in text) and bool(_PLACEHOLDER.match(text))
+    if any(ch.isdigit() for ch in text):
+        return False
+    return specimen_voucher or bool(_PLACEHOLDER.match(text))
 
 
-def _blank_to_na(series: pd.Series) -> pd.Series:
+def _blank_to_na(series: pd.Series, specimen_voucher: bool = False) -> pd.Series:
     """Return *series* as string dtype with blank / punctuation-only values replaced by NA (L-22)."""
     s = series.astype("string")
-    blank = pd.Series([_is_blank_value(v) for v in s], index=s.index, dtype=bool)
+    blank = pd.Series([_is_blank_value(v, specimen_voucher) for v in s], index=s.index, dtype=bool)
     return s.mask(blank)
 
 
@@ -190,7 +194,10 @@ def build_species_vouchers(
     if resolved_order_cols:
         # Whitespace-only / punctuation-only values (" ", "..", "()") count as empty (L-22),
         # so the fallback to the next column works; non-blank values are kept verbatim.
-        tmp = pd.concat([_blank_to_na(df[c]).rename(c) for c in resolved_order_cols], axis=1)
+        tmp = pd.concat(
+            [_blank_to_na(df[c], specimen_voucher=c == "specimen_voucher").rename(c) for c in resolved_order_cols],
+            axis=1,
+        )
         primary_voucher_series = tmp.bfill(axis=1).iloc[:, 0]
         primary_voucher_series = primary_voucher_series.infer_objects()
         fill_from_priority = int(primary_voucher_series.notna().sum())

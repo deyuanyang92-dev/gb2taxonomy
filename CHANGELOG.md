@@ -2,6 +2,12 @@
 
 ## 未发布
 
+- **规则冻结（frozen-heldout-v1）后、根据独立测试集和盲审发现的修正**：
+  - 同一批次按 isolate 拆开的个体之间判为冲突，不再按“凭证号相同”合回（盲审 100 个合并中 5 个错误全属此类：MCZ 70173 个体 5/7；台纸 MW0003970 的 MW1-1/MW1-2）。
+  - 编号主体两侧的数字段也比较：两边各有对方没有的编号 → 不同标本（`NSJC66_1005_S001` / `NSJC66_962_S001`）。
+  - specimen_voucher 只有机构缩写、没有数字（`BRLU`）视为没有凭证号（isolate、单倍型标签不受影响）。
+  - 间隔区记录同时写了基因时两列都放（“trnL gene…; and maturase K (matK) gene” → trnl-trnf,matk；“rbcL-atpB spacer…; atpB gene” → atpb,rbcl-atpb）。
+  - 未注释叶绿体基因组 “UNVERIFIED: … chloroplast/plastid sequence”（≥20 kb）→ plastome；“gene for LSU/SSU rRNA”、“26S/25S rRNA”、“18S small ribosomal RNA” 写法补入；ITS 记录的 26S/25S 侧翼放入 28s 列。
 - **审稿意见（R1–R3）标本连接修复**：
   - 编号主体相同，但两边都有不同的机构代码 / 采集人姓名（`USNM 123456` / `MCZ 123456`，`Christenhusz 5678 (K)` / `Hassemer 5678 (FLOR)`，`Juslen s.n. 2003` / `Muola s.n. 2003`）或不同的样品编号（`Polychaeta1D9_St95` / `Polychaeta1G8_St95`，同一站位的两个样品）→ 不同标本。一边没有这类词时照旧可合并（`WS399` / `COI_ZMMU_MSU_WS399`；`H & W 16149` / `C.B. Hellquist, J.H. Wiersema 16149`）。
   - 占位凭证号（`n/d`、`FCO:n./d.`、`s.n.`、`no voucher`、`NA`、`unvouchered` 等，且不含数字）视为没有凭证号，改用 isolate 等字段。

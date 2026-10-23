@@ -25,7 +25,8 @@ never from the voucher string alone:
      moderate  - same first author; same collector; same detailed locality;
                  coordinates within 0.5 deg; an identical identifier when both
                  groups already contain the same gene
-     conflict  - both groups have a specimen_voucher and the two share no core;
+     conflict  - two individuals split out of one lot (see below);
+                 both groups have a specimen_voucher and the two share no core;
                  the shared core is followed by different endings (lot or
                  sub-sample numbers: BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 /
                  -2), or by a number on one side only (CE438 / CE438_2); an
@@ -242,7 +243,7 @@ def _id_parts(identifier: str, core: str) -> tuple[set[str], set[str]]:
         if u.isalpha():
             if len(u) >= 2 and u not in _ID_STOPWORDS:
                 words.add(u)
-        elif any(ch.isalpha() for ch in u) and any(ch.isdigit() for ch in u):
+        elif any(ch.isdigit() for ch in u) and (len(u) >= 2 or any(ch.isalpha() for ch in u)):
             others.add(u)
     return words, others
 
@@ -258,7 +259,9 @@ def _compatible_ids(ids_a: list[str], ids_b: list[str], core: str) -> bool:
         return True
     for wa, oa in a:
         for wb, ob in b:
-            if not (wa and wb and not (wa & wb)) and not (oa and ob and not (oa & ob)):
+            # words: different when they share none; other codes: when each side has one the other lacks
+            # (Polychaeta1D9 / Polychaeta1G8; NSJC66_1005_S001 / NSJC66_962_S001)
+            if not (wa and wb and not (wa & wb)) and not ((oa - ob) and (ob - oa)):
                 return True
     return False
 
@@ -426,7 +429,8 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     def raw_voucher(row) -> str:
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if not _is_blank_value(v) and v.lower() != "nan":  # same rule as voucher.py (blank, placeholder)
+            # same rule as voucher.py (blank, placeholder, institution code alone)
+            if not _is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
                 return v
         return ""
 
@@ -440,7 +444,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         out = []
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if not _is_blank_value(v) and v.lower() != "nan":
+            if not _is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
                 out += [p for p in SPLIT.split(v) if p.strip()]
         return out
 
@@ -455,6 +459,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     # A voucher can be a lot or a herbarium sheet holding several individuals (MCZ 70173: 7 COI from different
     # isolates). When records of one key carry different isolates and the same gene, each isolate becomes its own
     # specimen; records without an isolate stay under the voucher.
+    lot_of: dict[str, str] = {}  # key -> voucher key of the lot it was split from
     if "isolate" in df.columns:
         iso = df["isolate"].fillna("").astype(str).str.strip()
         for k, g in list(df.groupby(key, sort=False)):
@@ -473,10 +478,12 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
             if not repeated:
                 continue
             note = "one voucher, several individuals (different isolates with the same gene): one row per isolate"
+            lot_of[k] = k
             for i in g.index:
                 if iso[i] in vals:
                     df.at[i, key] = f"{k}_{re.sub(r'[^A-Za-z0-9]+', '_', iso[i]).strip('_')}"
                     df.at[i, "match_evidence"] = note
+                    lot_of[df.at[i, key]] = k
 
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
@@ -516,6 +523,9 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         k = frozenset((ka, kb))
         if k not in cache:
             ev = compare_groups(groups[ka], groups[kb])
+            # groups split out of one lot are different individuals (MCZ 70173 isolates 5 and 7)
+            if ka in lot_of and lot_of.get(ka) == lot_of.get(kb):
+                ev.conflicts.append(f"different individuals of one lot ({lot_of[ka]})")
             # same core, different endings: lot or sub-sample numbers of different specimens
             # (BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 / -2, CE438 / CE438_2); see _different_specimens
             shared = sorted(group_cores[ka] & group_cores[kb])

@@ -61,7 +61,7 @@ def test_spacer_name_is_not_the_gene(config):
         "Nuphar lutea rbcL-atpB intergenic spacer, partial sequence; and ATP synthase beta subunit (atpB) gene, "
         "partial cds; chloroplast"
     )
-    assert typed(config, d, 900) == "rbcl-atpb"
+    assert typed(config, d, 900) == "atpb,rbcl-atpb"  # the record also names the atpB gene
 
 
 def test_plastid_word_in_definition_without_organelle(config):
@@ -142,7 +142,7 @@ def test_matrix_columns_and_plastome_propagation():
         (
             "Ophioglossum sp. rbcL-atpB intergenic spacer, partial sequence; "
             "and ATP synthase beta subunit (atpB) gene, partial cds; chloroplast",
-            "rbcl-atpb",
+            "atpb,rbcl-atpb",
         ),
         ("Nuphar lutea trnK gene, introns; chloroplast", "trnk"),
         (

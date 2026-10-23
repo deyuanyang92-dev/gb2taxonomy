@@ -45,6 +45,7 @@ gene_types:
       - ribosomal RNA large subunit
       - 16s rRNA
       - 16S subunit RNA
+      - LSU rRNA
 
   12s:
     synonyms:
@@ -60,6 +61,7 @@ gene_types:
       - 12S rRNA, partial sequence
       - ribosomal RNA small subunit
       - 12S ribosomal RNA
+      - SSU rRNA
 
   cob:
     synonyms:
@@ -237,6 +239,9 @@ gene_types:
       - large subunit ribosomal RNA
       - ribosomal RNA large subunit gene
       - 28S ribosomal RNA
+      - 26S rRNA
+      - 25S rRNA
+      - LSU rRNA
 
   ef-1:
     synonyms:
@@ -266,6 +271,8 @@ gene_types:
       - 18S rRNA
       - small subunit ribosomal RNA gen
       - ribosomal RNA small-subunit
+      - SSU rRNA
+      - 18S small ribosomal RNA
 
   h3:
     synonyms:
@@ -293,6 +300,8 @@ gene_types:
       - plastome
       - "chloroplast, partial genome"
       - "plastid, partial genome"
+      - chloroplast sequence
+      - plastid sequence
 
   rbcl:
     synonyms:

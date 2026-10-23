@@ -114,6 +114,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "ribosomal RNA large subunit",
                 "16s rRNA",
                 "16S subunit RNA",
+                "LSU rRNA",
             ]
         }
     ),
@@ -133,6 +134,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "12S rRNA, partial sequence",
                 "ribosomal RNA small subunit",
                 "12S ribosomal RNA",
+                "SSU rRNA",
             ]
         }
     ),
@@ -332,6 +334,8 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
             for s in [
                 "chloroplast, complete genome",
                 "chloroplast DNA, complete genome",
+                "chloroplast sequence",
+                "plastid sequence",
                 "plastid DNA, complete genome",
                 "organelle: plastid",
                 "plastid, complete genome",
@@ -575,6 +579,9 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "28S ribosomal RNA gene",
                 "26S ribosomal RNA",
                 "25S ribosomal RNA",
+                "26S rRNA",
+                "25S rRNA",
+                "LSU rRNA",
                 "28S ribosomal RNA gene, partial sequence",
                 "large subunit ribosomal RNA gene, partial sequence",
                 "28S rRNA, partial sequence",
@@ -622,6 +629,8 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "small subunit ribosomal RNA gen",
                 "18S ribosomal RNA",  # P0-2b: fixed "ribosoaml" -> "ribosomal"
                 "ribosomal RNA small-subunit",
+                "SSU rRNA",
+                "18S small ribosomal RNA",
             ]
         }
     ),
@@ -1144,7 +1153,7 @@ def match_mito_genes(
 # rRNA genes flanking the ITS; an ITS record that names one also contains part of it
 _ITS_FLANKS = {
     "18s": re.compile(r"\b18s (?:ribosomal rna|rrna)|small subunit ribosomal rna"),
-    "28s": re.compile(r"\b28s (?:ribosomal rna|rrna)|large subunit ribosomal rna"),
+    "28s": re.compile(r"\b2[568]s (?:ribosomal rna|rrna)|large subunit ribosomal rna"),
 }
 
 
@@ -1173,25 +1182,31 @@ def match_nuclear_genes(definition: str, length_val: int, config: MatchConfig) -
 def match_plastid_genes(definition: str, length_val: int, config: MatchConfig) -> tuple[set[str], list[str]]:
     """Plastid gene matching: plastome first, then the intergenic-spacer markers (psbA-trnH, trnL-trnF,
     rpl32-trnL, ...; their names contain gene names, so they must win over the genes), then the other genes."""
-    return _match_gene_loop(
+    spacers = ["psba-trnh", "trnl-trnf", "rpl32-trnl", "trns-trng", "atpf-atph", "petb-petd", "psbe-petl", "rbcl-atpb"]
+    matched, notes = _match_gene_loop(
         definition,
         length_val,
         config,
         gene_set=config.plastid_genes,
         skip_genes=set(),
-        priority_genes=[
-            "plastome",
-            "psba-trnh",
-            "trnl-trnf",
-            "rpl32-trnl",
-            "trns-trng",
-            "atpf-atph",
-            "petb-petd",
-            "psbe-petl",
-            "rbcl-atpb",
-        ],
+        priority_genes=["plastome", *spacers],
         global_range=config.length2_cpgenes,
     )
+    # a spacer record may also name a gene ("trnL gene, partial sequence; and maturase K (matK) gene", Angraecum
+    # KF672272): the genes are matched too (their synonyms never match a spacer name alone)
+    if matched and matched <= set(spacers):
+        more, more_notes = _match_gene_loop(
+            definition,
+            length_val,
+            config,
+            gene_set=config.plastid_genes,
+            skip_genes={"plastome", *spacers},
+            priority_genes=[],
+            global_range=config.length2_cpgenes,
+        )
+        matched |= more
+        notes += more_notes
+    return matched, notes
 
 
 def _record_group(organelle: str, definition: str) -> str:
