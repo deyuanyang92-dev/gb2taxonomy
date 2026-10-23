@@ -25,7 +25,8 @@ never from the voucher string alone:
      moderate  - same first author; same collector; same detailed locality;
                  coordinates within 0.5 deg; an identical identifier when both
                  groups already contain the same gene
-     conflict  - the shared core is followed by different endings (lot or
+     conflict  - both groups have a specimen_voucher and the two share no core;
+                 the shared core is followed by different endings (lot or
                  sub-sample numbers: BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 /
                  -2), or by a number on one side only (CE438 / CE438_2); an
                  added letter code is not a conflict (WS16799 / WS16799_Pr21);
@@ -166,17 +167,29 @@ def _norm_voucher(v: str) -> str:
 
 
 def _sub_ids(ids: list[str], core: str) -> set[str]:
-    """What follows the core in each identifier, after normalisation: 'SIO:BIC:A9392-1' + core A9392 -> '1';
-    'COI_ZMMU_WS399' + core WS399 -> ''. Identifiers that do not contain the core are skipped."""
+    """What follows the core in each identifier, normalised: 'SIO:BIC:A9392-1' + A9392 -> '1';
+    'R1941-END07-19-1' + R1941 -> 'END07191'; 'COI_ZMMU_WS399' + WS399 -> ''. A single following token that is
+    itself a full identifier is a second identifier, not a sub-number ('ZMMU_MSU_WS14906_XZ5507' + WS14906 -> '').
+    Identifiers that do not contain the core are skipped."""
     c = core.lstrip("#")
     out = set()
     for v in ids:
-        n = _norm_voucher(_clean_id(v))
+        tokens = [_norm_voucher(t) for t in re.split(r"[^A-Za-z0-9]+", _clean_id(v))]
+        tokens = [t for t in tokens if t]
+        n = "".join(tokens)
         i = n.rfind(c)
-        if i >= 0:
-            end = n[i + len(c) :]
-            # a second full identifier is not a sub-number (ZMMU_MSU_WS14906_XZ5507 also names WS14906)
-            out.add("" if ID_TOKEN.fullmatch(end) and len(end) >= 4 else end)
+        if i < 0:
+            continue
+        end = n[i + len(c) :]
+        # tokens after the core, when the core ends on a token boundary
+        bounds, pos = [], 0
+        for t in tokens:
+            pos += len(t)
+            bounds.append(pos)
+        rest = [t for t, b in zip(tokens, bounds) if b > i + len(c)] if (i + len(c)) in bounds else None
+        if rest is not None and len(rest) == 1 and ID_TOKEN.fullmatch(rest[0]) and len(rest[0]) >= 4:
+            end = ""
+        out.add(end)
     return out
 
 
@@ -372,6 +385,10 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
     group_ids = {k: [v for lst in ids[g.index] for v in lst] for k, g in groups.items()}
+    voucher_only = {
+        k: {c for v in _vals(g, "specimen_voucher") for c in voucher_cores(v, config.min_core_length)}
+        for k, g in groups.items()
+    }
     group_cores = {k: {c for lst in all_cores[g.index] for c in lst} for k, g in groups.items()}
     # every identifier field, not only the one that made the key: one record may carry the code as
     # specimen_voucher, another as isolate (MF001136 'personal collection:...:CE14346' + isolate CE14346)
@@ -415,6 +432,11 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                         f"different sub-identifiers after {shared[0].lstrip('#')} "
                         f"({', '.join(sorted(x or '-' for x in a))} vs {', '.join(sorted(x or '-' for x in b))})"
                     )
+            # both groups name a specimen voucher and the vouchers share nothing: different specimens, even when
+            # another field (an isolate that is a collecting-event code) is identical (RUMF:ZO-00076 / ZO-00070)
+            va, vb = voucher_only[ka], voucher_only[kb]
+            if va and vb and not (va & vb):
+                ev.conflicts.append(f"different specimen vouchers ({'; '.join(sorted(va))} vs {'; '.join(sorted(vb))})")
             if norm_vouchers[ka] & norm_vouchers[kb]:
                 oa, ob = _vals(groups[ka], org), _vals(groups[kb], org)
                 names = f" (organism names differ: {'; '.join(sorted(oa | ob))})" if oa != ob else ""

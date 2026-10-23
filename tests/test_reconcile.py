@@ -374,3 +374,29 @@ class TestSubIdentifiers:
         out, _ = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1
         assert out["species_voucher_new"].iloc[0].endswith("AB1234")
+
+
+class TestLotsSharingEventCodes:
+    def test_dash_numbered_lot_members(self):
+        """R1941-END07-19-1 / -2: endings END07-19-1 vs END07-19-2 are lot numbers, not second identifiers."""
+        kw = dict(Ref1Title=PAPER, collection_date="12-Jun-2019")
+        df = pd.DataFrame(
+            [
+                rec("A", "G v", "coi", "R1941-END07-19-1", "k1", **kw),
+                rec("B", "G v", "16s", "R1941-END07-19-2", "k2", **kw),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+
+    def test_different_vouchers_sharing_an_event_isolate(self):
+        """RUMF:ZO-00076 and RUMF:ZO-00070, both isolate CF21112021 (a collecting event): two specimens."""
+        df = pd.DataFrame(
+            [
+                rec("A", "G c", "coi", "RUMF:ZO-00076", "k1", isolate="CF21112021", Ref1Title=PAPER),
+                rec("B", "G c", "16s", "RUMF:ZO-00070", "k2", isolate="CF21112021", Ref1Title=PAPER),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+        assert report["decision"].str.contains("different specimen vouchers").any()
