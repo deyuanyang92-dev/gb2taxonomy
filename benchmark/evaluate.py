@@ -31,7 +31,9 @@ import argparse
 import itertools
 import json
 import re
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
 
@@ -126,6 +128,54 @@ def supercrunch_clusters(run_dir: str, parse_loci: str) -> dict[str, object]:
     return out
 
 
+def exact_any_field_clusters(run_dir: str) -> dict[str, object]:
+    """Same organism + an identical identifier in any voucher field (case/punctuation ignored), transitively."""
+    meta = pd.read_csv(f"{run_dir}/gb_metadata/final.csv", dtype=str).fillna("")
+    parent: dict[str, str] = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for _, r in meta.iterrows():
+        acc = _base(r["ACCESSION"])
+        find(acc)
+        for c in ("specimen_voucher", "isolate", "culture_collection", "clone", "strain"):
+            v = re.sub(r"[^A-Z0-9]", "", str(r.get(c, "")).upper())
+            if len(v) >= 3:
+                parent[find(acc)] = find(f"{r['Organism']}|{v}")
+    return {a: find(a) for a in list(parent) if "|" not in a}
+
+
+def core_only_clusters(run_dir: str) -> dict[str, object]:
+    """Same organism + any shared voucher core (g2t's candidate rule) merged WITHOUT evidence (ablation)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from g2t.reconcile import VOUCHER_FIELDS, voucher_cores
+
+    meta = pd.read_csv(f"{run_dir}/gb_metadata/final.csv", dtype=str).fillna("")
+    parent: dict[str, str] = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for _, r in meta.iterrows():
+        acc = _base(r["ACCESSION"])
+        find(acc)
+        for c in VOUCHER_FIELDS:
+            v = str(r.get(c, ""))
+            if any(ch.isalnum() for ch in v):
+                for core in voucher_cores(v):
+                    parent[find(acc)] = find(f"{r['Organism']}|{core}")
+    return {a: find(a) for a in list(parent) if "|" not in a}
+
+
 def pairs(groups: dict[str, object], accs: list[str]) -> set[tuple[str, str]]:
     by = defaultdict(list)
     for a in accs:
@@ -133,8 +183,79 @@ def pairs(groups: dict[str, object], accs: list[str]) -> set[tuple[str, str]]:
     return {tuple(sorted(p)) for members in by.values() for p in itertools.combinations(members, 2)}
 
 
-def linking_scores(gold: pd.DataFrame, groups: dict[str, object]) -> dict:
+def specimen_gold(gold: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Single-specimen rows; accessions listed under two specimens (a table error, e.g. PP968595) are dropped."""
     spec = gold[gold.specimen_level].drop_duplicates(["row_id", "accession"])
+    n_rows = spec.groupby("accession").row_id.nunique()
+    ambiguous = set(n_rows[n_rows > 1].index)
+    return spec[~spec.accession.isin(ambiguous)], len(ambiguous)
+
+
+def bcubed(truth: dict[str, object], groups: dict[str, object], accs: list[str]) -> tuple[float, float, float]:
+    """B-cubed precision/recall/F1 (Bagga & Baldwin 1998) over the gold accessions."""
+    pred = {a: groups.get(a, ("single", a)) for a in accs}
+    by_t, by_p = defaultdict(set), defaultdict(set)
+    for a in accs:
+        by_t[truth[a]].add(a)
+        by_p[pred[a]].add(a)
+    p = sum(len(by_t[truth[a]] & by_p[pred[a]]) / len(by_p[pred[a]]) for a in accs) / len(accs)
+    r = sum(len(by_t[truth[a]] & by_p[pred[a]]) / len(by_t[truth[a]]) for a in accs) / len(accs)
+    return p, r, (2 * p * r / (p + r) if p + r else 0.0)
+
+
+def bootstrap(gold: pd.DataFrame, methods: dict[str, dict], n: int = 1000, seed: int = 1) -> dict:
+    """95% intervals over specimens (resampled with replacement) for pairwise F1 and B-cubed F1 of each method,
+    and for the difference g2t - exact_id."""
+    import random
+
+    spec, _ = specimen_gold(gold)
+    rows = sorted(spec.row_id.unique())
+    by_row = {r: list(g.accession) for r, g in spec.groupby("row_id")}
+    rng = random.Random(seed)
+    draws: dict[str, list[float]] = defaultdict(list)
+    for _ in range(n):
+        pick = [rng.choice(rows) for _ in rows]
+        truth, accs = {}, []
+        for k, r in enumerate(pick):  # duplicated specimens get their own copies
+            for a in by_row[r]:
+                truth[f"{a}#{k}"] = f"{r}#{k}"
+                accs.append(f"{a}#{k}")
+        row_of = {x: r for k, r in enumerate(pick) for x in (f"{a}#{k}" for a in by_row[r])}
+        for name, cl in methods.items():
+            g = {f"{a}#{k}": cl.get(a, ("single", a)) for k, r in enumerate(pick) for a in by_row[r]}
+            gp, pp = pairs(truth, accs), pairs(g, accs)
+            # pairs between two copies of one resampled specimen are artefacts of resampling
+            pp = {(x, y) for x, y in pp if not (row_of[x] == row_of[y] and x.split("#")[1] != y.split("#")[1])}
+            tp = len(gp & pp)
+            pr = tp / len(pp) if pp else 1.0
+            rc = tp / len(gp) if gp else 1.0
+            draws[f"{name}_F1"].append(2 * pr * rc / (pr + rc) if pr + rc else 0.0)
+            # B-cubed with the same rule: an item's predicted cluster excludes copies of its own specimen
+            by_pred = defaultdict(list)
+            for x in accs:
+                by_pred[g[x]].append(x)
+            bp = br = 0.0
+            for x in accs:
+                cl = [y for y in by_pred[g[x]] if not (row_of[x] == row_of[y] and x.split("#")[1] != y.split("#")[1])]
+                same = sum(1 for y in cl if truth[y] == truth[x])
+                bp += same / len(cl)
+                br += same / len(by_row[row_of[x]])
+            bp, br = bp / len(accs), br / len(accs)
+            draws[f"{name}_bcubed_F1"].append(2 * bp * br / (bp + br) if bp + br else 0.0)
+    if "g2t_F1" in draws and "exact_id_F1" in draws:
+        draws["g2t_minus_exact_id_F1"] = [a - b for a, b in zip(draws["g2t_F1"], draws["exact_id_F1"])]
+        draws["g2t_minus_exact_id_bcubed_F1"] = [
+            a - b for a, b in zip(draws["g2t_bcubed_F1"], draws["exact_id_bcubed_F1"])
+        ]
+    out = {}
+    for k, v in draws.items():
+        v = sorted(v)
+        out[k] = [round(v[int(0.025 * n)], 4), round(v[int(0.975 * n) - 1], 4)]
+    return out
+
+
+def linking_scores(gold: pd.DataFrame, groups: dict[str, object]) -> dict:
+    spec, n_ambiguous = specimen_gold(gold)
     accs = sorted(set(spec.accession))
     truth = {a: r for r, a in zip(spec.row_id, spec.accession)}
     gold_pairs = pairs(truth, accs)
@@ -161,6 +282,10 @@ def linking_scores(gold: pd.DataFrame, groups: dict[str, object]) -> dict:
         "recall": round(r, 4),
         "F1": round(f, 4),
         "specimens_complete": complete,
+        "bcubed_precision": round(bcubed(truth, groups, accs)[0], 4),
+        "bcubed_recall": round(bcubed(truth, groups, accs)[1], 4),
+        "bcubed_F1": round(bcubed(truth, groups, accs)[2], 4),
+        "ambiguous_accessions_dropped": n_ambiguous,
         "specimens_complete_pct": round(100 * complete / n_spec, 1) if n_spec else None,
     }
 
@@ -196,6 +321,8 @@ def main() -> None:
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--run", required=True, help="g2t output directory (default settings)")
     ap.add_argument("--run-exact", help="g2t output directory built with --skip_reconcile")
+    ap.add_argument("--run-high", help="g2t output directory built with --reconcile_min_confidence high")
+    ap.add_argument("--bootstrap", type=int, default=0, help="bootstrap resamples for 95%% intervals (e.g. 1000)")
     ap.add_argument("--details", help="write per-accession gene results here (TSV)")
     ap.add_argument("--supercrunch", help="path to SuperCRUNCH's Parse_Loci.py (adds the 'supercrunch' method)")
     a = ap.parse_args()
@@ -213,13 +340,21 @@ def main() -> None:
         methods = {
             "singleton": {},
             "exact_id": exact_id_clusters(a.run),
+            "exact_any_field": exact_any_field_clusters(a.run),
+            "core_only": core_only_clusters(a.run),
             "g2t": matrix_clusters(a.run),
         }
+        if a.run_high:
+            methods["g2t_high"] = matrix_clusters(a.run_high)
         if a.supercrunch:
             methods["supercrunch"] = supercrunch_clusters(a.run, a.supercrunch)
         if a.run_exact:
             methods["g2t_exact"] = matrix_clusters(a.run_exact)
         result["linking"] = {k: linking_scores(gold, v) for k, v in methods.items()}
+        if a.bootstrap:
+            result["bootstrap_95"] = bootstrap(
+                gold, {k: v for k, v in methods.items() if k != "singleton"}, a.bootstrap
+            )
     print(json.dumps(result, indent=1, default=str))
 
 

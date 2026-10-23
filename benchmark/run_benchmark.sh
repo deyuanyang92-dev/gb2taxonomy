@@ -51,8 +51,9 @@ for name in haplotaxidae hesionidae opheliidae phyllodocida priapulidae nymphaea
   fi
   timed "$name" g2t g2t -i "$in" -o "$work/out_$name" --stream --quiet
   timed "$name" g2t_exact g2t -i "$in" -o "$work/out_${name}_exact" --stream --quiet --skip_reconcile
-  python "$here/evaluate.py" --gold "$gold" --dataset "${GOLD[$name]}" \
-    --run "$work/out_$name" --run-exact "$work/out_${name}_exact" \
+  timed "$name" g2t_high g2t -i "$in" -o "$work/out_${name}_high" --stream --quiet --reconcile_min_confidence high
+  python "$here/evaluate.py" --gold "$gold" --dataset "${GOLD[$name]}" --bootstrap 1000 \
+    --run "$work/out_$name" --run-exact "$work/out_${name}_exact" --run-high "$work/out_${name}_high" \
     --details "$work/results/${name}_genes.tsv" ${SUPERCRUNCH_PARSE_LOCI:+--supercrunch "$SUPERCRUNCH_PARSE_LOCI"} \
     > "$work/results/$name.json"
 done
