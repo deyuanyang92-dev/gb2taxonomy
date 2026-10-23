@@ -3,7 +3,7 @@
 ## 未发布
 
 - **同一凭证号、物种名写法不同 → 同一标本（一行）**：如 SIO:BIC:A10920 的 18S/28S/线粒体基因组登记为 *Bathykurila* sp.，H3 登记为 *Bathykurila* sp. AH-2023，原来分成两行。现在凭证号相同（忽略大小写和标点，如 `SIO:BIC:A6302` = `SIO-BIC A6302`）且属名相同即合并，`match_evidence` 注明 “organism names differ”。属名不同（WS3020：*Halicryptus* / *Priapulus*）仍为两行，两行的 `match_evidence` 写 “same voucher as … (different genus, not merged; check)”，并打印警告。
-- **两组都有同一基因时，“同一篇论文”不再足以合并**：CE438 与 CE438_2（Martin et al. 2024 列为两个标本，各有一条 28S）原来因同一篇论文被并成一行（28S 格两个登录号）。现在需要同一采集日期或坐标、或相同凭证号；未合并的两组在 `match_evidence` 写 “similar voucher to … (both have the same gene, not merged; check)”。
+- **两组都有同一基因时，“同一篇论文”不再足以合并**：CE438 与 CE438_2（Martin et al. 2024 列为两个标本，各有一条 28S）原来因同一篇论文被并成一行（28S 格两个登录号）。现在需要同一采集日期或同一坐标（同一凭证号在这种情况下也只算中等证据）；未合并的两组在 `match_evidence` 写 “similar voucher to … (both have the same gene, not merged; check)”。
 - 文献表基准（`benchmark/`）：Polynoidae 33 个标本，标本连接召回 86.6% → 96.2%（精确度 100%）；Haplotaxidae 75 个标本，召回 88.1% → 90.1%。
 - **跨区段 rRNA 记录放进它覆盖的每一列**：标题同时含 ITS 和 18S/28S 的记录（如 OM007981 “small subunit ribosomal RNA gene and internal transcribed spacer 1”，1908 bp；OM105844 “internal transcribed spacer 2 and large subunit ribosomal RNA gene”）原来只进 `its1-its2` 列，现在 `gene_type` 为 `18s,its1-its2` / `28s,its1-its2`，矩阵中同一登录号同时出现在 18s（或 28s）列和 its1-its2 列，`Assignment_reason` 注明 “multi-region rDNA”。完整 18S–28S 记录仍为 `18-28s`（organize 已复制到 18s/28s/its1-its2 列）。Polynoidae 文献表中 60 个 18S/28S 登录号因此出现在矩阵的 18s/28s 列。
 - **输入扩展名**：`g2t`/`g2t-extract` 现在识别 `.gbf`（NCBI 及很多工具导出的 GenBank 文件扩展名）；全部支持 `.gb`、`.gbf`、`.gbk`、`.gbff`、`.genbank`（不区分大小写）。此前 `.gbf` 文件被跳过，报 “no GenBank files found”。

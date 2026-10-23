@@ -28,9 +28,9 @@ never from the voucher string alone:
                  coordinates > 0.5 deg apart
 3. Decision: any conflict -> not merged; >= 1 strong -> merge ("high");
    >= 2 moderate -> merge ("medium"); otherwise not merged. If both groups
-   already contain the same gene, only specimen-level strong evidence (same
-   date or coordinates, identical voucher) can merge them; a shared paper
-   cannot (CE438 / CE438_2: two specimens of one paper, each with a 28S).
+   already contain the same gene, only the same collection date or the same
+   coordinates can merge them; a shared paper or an identical voucher cannot
+   (CE438 / CE438_2: two specimens of one paper, each with a 28S).
    Such pairs are noted in match_evidence ("similar voucher ... check").
    Merges are applied greedily (strongest first) and a merge is skipped if it
    would put two conflicting groups in one specimen.
