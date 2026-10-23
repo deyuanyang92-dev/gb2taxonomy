@@ -29,7 +29,7 @@ g2t -i gb/markers -o out --stream
 # final matrix: out/organized_genes/organized_species_voucher.csv
 ```
 
-Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 315 specimens, 128 with ≥ 2 genes (435 specimens and 46 with ≥ 2 genes when voucher variants are not reconciled, `--skip_reconcile`).
+Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 316 specimens, 128 with ≥ 2 genes (435 specimens and 46 with ≥ 2 genes when voucher variants are not reconciled, `--skip_reconcile`).
 
 ## Usage
 
@@ -105,7 +105,7 @@ Submitters often write the voucher of one specimen differently for each gene (`C
 - **Conflict** (blocks the merge): both groups have a `specimen_voucher` and the two share no core (an identical isolate that is a collecting-event code does not override this); the shared core is followed by different endings (lot or sub-sample numbers: `BIOUG06836-E01` / `-E02`, `SIO:BIC:A9392-1` / `-2`), or by a number on one side only (`CE438` / `CE438_2`; an added letter code such as `WS16799` / `WS16799_Pr21` is not a conflict); incompatible dates, different countries, coordinates > 0.5° apart.
 - **Decision**: ≥ 1 strong → merged (`high`); ≥ 2 moderate → merged (`medium`); otherwise not merged. If both groups already hold the same gene, only the same collection date or the same coordinates can merge them (a shared publication is not enough, since one paper reports many specimens); such pairs stay apart and are flagged in `match_evidence` ("similar voucher … check"). Before two specimens are joined, every pair of their records is checked, so a chain A–B–C cannot bring together A and C if they conflict, differ in organism (other than the genus rule above) or would put the same gene twice in one specimen without date/coordinate evidence.
 
-`--reconcile_min_confidence high` merges on strong evidence only; `--skip_reconcile` turns the step off. Merged rows carry `match_basis`, `match_confidence` and `match_evidence` into the matrix. In the Priapulidae data all 139 candidate pairs within a species shared a publication and 100 specimens were merged; the identifier WS3020, used for *Halicryptus spinulosus* (28S) and *Priapulus caudatus* (COI, 16S), was reported and left unmerged.
+`--reconcile_min_confidence high` merges on strong evidence only; `--skip_reconcile` turns the step off. Merged rows carry `match_basis`, `match_confidence` and `match_evidence` into the matrix. In the Priapulidae data (October 2026), 138 of 139 candidate pairs within a species were merged on a shared publication (the remaining pair would have joined groups with different sub-identifiers), giving 100 reconciled specimens; the identifier WS3020, used for *Halicryptus spinulosus* (28S) and *Priapulus caudatus* (COI, 16S), was reported and left unmerged.
 
 ### Vouchers in the matrix
 
