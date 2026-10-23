@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Score g2t output against the gold standard built by build_gold.py.
+
+Two checks per dataset:
+
+1. Gene type: the gene column of each accession in the published table vs. the matrix column(s) where
+   g2t puts it; accessions missing from the matrix get their status from labeled_genes/record_status.csv.
+2. Specimen linking (specimen-level rows only): pairwise precision/recall/F1 over accession pairs
+   ("same specimen" in the published table vs. "same matrix row" in g2t), plus the share of
+   published specimens whose accessions all end up in one row and no other gold accession joins them.
+
+Linking methods compared on the same records:
+    singleton   every record its own row (no linking)
+    exact_id    same organism + identical identifier string (specimen_voucher, else strain, else isolate),
+                i.e. linking by exact voucher labels
+    supercrunch SuperCRUNCH's own parser (Parse_Loci.parse_fasta_record, Portik & Wiens 2020) applied to the
+                FASTA title of each record: same species name + same voucher/isolate/strain code from the
+                DEFINITION line (its "vouchered" mode); records without a code stay unlinked
+                (needs --supercrunch path/to/Parse_Loci.py)
+    g2t_exact   g2t matrix built with --skip_reconcile
+    g2t         g2t matrix (default: voucher variants reconciled)
+
+Usage:
+    python benchmark/evaluate.py --gold benchmark/gold/gold_standard.tsv \
+        --dataset Haplotaxidae --run out_haplotaxis --run-exact out_haplotaxis_norec
+"""
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import json
+import re
+from collections import defaultdict
+
+import pandas as pd
+
+GENE_COLS = ["mtgenome", "coi", "16s", "12s", "cob", "cox2", "cox3", "18s", "28s", "its1-its2", "18-28s", "ef-1", "h3"]
+
+
+def _base(acc) -> str:
+    return str(acc).split(".")[0].strip()
+
+
+def matrix_cells(run_dir: str) -> list[tuple[str, int, str]]:
+    """(accession, matrix row index, gene column) for every accession in the matrix."""
+    m = pd.read_csv(f"{run_dir}/organized_genes/organized_species_voucher.csv", dtype=str)
+    out = []
+    for i, row in m.iterrows():
+        for col in GENE_COLS:
+            if col in m.columns and pd.notna(row[col]):
+                out += [(_base(tok), i, col) for tok in re.split(r"[;,\s]+", row[col]) if tok]
+    return out
+
+
+def matrix_clusters(run_dir: str) -> dict[str, int]:
+    """accession -> matrix row index."""
+    return {acc: i for acc, i, _ in matrix_cells(run_dir)}
+
+
+def exact_id_clusters(run_dir: str) -> dict[str, object]:
+    meta = pd.read_csv(f"{run_dir}/gb_metadata/final.csv", dtype=str).fillna("")
+    out: dict[str, object] = {}
+    for _, r in meta.iterrows():
+        ident = next((r[c].strip() for c in ("specimen_voucher", "strain", "isolate") if r.get(c, "").strip()), "")
+        acc = _base(r["ACCESSION"])
+        out[acc] = (r["Organism"], ident) if ident else ("single", acc)
+    return out
+
+
+def supercrunch_clusters(run_dir: str, parse_loci: str) -> dict[str, object]:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("sc_parse_loci", parse_loci)
+    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    meta = pd.read_csv(f"{run_dir}/gb_metadata/final.csv", dtype=str).fillna("")
+    out: dict[str, object] = {}
+    for _, r in meta.iterrows():
+        title = f">{r.get('Version') or r['ACCESSION']} {r['Definition']}"
+        _, sp, _, _, voucher = mod.parse_fasta_record(title, set(), set(), True)
+        acc = _base(r["ACCESSION"])
+        out[acc] = (sp, voucher) if voucher != "NA" else ("single", acc)
+    return out
+
+
+def pairs(groups: dict[str, object], accs: list[str]) -> set[tuple[str, str]]:
+    by = defaultdict(list)
+    for a in accs:
+        by[groups.get(a, ("single", a))].append(a)
+    return {tuple(sorted(p)) for members in by.values() for p in itertools.combinations(members, 2)}
+
+
+def linking_scores(gold: pd.DataFrame, groups: dict[str, object]) -> dict:
+    spec = gold[gold.specimen_level].drop_duplicates(["row_id", "accession"])
+    accs = sorted(set(spec.accession))
+    truth = {a: r for r, a in zip(spec.row_id, spec.accession)}
+    gold_pairs = pairs(truth, accs)
+    pred_pairs = pairs(groups, accs)
+    tp = len(gold_pairs & pred_pairs)
+    p = tp / len(pred_pairs) if pred_pairs else 1.0
+    r = tp / len(gold_pairs) if gold_pairs else 1.0
+    f = 2 * p * r / (p + r) if p + r else 0.0
+    complete = 0
+    for _, g in spec.groupby("row_id"):
+        keys = {groups.get(a, ("single", a)) for a in g.accession}
+        if len(keys) == 1:
+            key = keys.pop()
+            joined = {a for a in accs if groups.get(a, ("single", a)) == key}
+            complete += joined == set(g.accession)
+    n_spec = spec.row_id.nunique()
+    return {
+        "specimens": n_spec,
+        "accessions": len(accs),
+        "gold_pairs": len(gold_pairs),
+        "pred_pairs": len(pred_pairs),
+        "false_merges": len(pred_pairs - gold_pairs),
+        "precision": round(p, 4),
+        "recall": round(r, 4),
+        "F1": round(f, 4),
+        "specimens_complete": complete,
+        "specimens_complete_pct": round(100 * complete / n_spec, 1) if n_spec else None,
+    }
+
+
+def gene_scores(gold: pd.DataFrame, run_dir: str) -> tuple[dict, pd.DataFrame]:
+    st = pd.read_csv(f"{run_dir}/labeled_genes/record_status.csv", dtype=str)
+    st["acc"] = st.ACCESSION.map(_base)
+    st = st.drop_duplicates("acc").set_index("acc")
+    g = gold.drop_duplicates(["accession", "gene"]).copy()
+    cols: dict[str, set[str]] = defaultdict(set)
+    for acc, _, col in matrix_cells(run_dir):
+        cols[acc].add(col)
+
+    def judge(r):
+        if r.accession not in st.index:
+            return "not_in_input"
+        if r.accession in cols:
+            return "correct" if r.gene in cols[r.accession] else "wrong"
+        s = st.loc[r.accession]
+        return s.status if s.status != "assigned" else "not_in_matrix"
+
+    g["result"] = g.apply(judge, axis=1)
+    g["g2t_columns"] = [",".join(sorted(cols.get(a, ()))) for a in g.accession]
+    counts = g.result.value_counts().to_dict()
+    inp = g[g.result != "not_in_input"]
+    counts["accuracy_of_input"] = round((inp.result == "correct").mean(), 4) if len(inp) else None
+    return counts, g
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--gold", required=True)
+    ap.add_argument("--dataset", required=True)
+    ap.add_argument("--run", required=True, help="g2t output directory (default settings)")
+    ap.add_argument("--run-exact", help="g2t output directory built with --skip_reconcile")
+    ap.add_argument("--details", help="write per-accession gene results here (TSV)")
+    ap.add_argument("--supercrunch", help="path to SuperCRUNCH's Parse_Loci.py (adds the 'supercrunch' method)")
+    a = ap.parse_args()
+
+    gold = pd.read_csv(a.gold, sep="\t", dtype={"specimen_level": bool})
+    gold = gold[gold.dataset == a.dataset]
+    genes, detail = gene_scores(gold, a.run)
+    if a.details:
+        detail.to_csv(a.details, sep="\t", index=False)
+    result = {"dataset": a.dataset, "gene_type": genes, "linking": {}}
+    if gold.specimen_level.any():
+        methods = {
+            "singleton": {},
+            "exact_id": exact_id_clusters(a.run),
+            "g2t": matrix_clusters(a.run),
+        }
+        if a.supercrunch:
+            methods["supercrunch"] = supercrunch_clusters(a.run, a.supercrunch)
+        if a.run_exact:
+            methods["g2t_exact"] = matrix_clusters(a.run_exact)
+        result["linking"] = {k: linking_scores(gold, v) for k, v in methods.items()}
+    print(json.dumps(result, indent=1, default=str))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,946 @@
+dataset	row_id	species	voucher	specimen_level	gene	accession
+Haplotaxidae	Haplotaxidae:1	Haplotaxis spSE	SMNH 211581 / CE1233	True	12s	PP968574
+Haplotaxidae	Haplotaxidae:1	Haplotaxis spSE	SMNH 211581 / CE1233	True	16s	PP994580
+Haplotaxidae	Haplotaxidae:1	Haplotaxis spSE	SMNH 211581 / CE1233	True	18s	PP990634
+Haplotaxidae	Haplotaxidae:1	Haplotaxis spSE	SMNH 211581 / CE1233	True	28s	PP994523
+Haplotaxidae	Haplotaxidae:1	Haplotaxis spSE	SMNH 211581 / CE1233	True	coi	PP988405
+Haplotaxidae	Haplotaxidae:2	Haplotaxis spSE	SMNH 162130 / CE5731	True	12s	PP968575
+Haplotaxidae	Haplotaxidae:2	Haplotaxis spSE	SMNH 162130 / CE5731	True	16s	PP994629
+Haplotaxidae	Haplotaxidae:2	Haplotaxis spSE	SMNH 162130 / CE5731	True	18s	PP990683
+Haplotaxidae	Haplotaxidae:2	Haplotaxis spSE	SMNH 162130 / CE5731	True	28s	PP994573
+Haplotaxidae	Haplotaxidae:2	Haplotaxis spSE	SMNH 162130 / CE5731	True	coi	PP988449
+Haplotaxidae	Haplotaxidae:3	Haplotaxis spFR	RBINS IG 33953/09.132.01 / CE33794	True	12s	PP968583
+Haplotaxidae	Haplotaxidae:3	Haplotaxis spFR	RBINS IG 33953/09.132.01 / CE33794	True	16s	PP994613
+Haplotaxidae	Haplotaxidae:3	Haplotaxis spFR	RBINS IG 33953/09.132.01 / CE33794	True	18s	PP990668
+Haplotaxidae	Haplotaxidae:3	Haplotaxis spFR	RBINS IG 33953/09.132.01 / CE33794	True	28s	PP994555
+Haplotaxidae	Haplotaxidae:3	Haplotaxis spFR	RBINS IG 33953/09.132.01 / CE33794	True	coi	PP988440
+Haplotaxidae	Haplotaxidae:4	Haplotaxis spFR	RBINS IG 33953/09.132.02 / CE33795	True	12s	PP968584
+Haplotaxidae	Haplotaxidae:4	Haplotaxis spFR	RBINS IG 33953/09.132.02 / CE33795	True	16s	PP994614
+Haplotaxidae	Haplotaxidae:4	Haplotaxis spFR	RBINS IG 33953/09.132.02 / CE33795	True	18s	PP990669
+Haplotaxidae	Haplotaxidae:4	Haplotaxis spFR	RBINS IG 33953/09.132.02 / CE33795	True	28s	PP994556
+Haplotaxidae	Haplotaxidae:4	Haplotaxis spFR	RBINS IG 33953/09.132.02 / CE33795	True	coi	PP988441
+Haplotaxidae	Haplotaxidae:5	Haplotaxis spIT	SMNH 224405 / CE34678	True	12s	PP968578
+Haplotaxidae	Haplotaxidae:5	Haplotaxis spIT	SMNH 224405 / CE34678	True	16s	PP994622
+Haplotaxidae	Haplotaxidae:5	Haplotaxis spIT	SMNH 224405 / CE34678	True	18s	PP990676
+Haplotaxidae	Haplotaxidae:5	Haplotaxis spIT	SMNH 224405 / CE34678	True	28s	PP994564
+Haplotaxidae	Haplotaxidae:5	Haplotaxis spIT	SMNH 224405 / CE34678	True	coi	PQ008661
+Haplotaxidae	Haplotaxidae:6	Haplotaxis spGR	RBINS IG 33953/17.284.02 / CE33798	True	12s	PP968576
+Haplotaxidae	Haplotaxidae:6	Haplotaxis spGR	RBINS IG 33953/17.284.02 / CE33798	True	16s	PP994617
+Haplotaxidae	Haplotaxidae:6	Haplotaxis spGR	RBINS IG 33953/17.284.02 / CE33798	True	18s	PP990671
+Haplotaxidae	Haplotaxidae:6	Haplotaxis spGR	RBINS IG 33953/17.284.02 / CE33798	True	28s	PP994559
+Haplotaxidae	Haplotaxidae:6	Haplotaxis spGR	RBINS IG 33953/17.284.02 / CE33798	True	coi	PP988444
+Haplotaxidae	Haplotaxidae:7	Haplotaxis spGR	RBINS IG 33953/17.284.03 / CE33799	True	12s	PP968577
+Haplotaxidae	Haplotaxidae:7	Haplotaxis spGR	RBINS IG 33953/17.284.03 / CE33799	True	16s	PP994618
+Haplotaxidae	Haplotaxidae:7	Haplotaxis spGR	RBINS IG 33953/17.284.03 / CE33799	True	18s	PP990672
+Haplotaxidae	Haplotaxidae:7	Haplotaxis spGR	RBINS IG 33953/17.284.03 / CE33799	True	28s	PP994560
+Haplotaxidae	Haplotaxidae:7	Haplotaxis spGR	RBINS IG 33953/17.284.03 / CE33799	True	coi	PP988445
+Haplotaxidae	Haplotaxidae:8	Haplotaxis spJP1	NSMT An-1915-1917 / CE30885	True	12s	PP968585
+Haplotaxidae	Haplotaxidae:8	Haplotaxis spJP1	NSMT An-1915-1917 / CE30885	True	16s	PP994598
+Haplotaxidae	Haplotaxidae:8	Haplotaxis spJP1	NSMT An-1915-1917 / CE30885	True	18s	PP990653
+Haplotaxidae	Haplotaxidae:8	Haplotaxis spJP1	NSMT An-1915-1917 / CE30885	True	28s	PP994541
+Haplotaxidae	Haplotaxidae:8	Haplotaxis spJP1	NSMT An-1915-1917 / CE30885	True	coi	PP988424
+Haplotaxidae	Haplotaxidae:9	Haplotaxis spJP2	NSMT An-1918-1922 / CE31629	True	12s	PP968586
+Haplotaxidae	Haplotaxidae:9	Haplotaxis spJP2	NSMT An-1918-1922 / CE31629	True	16s	PP994601
+Haplotaxidae	Haplotaxidae:9	Haplotaxis spJP2	NSMT An-1918-1922 / CE31629	True	18s	PP990657
+Haplotaxidae	Haplotaxidae:9	Haplotaxis spJP2	NSMT An-1918-1922 / CE31629	True	28s	PP994545
+Haplotaxidae	Haplotaxidae:9	Haplotaxis spJP2	NSMT An-1918-1922 / CE31629	True	coi	PP988428
+Haplotaxidae	Haplotaxidae:10	Haplotaxis spUS1	USNM 1716294 / CE30796	True	12s	PP968579
+Haplotaxidae	Haplotaxidae:10	Haplotaxis spUS1	USNM 1716294 / CE30796	True	16s	PP994594
+Haplotaxidae	Haplotaxidae:10	Haplotaxis spUS1	USNM 1716294 / CE30796	True	18s	PP990649
+Haplotaxidae	Haplotaxidae:10	Haplotaxis spUS1	USNM 1716294 / CE30796	True	28s	PP994537
+Haplotaxidae	Haplotaxidae:10	Haplotaxis spUS1	USNM 1716294 / CE30796	True	coi	PP988420
+Haplotaxidae	Haplotaxidae:11	Haplotaxis spUS2	USNM 1716295 / CE30863	True	12s	PP968581
+Haplotaxidae	Haplotaxidae:11	Haplotaxis spUS2	USNM 1716295 / CE30863	True	16s	PP994595
+Haplotaxidae	Haplotaxidae:11	Haplotaxis spUS2	USNM 1716295 / CE30863	True	18s	PP990650
+Haplotaxidae	Haplotaxidae:11	Haplotaxis spUS2	USNM 1716295 / CE30863	True	28s	PP994538
+Haplotaxidae	Haplotaxidae:11	Haplotaxis spUS2	USNM 1716295 / CE30863	True	coi	PP988421
+Haplotaxidae	Haplotaxidae:12	Haplotaxis spUS3	SMNH 224406 / CE5231	True	12s	PP968580
+Haplotaxidae	Haplotaxidae:12	Haplotaxis spUS3	SMNH 224406 / CE5231	True	16s	PP994628
+Haplotaxidae	Haplotaxidae:12	Haplotaxis spUS3	SMNH 224406 / CE5231	True	18s	PP990682
+Haplotaxidae	Haplotaxidae:12	Haplotaxis spUS3	SMNH 224406 / CE5231	True	28s	PP994572
+Haplotaxidae	Haplotaxidae:13	Haplotaxis spUS4	USNM 1716299 / CE36035	True	12s	PP968582
+Haplotaxidae	Haplotaxidae:13	Haplotaxis spUS4	USNM 1716299 / CE36035	True	16s	PP994626
+Haplotaxidae	Haplotaxidae:13	Haplotaxis spUS4	USNM 1716299 / CE36035	True	18s	PP990680
+Haplotaxidae	Haplotaxidae:13	Haplotaxis spUS4	USNM 1716299 / CE36035	True	28s	PP994568
+Haplotaxidae	Haplotaxidae:13	Haplotaxis spUS4	USNM 1716299 / CE36035	True	coi	PP988404
+Haplotaxidae	Haplotaxidae:14	Haplotaxis spBEN1	RBINS IG 34181/16.288.09 / CE33791/LM68	True	12s	PP968613
+Haplotaxidae	Haplotaxidae:14	Haplotaxis spBEN1	RBINS IG 34181/16.288.09 / CE33791/LM68	True	16s	PP994611
+Haplotaxidae	Haplotaxidae:14	Haplotaxis spBEN1	RBINS IG 34181/16.288.09 / CE33791/LM68	True	18s	PP990666
+Haplotaxidae	Haplotaxidae:14	Haplotaxis spBEN1	RBINS IG 34181/16.288.09 / CE33791/LM68	True	coi	PP988438
+Haplotaxidae	Haplotaxidae:15	Haplotaxis spBEN2	RBINS IG 34181/16.288.01 / CE33788/LM60	True	12s	PP968614
+Haplotaxidae	Haplotaxidae:15	Haplotaxis spBEN2	RBINS IG 34181/16.288.01 / CE33788/LM60	True	16s	PP994610
+Haplotaxidae	Haplotaxidae:15	Haplotaxis spBEN2	RBINS IG 34181/16.288.01 / CE33788/LM60	True	18s	PP990665
+Haplotaxidae	Haplotaxidae:15	Haplotaxis spBEN2	RBINS IG 34181/16.288.01 / CE33788/LM60	True	28s	PP994553
+Haplotaxidae	Haplotaxidae:15	Haplotaxis spBEN2	RBINS IG 34181/16.288.01 / CE33788/LM60	True	coi	PP988437
+Haplotaxidae	Haplotaxidae:16	Haplotaxis spBEN3	RBINS IG 33953/15.294.18 / CE33782/LM18	True	12s	PP968612
+Haplotaxidae	Haplotaxidae:16	Haplotaxis spBEN3	RBINS IG 33953/15.294.18 / CE33782/LM18	True	16s	PP994606
+Haplotaxidae	Haplotaxidae:16	Haplotaxis spBEN3	RBINS IG 33953/15.294.18 / CE33782/LM18	True	18s	PP990662
+Haplotaxidae	Haplotaxidae:16	Haplotaxis spBEN3	RBINS IG 33953/15.294.18 / CE33782/LM18	True	28s	PP994550
+Haplotaxidae	Haplotaxidae:16	Haplotaxis spBEN3	RBINS IG 33953/15.294.18 / CE33782/LM18	True	coi	PP988433
+Haplotaxidae	Haplotaxidae:17	Haplotaxis spBEN5	RBINS IG 33953/15.299.56 / CE33787/LM57	True	12s	PP968616
+Haplotaxidae	Haplotaxidae:17	Haplotaxis spBEN5	RBINS IG 33953/15.299.56 / CE33787/LM57	True	16s	PP994609
+Haplotaxidae	Haplotaxidae:17	Haplotaxis spBEN5	RBINS IG 33953/15.299.56 / CE33787/LM57	True	28s	PP994552
+Haplotaxidae	Haplotaxidae:17	Haplotaxis spBEN5	RBINS IG 33953/15.299.56 / CE33787/LM57	True	coi	PP988436
+Haplotaxidae	Haplotaxidae:18	Haplotaxis spBEN6	RBINS IG 33953/15.294.48 / CE33783/LM48	True	12s	PP968615
+Haplotaxidae	Haplotaxidae:18	Haplotaxis spBEN6	RBINS IG 33953/15.294.48 / CE33783/LM48	True	16s	PP994607
+Haplotaxidae	Haplotaxidae:18	Haplotaxis spBEN6	RBINS IG 33953/15.294.48 / CE33783/LM48	True	18s	PP990663
+Haplotaxidae	Haplotaxidae:18	Haplotaxis spBEN6	RBINS IG 33953/15.294.48 / CE33783/LM48	True	coi	PP988434
+Haplotaxidae	Haplotaxidae:19	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438	True	12s	GU901728
+Haplotaxidae	Haplotaxidae:19	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438	True	16s	AY340461
+Haplotaxidae	Haplotaxidae:19	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438	True	18s	AY365456
+Haplotaxidae	Haplotaxidae:19	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438	True	28s	PP994571
+Haplotaxidae	Haplotaxidae:20	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438_2	True	12s	PP968606
+Haplotaxidae	Haplotaxidae:20	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438_2	True	16s	PP994627
+Haplotaxidae	Haplotaxidae:20	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438_2	True	18s	PP990681
+Haplotaxidae	Haplotaxidae:20	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438_2	True	28s	PP994570
+Haplotaxidae	Haplotaxidae:20	Haplotaxoides decipiens gen. et sp. n.	SMNH 108431 / CE438_2	True	coi	GU902079
+Haplotaxidae	Haplotaxidae:21	Haplotaxoides decipiens gen. et sp. n.	USNM 1716307 Holotype / CE30888	True	12s	PP968604
+Haplotaxidae	Haplotaxidae:21	Haplotaxoides decipiens gen. et sp. n.	USNM 1716307 Holotype / CE30888	True	16s	PP994599
+Haplotaxidae	Haplotaxidae:21	Haplotaxoides decipiens gen. et sp. n.	USNM 1716307 Holotype / CE30888	True	18s	PP990654
+Haplotaxidae	Haplotaxidae:21	Haplotaxoides decipiens gen. et sp. n.	USNM 1716307 Holotype / CE30888	True	28s	PP994542
+Haplotaxidae	Haplotaxidae:21	Haplotaxoides decipiens gen. et sp. n.	USNM 1716307 Holotype / CE30888	True	coi	PP988425
+Haplotaxidae	Haplotaxidae:22	Haplotaxoides decipiens gen. et sp. n.	USNM 1716308 Paratype / CE30889	True	12s	PP968605
+Haplotaxidae	Haplotaxidae:22	Haplotaxoides decipiens gen. et sp. n.	USNM 1716308 Paratype / CE30889	True	18s	PP990655
+Haplotaxidae	Haplotaxidae:22	Haplotaxoides decipiens gen. et sp. n.	USNM 1716308 Paratype / CE30889	True	28s	PP994543
+Haplotaxidae	Haplotaxidae:22	Haplotaxoides decipiens gen. et sp. n.	USNM 1716308 Paratype / CE30889	True	coi	PP988426
+Haplotaxidae	Haplotaxidae:23	Haplotaxoides spA	USNM 1716319 / CE32193	True	12s	PP968607
+Haplotaxidae	Haplotaxidae:23	Haplotaxoides spA	USNM 1716319 / CE32193	True	16s	PP994603
+Haplotaxidae	Haplotaxidae:23	Haplotaxoides spA	USNM 1716319 / CE32193	True	18s	PP990659
+Haplotaxidae	Haplotaxidae:23	Haplotaxoides spA	USNM 1716319 / CE32193	True	28s	PP994547
+Haplotaxidae	Haplotaxidae:23	Haplotaxoides spA	USNM 1716319 / CE32193	True	coi	PP988430
+Haplotaxidae	Haplotaxidae:24	Haplotaxoides spA	USNM 1716320 / CE32194	True	12s	PP968608
+Haplotaxidae	Haplotaxidae:24	Haplotaxoides spA	USNM 1716320 / CE32194	True	16s	PP994604
+Haplotaxidae	Haplotaxidae:24	Haplotaxoides spA	USNM 1716320 / CE32194	True	18s	PP990660
+Haplotaxidae	Haplotaxidae:24	Haplotaxoides spA	USNM 1716320 / CE32194	True	28s	PP994548
+Haplotaxidae	Haplotaxidae:24	Haplotaxoides spA	USNM 1716320 / CE32194	True	coi	PP988431
+Haplotaxidae	Haplotaxidae:25	Haplotaxoides spB	USNM 1716321 / CE32195	True	12s	PP968609
+Haplotaxidae	Haplotaxidae:25	Haplotaxoides spB	USNM 1716321 / CE32195	True	16s	PP994605
+Haplotaxidae	Haplotaxidae:25	Haplotaxoides spB	USNM 1716321 / CE32195	True	18s	PP990661
+Haplotaxidae	Haplotaxidae:25	Haplotaxoides spB	USNM 1716321 / CE32195	True	28s	PP994549
+Haplotaxidae	Haplotaxidae:25	Haplotaxoides spB	USNM 1716321 / CE32195	True	coi	PP988432
+Haplotaxidae	Haplotaxidae:26	Haplotaxoides spC	USNM 1716322 / CE36019	True	12s	PP968610
+Haplotaxidae	Haplotaxidae:26	Haplotaxoides spC	USNM 1716322 / CE36019	True	16s	PP994623
+Haplotaxidae	Haplotaxidae:26	Haplotaxoides spC	USNM 1716322 / CE36019	True	18s	PP990677
+Haplotaxidae	Haplotaxidae:26	Haplotaxoides spC	USNM 1716322 / CE36019	True	28s	PP994565
+Haplotaxidae	Haplotaxidae:26	Haplotaxoides spC	USNM 1716322 / CE36019	True	coi	PP988402
+Haplotaxidae	Haplotaxidae:27	Haplotaxoides tehama gen. et sp. n.	USNM 1716317 Paratype / CE36028	True	16s	PP994624
+Haplotaxidae	Haplotaxidae:27	Haplotaxoides tehama gen. et sp. n.	USNM 1716317 Paratype / CE36028	True	18s	PP990678
+Haplotaxidae	Haplotaxidae:27	Haplotaxoides tehama gen. et sp. n.	USNM 1716317 Paratype / CE36028	True	28s	PP994566
+Haplotaxidae	Haplotaxidae:27	Haplotaxoides tehama gen. et sp. n.	USNM 1716317 Paratype / CE36028	True	coi	PP988401
+Haplotaxidae	Haplotaxidae:28	Haplotaxoides tehama gen. et sp. n.	USNM 1716318 Paratype / CE36029*	True	coi	PP988457
+Haplotaxidae	Haplotaxidae:29	Haplotaxoides tehama gen. et sp. n.	USNM 1716314 Holotype / CE36030	True	12s	PP968611
+Haplotaxidae	Haplotaxidae:29	Haplotaxoides tehama gen. et sp. n.	USNM 1716314 Holotype / CE36030	True	16s	PP994625
+Haplotaxidae	Haplotaxidae:29	Haplotaxoides tehama gen. et sp. n.	USNM 1716314 Holotype / CE36030	True	18s	PP990679
+Haplotaxidae	Haplotaxidae:29	Haplotaxoides tehama gen. et sp. n.	USNM 1716314 Holotype / CE36030	True	28s	PP994567
+Haplotaxidae	Haplotaxidae:29	Haplotaxoides tehama gen. et sp. n.	USNM 1716314 Holotype / CE36030	True	coi	PP988403
+Haplotaxidae	Haplotaxidae:30	Delaya leruthi	SMNH 224407 / CE13922	True	12s	PP968588
+Haplotaxidae	Haplotaxidae:30	Delaya leruthi	SMNH 224407 / CE13922	True	16s	PP994581
+Haplotaxidae	Haplotaxidae:30	Delaya leruthi	SMNH 224407 / CE13922	True	18s	PP990636
+Haplotaxidae	Haplotaxidae:30	Delaya leruthi	SMNH 224407 / CE13922	True	28s	PP994525
+Haplotaxidae	Haplotaxidae:30	Delaya leruthi	SMNH 224407 / CE13922	True	coi	PP988406
+Haplotaxidae	Haplotaxidae:31	Delaya spIT	SMMH 224408 / CE7161	True	12s	PP968617
+Haplotaxidae	Haplotaxidae:31	Delaya spIT	SMMH 224408 / CE7161	True	16s	PP994633
+Haplotaxidae	Haplotaxidae:31	Delaya spIT	SMMH 224408 / CE7161	True	18s	PP990687
+Haplotaxidae	Haplotaxidae:31	Delaya spIT	SMMH 224408 / CE7161	True	28s	PP994577
+Haplotaxidae	Haplotaxidae:31	Delaya spIT	SMMH 224408 / CE7161	True	coi	PP988453
+Haplotaxidae	Haplotaxidae:32	Delaya bureschi	RBINS IG 33953/08.296.01 / CE33796	True	12s	PP968589
+Haplotaxidae	Haplotaxidae:32	Delaya bureschi	RBINS IG 33953/08.296.01 / CE33796	True	16s	PP994615
+Haplotaxidae	Haplotaxidae:32	Delaya bureschi	RBINS IG 33953/08.296.01 / CE33796	True	18s	HE800207
+Haplotaxidae	Haplotaxidae:32	Delaya bureschi	RBINS IG 33953/08.296.01 / CE33796	True	28s	PP994557
+Haplotaxidae	Haplotaxidae:32	Delaya bureschi	RBINS IG 33953/08.296.01 / CE33796	True	coi	PP988442
+Haplotaxidae	Haplotaxidae:33	Delaya spGR	RBINS IG 33953/17.284.01 / CE33797	True	12s	PP968590
+Haplotaxidae	Haplotaxidae:33	Delaya spGR	RBINS IG 33953/17.284.01 / CE33797	True	16s	PP994616
+Haplotaxidae	Haplotaxidae:33	Delaya spGR	RBINS IG 33953/17.284.01 / CE33797	True	18s	PP990670
+Haplotaxidae	Haplotaxidae:33	Delaya spGR	RBINS IG 33953/17.284.01 / CE33797	True	28s	PP994558
+Haplotaxidae	Haplotaxidae:33	Delaya spGR	RBINS IG 33953/17.284.01 / CE33797	True	coi	PP988443
+Haplotaxidae	Haplotaxidae:34	Pelodrilus cf. darlingensis	WAM V9004 / CE17262	True	12s	PP968595
+Haplotaxidae	Haplotaxidae:34	Pelodrilus cf. darlingensis	WAM V9004 / CE17262	True	16s	PP994587
+Haplotaxidae	Haplotaxidae:34	Pelodrilus cf. darlingensis	WAM V9004 / CE17262	True	18s	PP990642
+Haplotaxidae	Haplotaxidae:34	Pelodrilus cf. darlingensis	WAM V9004 / CE17262	True	28s	PP994529
+Haplotaxidae	Haplotaxidae:34	Pelodrilus cf. darlingensis	WAM V9004 / CE17262	True	coi	PP988411
+Haplotaxidae	Haplotaxidae:35	Hologynus cf. hologynus	WAM V12029 / CE17254	True	12s	PP968591
+Haplotaxidae	Haplotaxidae:35	Hologynus cf. hologynus	WAM V12029 / CE17254	True	16s	PP994585
+Haplotaxidae	Haplotaxidae:35	Hologynus cf. hologynus	WAM V12029 / CE17254	True	18s	PP990640
+Haplotaxidae	Haplotaxidae:35	Hologynus cf. hologynus	WAM V12029 / CE17254	True	coi	PP988409
+Haplotaxidae	Haplotaxidae:36	Hologynus cf. hologynus	WAM V12030 / CE17255	True	12s	PP968592
+Haplotaxidae	Haplotaxidae:36	Hologynus cf. hologynus	WAM V12030 / CE17255	True	16s	PP994586
+Haplotaxidae	Haplotaxidae:36	Hologynus cf. hologynus	WAM V12030 / CE17255	True	18s	PP990641
+Haplotaxidae	Haplotaxidae:36	Hologynus cf. hologynus	WAM V12030 / CE17255	True	coi	PP988410
+Haplotaxidae	Haplotaxidae:37	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1895 Paratype / CE30882	True	12s	PP968598
+Haplotaxidae	Haplotaxidae:37	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1895 Paratype / CE30882	True	16s	PP994596
+Haplotaxidae	Haplotaxidae:37	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1895 Paratype / CE30882	True	18s	PP990651
+Haplotaxidae	Haplotaxidae:37	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1895 Paratype / CE30882	True	28s	PP994539
+Haplotaxidae	Haplotaxidae:37	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1895 Paratype / CE30882	True	coi	PP988422
+Haplotaxidae	Haplotaxidae:38	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1892 Holotype / CE30883	True	12s	PP968599
+Haplotaxidae	Haplotaxidae:38	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1892 Holotype / CE30883	True	16s	PP994597
+Haplotaxidae	Haplotaxidae:38	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1892 Holotype / CE30883	True	18s	PP990652
+Haplotaxidae	Haplotaxidae:38	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1892 Holotype / CE30883	True	28s	PP994540
+Haplotaxidae	Haplotaxidae:38	Ohtakiana kakidaensis gen. et sp. n.	NSMT An-1892 Holotype / CE30883	True	coi	PP988423
+Haplotaxidae	Haplotaxidae:39	Limpluvia setoensis gen. et sp. n.	NSMT 1898 Paratype / CE30789	True	12s	PP968597
+Haplotaxidae	Haplotaxidae:39	Limpluvia setoensis gen. et sp. n.	NSMT 1898 Paratype / CE30789	True	16s	PP994593
+Haplotaxidae	Haplotaxidae:39	Limpluvia setoensis gen. et sp. n.	NSMT 1898 Paratype / CE30789	True	18s	PP990648
+Haplotaxidae	Haplotaxidae:39	Limpluvia setoensis gen. et sp. n.	NSMT 1898 Paratype / CE30789	True	28s	PP994536
+Haplotaxidae	Haplotaxidae:39	Limpluvia setoensis gen. et sp. n.	NSMT 1898 Paratype / CE30789	True	coi	PP988419
+Haplotaxidae	Haplotaxidae:40	Limpluvia setoensis gen. et sp. n.	NSMT An-1897 Holotype / CE30790*	True	coi	PP988456
+Haplotaxidae	Haplotaxidae:41	Lumbriculidae sp.	USNM 1716323 / CE32192	True	12s	PP968600
+Haplotaxidae	Haplotaxidae:41	Lumbriculidae sp.	USNM 1716323 / CE32192	True	16s	PP994602
+Haplotaxidae	Haplotaxidae:41	Lumbriculidae sp.	USNM 1716323 / CE32192	True	18s	PP990658
+Haplotaxidae	Haplotaxidae:41	Lumbriculidae sp.	USNM 1716323 / CE32192	True	28s	PP994546
+Haplotaxidae	Haplotaxidae:41	Lumbriculidae sp.	USNM 1716323 / CE32192	True	coi	PP988429
+Haplotaxidae	Haplotaxidae:42	Gordiodrilus spBEN7	RBINS IG 34181/16.288.12 / CE33793/LM71	True	12s	PP968595
+Haplotaxidae	Haplotaxidae:42	Gordiodrilus spBEN7	RBINS IG 34181/16.288.12 / CE33793/LM71	True	16s	PP994612
+Haplotaxidae	Haplotaxidae:42	Gordiodrilus spBEN7	RBINS IG 34181/16.288.12 / CE33793/LM71	True	18s	PP990667
+Haplotaxidae	Haplotaxidae:42	Gordiodrilus spBEN7	RBINS IG 34181/16.288.12 / CE33793/LM71	True	28s	PP994554
+Haplotaxidae	Haplotaxidae:42	Gordiodrilus spBEN7	RBINS IG 34181/16.288.12 / CE33793/LM71	True	coi	PP988439
+Haplotaxidae	Haplotaxidae:43	Alluroididae spBEN8	RBINS IG 33953/15.299.29 / CE33785/LM56	True	12s	PP968593
+Haplotaxidae	Haplotaxidae:43	Alluroididae spBEN8	RBINS IG 33953/15.299.29 / CE33785/LM56	True	16s	PP994608
+Haplotaxidae	Haplotaxidae:43	Alluroididae spBEN8	RBINS IG 33953/15.299.29 / CE33785/LM56	True	18s	PP990664
+Haplotaxidae	Haplotaxidae:43	Alluroididae spBEN8	RBINS IG 33953/15.299.29 / CE33785/LM56	True	28s	PP994551
+Haplotaxidae	Haplotaxidae:43	Alluroididae spBEN8	RBINS IG 33953/15.299.29 / CE33785/LM56	True	coi	PP988435
+Haplotaxidae	Haplotaxidae:44	Capilloventer australis	no voucher / CE437	True	12s	GU901683
+Haplotaxidae	Haplotaxidae:44	Capilloventer australis	no voucher / CE437	True	16s	AY340448
+Haplotaxidae	Haplotaxidae:44	Capilloventer australis	no voucher / CE437	True	18s	AY365455
+Haplotaxidae	Haplotaxidae:44	Capilloventer australis	no voucher / CE437	True	28s	PP994569
+Haplotaxidae	Haplotaxidae:45	Capilloventer australis	SMNH 224409 / CE14346	True	12s	PP968629
+Haplotaxidae	Haplotaxidae:45	Capilloventer australis	SMNH 224409 / CE14346	True	16s	PP994582
+Haplotaxidae	Haplotaxidae:45	Capilloventer australis	SMNH 224409 / CE14346	True	18s	PP990637
+Haplotaxidae	Haplotaxidae:45	Capilloventer australis	SMNH 224409 / CE14346	True	28s	PP994526
+Haplotaxidae	Haplotaxidae:45	Capilloventer australis	SMNH 224409 / CE14346	True	coi	MF001136
+Haplotaxidae	Haplotaxidae:46	Propappus volki	no voucher / CE299	True	16s	AY340475
+Haplotaxidae	Haplotaxidae:46	Propappus volki	no voucher / CE299	True	18s	AY365457
+Haplotaxidae	Haplotaxidae:46	Propappus volki	no voucher / CE299	True	28s	AY340412
+Haplotaxidae	Haplotaxidae:46	Propappus volki	no voucher / CE299	True	coi	PP988418
+Haplotaxidae	Haplotaxidae:47	Propappus volki	no voucher / CE299_2	True	12s	GU901761
+Haplotaxidae	Haplotaxidae:48	Insulidrilus bifidus	no voucher / CE271	True	12s	DQ459882
+Haplotaxidae	Haplotaxidae:48	Insulidrilus bifidus	no voucher / CE271	True	16s	AY885636
+Haplotaxidae	Haplotaxidae:48	Insulidrilus bifidus	no voucher / CE271	True	18s	AF411906
+Haplotaxidae	Haplotaxidae:48	Insulidrilus bifidus	no voucher / CE271	True	28s	GU901997
+Haplotaxidae	Haplotaxidae:48	Insulidrilus bifidus	no voucher / CE271	True	coi	PP988415
+Haplotaxidae	Haplotaxidae:49	Stylodrilus heringianus	SMNH 126490 / CE2993	True	12s	KX618741
+Haplotaxidae	Haplotaxidae:49	Stylodrilus heringianus	SMNH 126490 / CE2993	True	16s	KX618766
+Haplotaxidae	Haplotaxidae:49	Stylodrilus heringianus	SMNH 126490 / CE2993	True	18s	KX618784
+Haplotaxidae	Haplotaxidae:49	Stylodrilus heringianus	SMNH 126490 / CE2993	True	28s	KX618799
+Haplotaxidae	Haplotaxidae:49	Stylodrilus heringianus	SMNH 126490 / CE2993	True	coi	JX993896
+Haplotaxidae	Haplotaxidae:50	Lumbriculus variegatus	no voucher / CE27_1	True	12s	DQ459885
+Haplotaxidae	Haplotaxidae:50	Lumbriculus variegatus	no voucher / CE27_1	True	16s	AY885578
+Haplotaxidae	Haplotaxidae:50	Lumbriculus variegatus	no voucher / CE27_1	True	18s	AF209457
+Haplotaxidae	Haplotaxidae:50	Lumbriculus variegatus	no voucher / CE27_1	True	28s	PP994535
+Haplotaxidae	Haplotaxidae:50	Lumbriculus variegatus	no voucher / CE27_1	True	coi	FJ639298
+Haplotaxidae	Haplotaxidae:51	Eclipidrilus frigidus	SMNH 105624 / CE557	True	12s	GU901692
+Haplotaxidae	Haplotaxidae:51	Eclipidrilus frigidus	SMNH 105624 / CE557	True	16s	GU592329
+Haplotaxidae	Haplotaxidae:51	Eclipidrilus frigidus	SMNH 105624 / CE557	True	18s	GU901869
+Haplotaxidae	Haplotaxidae:51	Eclipidrilus frigidus	SMNH 105624 / CE557	True	coi	GU592300
+Haplotaxidae	Haplotaxidae:52	Rhynchelmis tetratheca	no voucher / CE322	True	16s	AY340477
+Haplotaxidae	Haplotaxidae:52	Rhynchelmis tetratheca	no voucher / CE322	True	18s	AY365464
+Haplotaxidae	Haplotaxidae:52	Rhynchelmis tetratheca	no voucher / CE322	True	28s	AY340414
+Haplotaxidae	Haplotaxidae:52	Rhynchelmis tetratheca	no voucher / CE322	True	coi	GU592316
+Haplotaxidae	Haplotaxidae:53	Achaeta bibulba	no voucher / CE1206	True	12s	GU901672
+Haplotaxidae	Haplotaxidae:53	Achaeta bibulba	no voucher / CE1206	True	16s	GU901767
+Haplotaxidae	Haplotaxidae:53	Achaeta bibulba	no voucher / CE1206	True	18s	GU901854
+Haplotaxidae	Haplotaxidae:53	Achaeta bibulba	no voucher / CE1206	True	28s	GU901938
+Haplotaxidae	Haplotaxidae:53	Achaeta bibulba	no voucher / CE1206	True	coi	GU902031
+Haplotaxidae	Haplotaxidae:54	Cernosvitoviella immota	no voucher / CE895	True	12s	GU901686
+Haplotaxidae	Haplotaxidae:54	Cernosvitoviella immota	no voucher / CE895	True	16s	GU901779
+Haplotaxidae	Haplotaxidae:54	Cernosvitoviella immota	no voucher / CE895	True	18s	GU901864
+Haplotaxidae	Haplotaxidae:54	Cernosvitoviella immota	no voucher / CE895	True	28s	GU901950
+Haplotaxidae	Haplotaxidae:54	Cernosvitoviella immota	no voucher / CE895	True	coi	GU902042
+Haplotaxidae	Haplotaxidae:55	Enchytraeus coronatus	SMNH 155447 / CE6179	True	12s	KX618740
+Haplotaxidae	Haplotaxidae:55	Enchytraeus coronatus	SMNH 155447 / CE6179	True	16s	KX618760
+Haplotaxidae	Haplotaxidae:55	Enchytraeus coronatus	SMNH 155447 / CE6179	True	18s	KX618768
+Haplotaxidae	Haplotaxidae:55	Enchytraeus coronatus	SMNH 155447 / CE6179	True	28s	KX618794
+Haplotaxidae	Haplotaxidae:55	Enchytraeus coronatus	SMNH 155447 / CE6179	True	coi	KX618734
+Haplotaxidae	Haplotaxidae:56	Paranais litoralis	SMNH 141789 / CE1114	True	12s	KY633304
+Haplotaxidae	Haplotaxidae:56	Paranais litoralis	SMNH 141789 / CE1114	True	16s	KY633319
+Haplotaxidae	Haplotaxidae:56	Paranais litoralis	SMNH 141789 / CE1114	True	18s	KY633359
+Haplotaxidae	Haplotaxidae:56	Paranais litoralis	SMNH 141789 / CE1114	True	28s	KY633450
+Haplotaxidae	Haplotaxidae:56	Paranais litoralis	SMNH 141789 / CE1114	True	coi	KY633401
+Haplotaxidae	Haplotaxidae:57	Limnodrilus hoffmeisteri s str	SMNH 159153 / CE3087	True	12s	KY636737
+Haplotaxidae	Haplotaxidae:57	Limnodrilus hoffmeisteri s str	SMNH 159153 / CE3087	True	16s	KY369331
+Haplotaxidae	Haplotaxidae:57	Limnodrilus hoffmeisteri s str	SMNH 159153 / CE3087	True	18s	KY636890
+Haplotaxidae	Haplotaxidae:57	Limnodrilus hoffmeisteri s str	SMNH 159153 / CE3087	True	28s	KY636823
+Haplotaxidae	Haplotaxidae:57	Limnodrilus hoffmeisteri s str	SMNH 159153 / CE3087	True	coi	KY369514
+Haplotaxidae	Haplotaxidae:58	Aporrectodea caliginosa	SMNH 210763 / CE592	True	12s	PP968594
+Haplotaxidae	Haplotaxidae:58	Aporrectodea caliginosa	SMNH 210763 / CE592	True	16s	PP994630
+Haplotaxidae	Haplotaxidae:58	Aporrectodea caliginosa	SMNH 210763 / CE592	True	18s	PP990684
+Haplotaxidae	Haplotaxidae:58	Aporrectodea caliginosa	SMNH 210763 / CE592	True	28s	PP994574
+Haplotaxidae	Haplotaxidae:58	Aporrectodea caliginosa	SMNH 210763 / CE592	True	coi	PP988450
+Haplotaxidae	Haplotaxidae:59	Criodrilus lacuum	no voucher / CE288	True	12s	GU901690
+Haplotaxidae	Haplotaxidae:59	Criodrilus lacuum	no voucher / CE288	True	16s	GU901783
+Haplotaxidae	Haplotaxidae:59	Criodrilus lacuum	no voucher / CE288	True	18s	AY365461
+Haplotaxidae	Haplotaxidae:59	Criodrilus lacuum	no voucher / CE288	True	28s	GU901954
+Haplotaxidae	Haplotaxidae:60	Sparganophilus tamesis	SMNH149680 / CE13360	True	12s	PP968587
+Haplotaxidae	Haplotaxidae:60	Sparganophilus tamesis	SMNH149680 / CE13360	True	16s	KT924175
+Haplotaxidae	Haplotaxidae:60	Sparganophilus tamesis	SMNH149680 / CE13360	True	18s	PP990635
+Haplotaxidae	Haplotaxidae:60	Sparganophilus tamesis	SMNH149680 / CE13360	True	28s	PP994524
+Haplotaxidae	Haplotaxidae:60	Sparganophilus tamesis	SMNH149680 / CE13360	True	coi	KT924120
+Haplotaxidae	Haplotaxidae:61	Acanthobdella peledina	SMNH 210640 / CE27296	True	12s	PP968618
+Haplotaxidae	Haplotaxidae:61	Acanthobdella peledina	SMNH 210640 / CE27296	True	16s	PP994591
+Haplotaxidae	Haplotaxidae:61	Acanthobdella peledina	SMNH 210640 / CE27296	True	18s	PP990646
+Haplotaxidae	Haplotaxidae:61	Acanthobdella peledina	SMNH 210640 / CE27296	True	28s	PP994533
+Haplotaxidae	Haplotaxidae:61	Acanthobdella peledina	SMNH 210640 / CE27296	True	coi	PP988416
+Haplotaxidae	Haplotaxidae:62	Xironogiton victoriensis	no voucher / CE18252	True	16s	PP994589
+Haplotaxidae	Haplotaxidae:62	Xironogiton victoriensis	no voucher / CE18252	True	18s	PP990644
+Haplotaxidae	Haplotaxidae:62	Xironogiton victoriensis	no voucher / CE18252	True	28s	PP994531
+Haplotaxidae	Haplotaxidae:62	Xironogiton victoriensis	no voucher / CE18252	True	coi	PP988413
+Haplotaxidae	Haplotaxidae:63	Haemopis sanguisuga	SMNH 210604 / CE2782	True	12s	PP968627
+Haplotaxidae	Haplotaxidae:63	Haemopis sanguisuga	SMNH 210604 / CE2782	True	16s	PP994592
+Haplotaxidae	Haplotaxidae:63	Haemopis sanguisuga	SMNH 210604 / CE2782	True	18s	PP990647
+Haplotaxidae	Haplotaxidae:63	Haemopis sanguisuga	SMNH 210604 / CE2782	True	28s	PP994534
+Haplotaxidae	Haplotaxidae:63	Haemopis sanguisuga	SMNH 210604 / CE2782	True	coi	PP988417
+Haplotaxidae	Haplotaxidae:64	Hirudo medicinalis	SMNH 111543 / CE6842	True	12s	PP968628
+Haplotaxidae	Haplotaxidae:64	Hirudo medicinalis	SMNH 111543 / CE6842	True	16s	PP994632
+Haplotaxidae	Haplotaxidae:64	Hirudo medicinalis	SMNH 111543 / CE6842	True	18s	PP990686
+Haplotaxidae	Haplotaxidae:64	Hirudo medicinalis	SMNH 111543 / CE6842	True	28s	PP994576
+Haplotaxidae	Haplotaxidae:64	Hirudo medicinalis	SMNH 111543 / CE6842	True	coi	HQ333519
+Haplotaxidae	Haplotaxidae:65	Glossiphonia complanata	SMNH 210619 / CE17745	True	12s	PP968601
+Haplotaxidae	Haplotaxidae:65	Glossiphonia complanata	SMNH 210619 / CE17745	True	16s	PP994588
+Haplotaxidae	Haplotaxidae:65	Glossiphonia complanata	SMNH 210619 / CE17745	True	18s	PP990643
+Haplotaxidae	Haplotaxidae:65	Glossiphonia complanata	SMNH 210619 / CE17745	True	28s	PP994530
+Haplotaxidae	Haplotaxidae:65	Glossiphonia complanata	SMNH 210619 / CE17745	True	coi	PP988412
+Haplotaxidae	Haplotaxidae:66	Helobdella stagnalis	SMNH 177731 / CE9785	True	12s	PP968603
+Haplotaxidae	Haplotaxidae:66	Helobdella stagnalis	SMNH 177731 / CE9785	True	16s	PP994634
+Haplotaxidae	Haplotaxidae:66	Helobdella stagnalis	SMNH 177731 / CE9785	True	18s	PP990688
+Haplotaxidae	Haplotaxidae:66	Helobdella stagnalis	SMNH 177731 / CE9785	True	28s	PP994578
+Haplotaxidae	Haplotaxidae:66	Helobdella stagnalis	SMNH 177731 / CE9785	True	coi	MN071261
+Haplotaxidae	Haplotaxidae:67	Theromyzon tessulatum	SMNH 210631 / CE18528	True	12s	PP968602
+Haplotaxidae	Haplotaxidae:67	Theromyzon tessulatum	SMNH 210631 / CE18528	True	16s	PP994590
+Haplotaxidae	Haplotaxidae:67	Theromyzon tessulatum	SMNH 210631 / CE18528	True	18s	PP990645
+Haplotaxidae	Haplotaxidae:67	Theromyzon tessulatum	SMNH 210631 / CE18528	True	28s	PP994532
+Haplotaxidae	Haplotaxidae:67	Theromyzon tessulatum	SMNH 210631 / CE18528	True	coi	PP988414
+Haplotaxidae	Haplotaxidae:68	Erpobdella octoculata	SMNH 210615 / CE9786	True	12s	PP968621
+Haplotaxidae	Haplotaxidae:68	Erpobdella octoculata	SMNH 210615 / CE9786	True	16s	PP994635
+Haplotaxidae	Haplotaxidae:68	Erpobdella octoculata	SMNH 210615 / CE9786	True	18s	PP990689
+Haplotaxidae	Haplotaxidae:68	Erpobdella octoculata	SMNH 210615 / CE9786	True	28s	PP994579
+Haplotaxidae	Haplotaxidae:68	Erpobdella octoculata	SMNH 210615 / CE9786	True	coi	PP988455
+Haplotaxidae	Haplotaxidae:69	Piscicola geometra	SMNH 210609 / CE6569	True	12s	PP968620
+Haplotaxidae	Haplotaxidae:69	Piscicola geometra	SMNH 210609 / CE6569	True	16s	PP994631
+Haplotaxidae	Haplotaxidae:69	Piscicola geometra	SMNH 210609 / CE6569	True	18s	PP990685
+Haplotaxidae	Haplotaxidae:69	Piscicola geometra	SMNH 210609 / CE6569	True	28s	PP994575
+Haplotaxidae	Haplotaxidae:69	Piscicola geometra	SMNH 210609 / CE6569	True	coi	PP988451
+Haplotaxidae	Haplotaxidae:70	Calliobdella lophii	ZMBN 129107 / CE30932	True	12s	PP968619
+Haplotaxidae	Haplotaxidae:70	Calliobdella lophii	ZMBN 129107 / CE30932	True	16s	PP994600
+Haplotaxidae	Haplotaxidae:70	Calliobdella lophii	ZMBN 129107 / CE30932	True	18s	PP990656
+Haplotaxidae	Haplotaxidae:70	Calliobdella lophii	ZMBN 129107 / CE30932	True	28s	PP994544
+Haplotaxidae	Haplotaxidae:70	Calliobdella lophii	ZMBN 129107 / CE30932	True	coi	PP988427
+Haplotaxidae	Haplotaxidae:71	Randiella sp1	no voucher / CE1574	True	12s	PP968623
+Haplotaxidae	Haplotaxidae:71	Randiella sp1	no voucher / CE1574	True	16s	PP994584
+Haplotaxidae	Haplotaxidae:71	Randiella sp1	no voucher / CE1574	True	18s	PP990639
+Haplotaxidae	Haplotaxidae:71	Randiella sp1	no voucher / CE1574	True	28s	PP994528
+Haplotaxidae	Haplotaxidae:71	Randiella sp1	no voucher / CE1574	True	coi	PP988408
+Haplotaxidae	Haplotaxidae:72	Randiella sp2	SMNH 224410 / CE14478	True	12s	PP968622
+Haplotaxidae	Haplotaxidae:72	Randiella sp2	SMNH 224410 / CE14478	True	16s	PP994583
+Haplotaxidae	Haplotaxidae:72	Randiella sp2	SMNH 224410 / CE14478	True	18s	PP990638
+Haplotaxidae	Haplotaxidae:72	Randiella sp2	SMNH 224410 / CE14478	True	28s	PP994527
+Haplotaxidae	Haplotaxidae:72	Randiella sp2	SMNH 224410 / CE14478	True	coi	PP988407
+Haplotaxidae	Haplotaxidae:73	Parvidrilus jugeti	no voucher / CE33802	True	12s	PP968626
+Haplotaxidae	Haplotaxidae:73	Parvidrilus jugeti	no voucher / CE33802	True	16s	PP994620
+Haplotaxidae	Haplotaxidae:73	Parvidrilus jugeti	no voucher / CE33802	True	18s	PP990674
+Haplotaxidae	Haplotaxidae:73	Parvidrilus jugeti	no voucher / CE33802	True	28s	PP994562
+Haplotaxidae	Haplotaxidae:73	Parvidrilus jugeti	no voucher / CE33802	True	coi	PP988447
+Haplotaxidae	Haplotaxidae:74	Parvidrilus meyssonnieri A	no voucher / CE33803	True	12s	PP968625
+Haplotaxidae	Haplotaxidae:74	Parvidrilus meyssonnieri A	no voucher / CE33803	True	16s	PP994621
+Haplotaxidae	Haplotaxidae:74	Parvidrilus meyssonnieri A	no voucher / CE33803	True	18s	PP990675
+Haplotaxidae	Haplotaxidae:74	Parvidrilus meyssonnieri A	no voucher / CE33803	True	28s	PP994563
+Haplotaxidae	Haplotaxidae:74	Parvidrilus meyssonnieri A	no voucher / CE33803	True	coi	PP988448
+Haplotaxidae	Haplotaxidae:75	Parvidrilus meyssonnieri B	no voucher / CE33800	True	12s	PP968624
+Haplotaxidae	Haplotaxidae:75	Parvidrilus meyssonnieri B	no voucher / CE33800	True	16s	PP994619
+Haplotaxidae	Haplotaxidae:75	Parvidrilus meyssonnieri B	no voucher / CE33800	True	18s	PP990673
+Haplotaxidae	Haplotaxidae:75	Parvidrilus meyssonnieri B	no voucher / CE33800	True	28s	PP994561
+Haplotaxidae	Haplotaxidae:75	Parvidrilus meyssonnieri B	no voucher / CE33800	True	coi	PP988446
+Polynoidae	Polynoidae:1	Aphrodita australis Baird, 1865	Wang et al. (2019)	False	mtgenome	MN334532
+Polynoidae	Polynoidae:2	Arctonoe vittata (Grube, 1855)	Park et al. (2021)	False	mtgenome	MZ131647
+Polynoidae	Polynoidae:3	Bathykurila sp.	SIO-BIC A10920	True	18s	OM007981
+Polynoidae	Polynoidae:3	Bathykurila sp.	SIO-BIC A10920	True	28s	OM105844
+Polynoidae	Polynoidae:3	Bathykurila sp.	SIO-BIC A10920	True	h3	OL960135
+Polynoidae	Polynoidae:3	Bathykurila sp.	SIO-BIC A10920	True	mtgenome	MW783685
+Polynoidae	Polynoidae:4	Bathypolaria magnicirrata (Neal, Barnich, Wiklund & Glover, 2012)	Neal et al. (2012)	False	16s	JX863896
+Polynoidae	Polynoidae:4	Bathypolaria magnicirrata (Neal, Barnich, Wiklund & Glover, 2012)	Neal et al. (2012)	False	18s	JX863895
+Polynoidae	Polynoidae:5	Branchinotogluma bipapillata Zhou, Wang, Zhang & Wang, 2018	Copley et al. (2016); Zhou et al. (2018)	False	16s	MH717078
+Polynoidae	Polynoidae:5	Branchinotogluma bipapillata Zhou, Wang, Zhang & Wang, 2018	Copley et al. (2016); Zhou et al. (2018)	False	18s	MH717079
+Polynoidae	Polynoidae:5	Branchinotogluma bipapillata Zhou, Wang, Zhang & Wang, 2018	Copley et al. (2016); Zhou et al. (2018)	False	coi	KY211996
+Polynoidae	Polynoidae:6	Branchinotogluma cf. marianus	SIO-BIC A13116	True	18s	OM007983
+Polynoidae	Polynoidae:6	Branchinotogluma cf. marianus	SIO-BIC A13116	True	28s	OM105846
+Polynoidae	Polynoidae:6	Branchinotogluma cf. marianus	SIO-BIC A13116	True	h3	OL960137
+Polynoidae	Polynoidae:6	Branchinotogluma cf. marianus	SIO-BIC A13116	True	mtgenome	MW783687
+Polynoidae	Polynoidae:7	Branchinotogluma cf. sandersi	Norlinder et al. (2012)	False	16s	JN852889
+Polynoidae	Polynoidae:7	Branchinotogluma cf. sandersi	Norlinder et al. (2012)	False	18s	JN852821
+Polynoidae	Polynoidae:7	Branchinotogluma cf. sandersi	Norlinder et al. (2012)	False	28s	JN852851
+Polynoidae	Polynoidae:7	Branchinotogluma cf. sandersi	Norlinder et al. (2012)	False	coi	JN852923
+Polynoidae	Polynoidae:8	Branchinotogluma cf. segonzaci	Wu et al. (2019); Lee et al. (unpublished)	False	18s	MK211412
+Polynoidae	Polynoidae:8	Branchinotogluma cf. segonzaci	Wu et al. (2019); Lee et al. (unpublished)	False	mtgenome	OK136373
+Polynoidae	Polynoidae:9	Branchinotogluma elytropapillata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	16s	MG799377
+Polynoidae	Polynoidae:9	Branchinotogluma elytropapillata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	18s	MG799378
+Polynoidae	Polynoidae:9	Branchinotogluma elytropapillata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	28s	MG799380
+Polynoidae	Polynoidae:9	Branchinotogluma elytropapillata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	coi	MG799387
+Polynoidae	Polynoidae:10	Branchinotogluma hessleri Pettibone, 1985	SIO-BIC A12940	True	18s	OM007982
+Polynoidae	Polynoidae:10	Branchinotogluma hessleri Pettibone, 1985	SIO-BIC A12940	True	28s	OM105845
+Polynoidae	Polynoidae:10	Branchinotogluma hessleri Pettibone, 1985	SIO-BIC A12940	True	h3	OL960136
+Polynoidae	Polynoidae:10	Branchinotogluma hessleri Pettibone, 1985	SIO-BIC A12940	True	mtgenome	MW783686
+Polynoidae	Polynoidae:11	Branchinotogluma japonicus (Miura & Hashimoto, 1991)	Zhang et al. (2018b)	False	18s	KY753841
+Polynoidae	Polynoidae:11	Branchinotogluma japonicus (Miura & Hashimoto, 1991)	Zhang et al. (2018b)	False	28s	KY753841
+Polynoidae	Polynoidae:11	Branchinotogluma japonicus (Miura & Hashimoto, 1991)	Zhang et al. (2018b)	False	mtgenome	KY753824
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	16s	OQ785992
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	18s	OQ785976
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	28s	OQ785985
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	coi	OQ784749
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	h3	OQ858605
+Polynoidae	Polynoidae:12	Branchinotogluma jiaolongae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	cob	OQ858601
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	16s	OQ785995
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	18s	OQ785977
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	28s	OQ785986
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	coi	OQ784745
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	h3	OQ858603
+Polynoidae	Polynoidae:13	Branchinotogluma kaireiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	cob	OQ858599
+Polynoidae	Polynoidae:14	Branchinotogluma marianus (Pettibone, 1989)	SIO-BIC A16396	True	coi	PP915646
+Polynoidae	Polynoidae:14	Branchinotogluma marianus (Pettibone, 1989)	SIO-BIC A16396	True	h3	PP897718
+Polynoidae	Polynoidae:15	Branchinotogluma nanhaiensis Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	16s	OL699914
+Polynoidae	Polynoidae:15	Branchinotogluma nanhaiensis Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	18s	OL699911
+Polynoidae	Polynoidae:15	Branchinotogluma nanhaiensis Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	28s	OL699917
+Polynoidae	Polynoidae:15	Branchinotogluma nanhaiensis Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	coi	OL702996
+Polynoidae	Polynoidae:16	Branchinotogluma nikkoensis Jimi, Chen & Fujiwara, 2022	Jimi et al. (2022)	False	coi	ON255504
+Polynoidae	Polynoidae:17	Branchinotogluma ovata Wu, Zhan & Xu, 2019	Wu et al. (2019)	False	16s	MK211416
+Polynoidae	Polynoidae:17	Branchinotogluma ovata Wu, Zhan & Xu, 2019	Wu et al. (2019)	False	18s	MK211411
+Polynoidae	Polynoidae:17	Branchinotogluma ovata Wu, Zhan & Xu, 2019	Wu et al. (2019)	False	28s	MK211413
+Polynoidae	Polynoidae:17	Branchinotogluma ovata Wu, Zhan & Xu, 2019	Wu et al. (2019)	False	coi	MK357896
+Polynoidae	Polynoidae:19	Branchinotogluma robusta Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	16s	OL699916
+Polynoidae	Polynoidae:19	Branchinotogluma robusta Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	18s	OL699913
+Polynoidae	Polynoidae:19	Branchinotogluma robusta Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	28s	OL699919
+Polynoidae	Polynoidae:19	Branchinotogluma robusta Wu, Zhen, Kou & Xu, 2023	Wu et al. (2023)	False	coi	OL703005
+Polynoidae	Polynoidae:21	Branchinotogluma sandersi Pettibone, 1985	MCZ-IZ 70173.2	True	18s	OM007984
+Polynoidae	Polynoidae:21	Branchinotogluma sandersi Pettibone, 1985	MCZ-IZ 70173.2	True	28s	OM105847
+Polynoidae	Polynoidae:21	Branchinotogluma sandersi Pettibone, 1985	MCZ-IZ 70173.2	True	h3	OL960138
+Polynoidae	Polynoidae:21	Branchinotogluma sandersi Pettibone, 1985	MCZ-IZ 70173.2	True	mtgenome	MW783688
+Polynoidae	Polynoidae:22	Branchinotogluma segonzaci (Miura & Desbruyères, 1995)	SIO-BIC A13118	True	18s	MW654526
+Polynoidae	Polynoidae:23	Branchinotogluma segonzaci (Miura & Desbruyères, 1995)	SIO-BIC A4659	True	mtgenome	OP648300
+Polynoidae	Polynoidae:24	Branchinotogluma sp. nov. 1	MCZ-IZ 68096	True	18s	OM007985
+Polynoidae	Polynoidae:24	Branchinotogluma sp. nov. 1	MCZ-IZ 68096	True	28s	OM105848
+Polynoidae	Polynoidae:24	Branchinotogluma sp. nov. 1	MCZ-IZ 68096	True	h3	OL960139
+Polynoidae	Polynoidae:24	Branchinotogluma sp. nov. 1	MCZ-IZ 68096	True	mtgenome	MW783689
+Polynoidae	Polynoidae:24	Branchinotogluma sp. nov. 1	MCZ-IZ 68096	True	mtgenome	MW783690
+Polynoidae	Polynoidae:25	Branchinotogluma sp. nov. 2	MCZ-IZ 68063	True	18s	OM007986
+Polynoidae	Polynoidae:25	Branchinotogluma sp. nov. 2	MCZ-IZ 68063	True	28s	OM105849
+Polynoidae	Polynoidae:25	Branchinotogluma sp. nov. 2	MCZ-IZ 68063	True	h3	OL960140
+Polynoidae	Polynoidae:25	Branchinotogluma sp. nov. 2	MCZ-IZ 68063	True	mtgenome	MW783691
+Polynoidae	Polynoidae:26	Branchinotogluma sp. nov. 3	SIO-BIC A13128	True	18s	OM007987
+Polynoidae	Polynoidae:26	Branchinotogluma sp. nov. 3	SIO-BIC A13128	True	28s	OM105850
+Polynoidae	Polynoidae:26	Branchinotogluma sp. nov. 3	SIO-BIC A13128	True	h3	OL960141
+Polynoidae	Polynoidae:26	Branchinotogluma sp. nov. 3	SIO-BIC A13128	True	mtgenome	MW783692
+Polynoidae	Polynoidae:27	Branchinotogluma sp. nov. 4	SIO-BIC A9998	True	18s	OM007988
+Polynoidae	Polynoidae:27	Branchinotogluma sp. nov. 4	SIO-BIC A9998	True	28s	OM105851
+Polynoidae	Polynoidae:27	Branchinotogluma sp. nov. 4	SIO-BIC A9998	True	h3	OL960142
+Polynoidae	Polynoidae:27	Branchinotogluma sp. nov. 4	SIO-BIC A9998	True	mtgenome	MW783693
+Polynoidae	Polynoidae:28	Branchinotogluma sp. nov. 5	SIO-BIC A13164	True	18s	OM007989
+Polynoidae	Polynoidae:28	Branchinotogluma sp. nov. 5	SIO-BIC A13164	True	28s	OM105852
+Polynoidae	Polynoidae:28	Branchinotogluma sp. nov. 5	SIO-BIC A13164	True	h3	OL960143
+Polynoidae	Polynoidae:28	Branchinotogluma sp. nov. 5	SIO-BIC A13164	True	mtgenome	MW783694
+Polynoidae	Polynoidae:29	Branchinotogluma sp. nov. 6	SIO-BIC A13248	True	18s	OM007990
+Polynoidae	Polynoidae:29	Branchinotogluma sp. nov. 6	SIO-BIC A13248	True	28s	OM105853
+Polynoidae	Polynoidae:29	Branchinotogluma sp. nov. 6	SIO-BIC A13248	True	h3	OL960144
+Polynoidae	Polynoidae:29	Branchinotogluma sp. nov. 6	SIO-BIC A13248	True	mtgenome	MW783695
+Polynoidae	Polynoidae:30	Branchinotogluma trifurcus (Miura & Desbruyères, 1995)	SIO-BIC A13183	True	18s	OM007991
+Polynoidae	Polynoidae:30	Branchinotogluma trifurcus (Miura & Desbruyères, 1995)	SIO-BIC A13183	True	28s	OM105854
+Polynoidae	Polynoidae:30	Branchinotogluma trifurcus (Miura & Desbruyères, 1995)	SIO-BIC A13183	True	h3	OL960145
+Polynoidae	Polynoidae:30	Branchinotogluma trifurcus (Miura & Desbruyères, 1995)	SIO-BIC A13183	True	mtgenome	MW783696
+Polynoidae	Polynoidae:30	Branchinotogluma trifurcus (Miura & Desbruyères, 1995)	SIO-BIC A13183	True	mtgenome	MW783697
+Polynoidae	Polynoidae:31	Branchinotogluma tunnicliffeae (Pettibone, 1988)	SIO-BIC A7717	True	18s	OM007992
+Polynoidae	Polynoidae:31	Branchinotogluma tunnicliffeae (Pettibone, 1988)	SIO-BIC A7717	True	28s	OM105855
+Polynoidae	Polynoidae:31	Branchinotogluma tunnicliffeae (Pettibone, 1988)	SIO-BIC A7717	True	h3	OL960146
+Polynoidae	Polynoidae:31	Branchinotogluma tunnicliffeae (Pettibone, 1988)	SIO-BIC A7717	True	mtgenome	MW783698
+Polynoidae	Polynoidae:32	Branchiplicatus cupreus Pettibone, 1985	SIO-BIC A6160	True	18s	OM007993
+Polynoidae	Polynoidae:32	Branchiplicatus cupreus Pettibone, 1985	SIO-BIC A6160	True	28s	OM105856
+Polynoidae	Polynoidae:32	Branchiplicatus cupreus Pettibone, 1985	SIO-BIC A6160	True	h3	OL960162
+Polynoidae	Polynoidae:32	Branchiplicatus cupreus Pettibone, 1985	SIO-BIC A6160	True	mtgenome	MW783699
+Polynoidae	Polynoidae:33	Branchipolynoe eliseae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	16s	MH396826
+Polynoidae	Polynoidae:33	Branchipolynoe eliseae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	coi	MH369878
+Polynoidae	Polynoidae:34	Branchipolynoe halliseyae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	16s	MH396795
+Polynoidae	Polynoidae:34	Branchipolynoe halliseyae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	coi	MH369858
+Polynoidae	Polynoidae:35	Branchipolynoe kajsae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	16s	MH396800
+Polynoidae	Polynoidae:35	Branchipolynoe kajsae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	coi	MH369859
+Polynoidae	Polynoidae:36	Branchipolynoe longqiensis Zhou, Zhang, Lu & Wang, 2017	Zhang et al. (2018b)	False	18s	KY753847
+Polynoidae	Polynoidae:36	Branchipolynoe longqiensis Zhou, Zhang, Lu & Wang, 2017	Zhang et al. (2018b)	False	28s	KY753847
+Polynoidae	Polynoidae:36	Branchipolynoe longqiensis Zhou, Zhang, Lu & Wang, 2017	Zhang et al. (2018b)	False	mtgenome	KY753826
+Polynoidae	Polynoidae:37	Branchipolynoe meridae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	16s	MH396829
+Polynoidae	Polynoidae:37	Branchipolynoe meridae Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	coi	MH369884
+Polynoidae	Polynoidae:38	Branchipolynoe onnuriensis Kim, Choi, Eyun, Kim & Yu, 2022	Kim et al. (2022)	False	mtgenome	MZ457523
+Polynoidae	Polynoidae:39	Branchipolynoe pettiboneae Miura & Hashimoto, 1991	Zhang et al. (2018b)	False	18s	KY753840
+Polynoidae	Polynoidae:39	Branchipolynoe pettiboneae Miura & Hashimoto, 1991	Zhang et al. (2018b)	False	28s	KY753840
+Polynoidae	Polynoidae:39	Branchipolynoe pettiboneae Miura & Hashimoto, 1991	Zhang et al. (2018b)	False	mtgenome	KY753825
+Polynoidae	Polynoidae:40	Branchipolynoe seepensis Pettibone, 1986	Lindgren et al. (2019)	False	16s	MH596848
+Polynoidae	Polynoidae:40	Branchipolynoe seepensis Pettibone, 1986	Lindgren et al. (2019)	False	coi	MH369885
+Polynoidae	Polynoidae:41	Branchipolynoe symmytilida Pettibone, 1984	Halanych et al. (2001); Hurtado et al. (2004)	False	16s	AF315055
+Polynoidae	Polynoidae:41	Branchipolynoe symmytilida Pettibone, 1984	Halanych et al. (2001); Hurtado et al. (2004)	False	coi	AY646021
+Polynoidae	Polynoidae:42	Branchipolynoe tjiasmantoi Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	16s	MH396830
+Polynoidae	Polynoidae:42	Branchipolynoe tjiasmantoi Lindgren, Hatch, Hourdez, Seid & Rouse, 2019	Lindgren et al. (2019)	False	coi	MH369947
+Polynoidae	Polynoidae:43	Drieschia cf. elegans	Gonzalez et al. (2021)	False	18s	MW794262
+Polynoidae	Polynoidae:43	Drieschia cf. elegans	Gonzalez et al. (2021)	False	28s	MW794262
+Polynoidae	Polynoidae:43	Drieschia cf. elegans	Gonzalez et al. (2021)	False	mtgenome	MW794259
+Polynoidae	Polynoidae:44	Eulagisca gigantea Monro, 1939	SIO-BIC A6302	True	18s	OM008007
+Polynoidae	Polynoidae:44	Eulagisca gigantea Monro, 1939	SIO-BIC A6302	True	28s	OM105872
+Polynoidae	Polynoidae:44	Eulagisca gigantea Monro, 1939	SIO-BIC A6302	True	h3	OL960163
+Polynoidae	Polynoidae:44	Eulagisca gigantea Monro, 1939	SIO-BIC A6302	True	mtgenome	OP648301
+Polynoidae	Polynoidae:45	Eulepethus nanhaiensis Zhang, Zhang, Osborn & Qiu, 2017	Zhang et al. (2018b)	False	18s	KY753850
+Polynoidae	Polynoidae:45	Eulepethus nanhaiensis Zhang, Zhang, Osborn & Qiu, 2017	Zhang et al. (2018b)	False	28s	KY753850
+Polynoidae	Polynoidae:45	Eulepethus nanhaiensis Zhang, Zhang, Osborn & Qiu, 2017	Zhang et al. (2018b)	False	mtgenome	KY753834
+Polynoidae	Polynoidae:46	Eunoe nodosa (M. Sars, 1861)	Kim et al. (2021)	False	mtgenome	MW557378
+Polynoidae	Polynoidae:47	Euthalenessa festiva (Grube, 1875)	Zhang et al. (2018b)	False	18s	KY753839
+Polynoidae	Polynoidae:47	Euthalenessa festiva (Grube, 1875)	Zhang et al. (2018b)	False	28s	KY753839
+Polynoidae	Polynoidae:47	Euthalenessa festiva (Grube, 1875)	Zhang et al. (2018b)	False	mtgenome	KY753837
+Polynoidae	Polynoidae:48	Gesiella jameensis (Hartmann-Schröder, 1974)	Gonzalez et al. (2021)	False	18s	MW794263
+Polynoidae	Polynoidae:48	Gesiella jameensis (Hartmann-Schröder, 1974)	Gonzalez et al. (2021)	False	28s	MW794263
+Polynoidae	Polynoidae:48	Gesiella jameensis (Hartmann-Schröder, 1974)	Gonzalez et al. (2021)	False	mtgenome	MW794260
+Polynoidae	Polynoidae:49	Halosydna sp.	Zhang et al. (2018b)	False	18s	KY753845
+Polynoidae	Polynoidae:49	Halosydna sp.	Zhang et al. (2018b)	False	28s	KY753845
+Polynoidae	Polynoidae:49	Halosydna sp.	Zhang et al. (2018b)	False	mtgenome	KY753830
+Polynoidae	Polynoidae:50	Hyperhalosydna striata (Kinberg, 1856)	Kim et al. (2024)	False	mtgenome	MW620990
+Polynoidae	Polynoidae:51	Iphione sp.	Zhang et al. (2018b)	False	18s	KY753852
+Polynoidae	Polynoidae:51	Iphione sp.	Zhang et al. (2018b)	False	28s	KY753852
+Polynoidae	Polynoidae:51	Iphione sp.	Zhang et al. (2018b)	False	mtgenome	KY753835
+Polynoidae	Polynoidae:52	Laetmonice producta Grube, 1877	Zhang et al. (2018b)	False	18s	KY753853
+Polynoidae	Polynoidae:52	Laetmonice producta Grube, 1877	Zhang et al. (2018b)	False	28s	KY753853
+Polynoidae	Polynoidae:52	Laetmonice producta Grube, 1877	Zhang et al. (2018b)	False	mtgenome	KY753833
+Polynoidae	Polynoidae:53	Lepidonotopodium cf. riftense	SIO-BIC A13202	True	18s	MW654531
+Polynoidae	Polynoidae:53	Lepidonotopodium cf. riftense	SIO-BIC A13202	True	28s	OM105857
+Polynoidae	Polynoidae:53	Lepidonotopodium cf. riftense	SIO-BIC A13202	True	h3	OL960147
+Polynoidae	Polynoidae:53	Lepidonotopodium cf. riftense	SIO-BIC A13202	True	mtgenome	MW783700
+Polynoidae	Polynoidae:54	Lepidonotopodium cf. williamsae	SIO-BIC A6318; Goffredi et al. (2017); Hatch et al. (2020)	False	16s	MN428329
+Polynoidae	Polynoidae:54	Lepidonotopodium cf. williamsae	SIO-BIC A6318; Goffredi et al. (2017); Hatch et al. (2020)	False	18s	MN428335
+Polynoidae	Polynoidae:54	Lepidonotopodium cf. williamsae	SIO-BIC A6318; Goffredi et al. (2017); Hatch et al. (2020)	False	28s	MN428322
+Polynoidae	Polynoidae:54	Lepidonotopodium cf. williamsae	SIO-BIC A6318; Goffredi et al. (2017); Hatch et al. (2020)	False	coi	KY684714
+Polynoidae	Polynoidae:55	Lepidonotopodium fimbriatum Pettibone, 1983	SIO-BIC A6153	True	18s	OM007994
+Polynoidae	Polynoidae:55	Lepidonotopodium fimbriatum Pettibone, 1983	SIO-BIC A6153	True	28s	OM105858
+Polynoidae	Polynoidae:55	Lepidonotopodium fimbriatum Pettibone, 1983	SIO-BIC A6153	True	h3	OL960148
+Polynoidae	Polynoidae:55	Lepidonotopodium fimbriatum Pettibone, 1983	SIO-BIC A6153	True	mtgenome	MW783701
+Polynoidae	Polynoidae:56	Lepidonotopodium okinawae (Sui & Li, 2017)	Zhang et al. (2018b)	False	18s	KY753842
+Polynoidae	Polynoidae:56	Lepidonotopodium okinawae (Sui & Li, 2017)	Zhang et al. (2018b)	False	28s	KY753842
+Polynoidae	Polynoidae:56	Lepidonotopodium okinawae (Sui & Li, 2017)	Zhang et al. (2018b)	False	mtgenome	KY753828
+Polynoidae	Polynoidae:57	Lepidonotopodium piscesae Pettibone, 1988	SIO-BIC A7978	True	18s	MW654532
+Polynoidae	Polynoidae:57	Lepidonotopodium piscesae Pettibone, 1988	SIO-BIC A7978	True	28s	OM105859
+Polynoidae	Polynoidae:57	Lepidonotopodium piscesae Pettibone, 1988	SIO-BIC A7978	True	h3	OL960149
+Polynoidae	Polynoidae:57	Lepidonotopodium piscesae Pettibone, 1988	SIO-BIC A7978	True	mtgenome	MW783702
+Polynoidae	Polynoidae:58	Lepidonotopodium williamsae Pettibone, 1984	MCZ-IZ 70175.3	True	18s	OM007996
+Polynoidae	Polynoidae:58	Lepidonotopodium williamsae Pettibone, 1984	MCZ-IZ 70175.3	True	28s	OM105861
+Polynoidae	Polynoidae:58	Lepidonotopodium williamsae Pettibone, 1984	MCZ-IZ 70175.3	True	h3	OL960151
+Polynoidae	Polynoidae:58	Lepidonotopodium williamsae Pettibone, 1984	MCZ-IZ 70175.3	True	mtgenome	MW783704
+Polynoidae	Polynoidae:59	Lepidonotus clava (Montagu, 1808)	Wellcome Sanger Institute	False	mtgenome	OW387151
+Polynoidae	Polynoidae:60	Lepidonotus sp.	Zhang et al. (2018b)	False	18s	KY753851
+Polynoidae	Polynoidae:60	Lepidonotus sp.	Zhang et al. (2018b)	False	28s	KY753851
+Polynoidae	Polynoidae:60	Lepidonotus sp.	Zhang et al. (2018b)	False	mtgenome	KY753831
+Polynoidae	Polynoidae:61	Levensteiniella cf. iris	Zhang et al. (2018b)	False	18s	KY753848
+Polynoidae	Polynoidae:61	Levensteiniella cf. iris	Zhang et al. (2018b)	False	28s	KY753848
+Polynoidae	Polynoidae:61	Levensteiniella cf. iris	Zhang et al. (2018b)	False	mtgenome	KY753827
+Polynoidae	Polynoidae:62	Levensteiniella intermedia Pettibone, 1990	SIO-BIC A13187	True	18s	OM007997
+Polynoidae	Polynoidae:62	Levensteiniella intermedia Pettibone, 1990	SIO-BIC A13187	True	28s	OM105862
+Polynoidae	Polynoidae:62	Levensteiniella intermedia Pettibone, 1990	SIO-BIC A13187	True	h3	OL960152
+Polynoidae	Polynoidae:62	Levensteiniella intermedia Pettibone, 1990	SIO-BIC A13187	True	mtgenome	MW783705
+Polynoidae	Polynoidae:63	Levensteiniella kincaidi Pettibone, 1985	SIO-BIC A6310	True	18s	OM007995
+Polynoidae	Polynoidae:63	Levensteiniella kincaidi Pettibone, 1985	SIO-BIC A6310	True	28s	OM105860
+Polynoidae	Polynoidae:63	Levensteiniella kincaidi Pettibone, 1985	SIO-BIC A6310	True	h3	OL960150
+Polynoidae	Polynoidae:63	Levensteiniella kincaidi Pettibone, 1985	SIO-BIC A6310	True	mtgenome	MW783703
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	16s	OQ785997
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	18s	OQ785978
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	28s	OQ785989
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	coi	OQ784752
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	h3	OQ858606
+Polynoidae	Polynoidae:64	Levensteiniella longqiensis Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	cob	OQ858602
+Polynoidae	Polynoidae:65	Levensteiniella manusensis Wu & Xu, 2018	Wu et al. (2023)	False	16s	OP144063
+Polynoidae	Polynoidae:65	Levensteiniella manusensis Wu & Xu, 2018	Wu et al. (2023)	False	18s	OP144059
+Polynoidae	Polynoidae:65	Levensteiniella manusensis Wu & Xu, 2018	Wu et al. (2023)	False	28s	OP144061
+Polynoidae	Polynoidae:65	Levensteiniella manusensis Wu & Xu, 2018	Wu et al. (2023)	False	coi	OP114410
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	16s	OQ785998
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	18s	OQ785979
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	28s	OQ785990
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	coi	OQ784748
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	h3	OQ858604
+Polynoidae	Polynoidae:66	Levensteiniella pettiboneae Han, Zhou, Chen & Wang, 2023	Han et al. (2024)	False	cob	OQ858600
+Polynoidae	Polynoidae:67	Levensteiniella plicata Hourdez & Desbruyères, 2000	SIO-BIC A14234	True	18s	OP651046
+Polynoidae	Polynoidae:67	Levensteiniella plicata Hourdez & Desbruyères, 2000	SIO-BIC A14234	True	28s	OP651058
+Polynoidae	Polynoidae:67	Levensteiniella plicata Hourdez & Desbruyères, 2000	SIO-BIC A14234	True	mtgenome	OP648302
+Polynoidae	Polynoidae:68	Levensteiniella undomarginata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	16s	MG799376
+Polynoidae	Polynoidae:68	Levensteiniella undomarginata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	18s	MG799379
+Polynoidae	Polynoidae:68	Levensteiniella undomarginata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	28s	MG799381
+Polynoidae	Polynoidae:68	Levensteiniella undomarginata Zhang, Chen & Qiu, 2018	Zhang et al. (2018a)	False	coi	MG799385
+Polynoidae	Polynoidae:69	Macellicephala sp. 1	SIO-BIC A11031	True	18s	OM008006
+Polynoidae	Polynoidae:69	Macellicephala sp. 1	SIO-BIC A11031	True	28s	OM105871
+Polynoidae	Polynoidae:69	Macellicephala sp. 1	SIO-BIC A11031	True	h3	OL960161
+Polynoidae	Polynoidae:69	Macellicephala sp. 1	SIO-BIC A11031	True	mtgenome	OP648303
+Polynoidae	Polynoidae:70	Macellicephala sp. 2	SIO-BIC A3432	True	18s	OM008001
+Polynoidae	Polynoidae:70	Macellicephala sp. 2	SIO-BIC A3432	True	28s	OM105866
+Polynoidae	Polynoidae:70	Macellicephala sp. 2	SIO-BIC A3432	True	h3	OL960156
+Polynoidae	Polynoidae:70	Macellicephala sp. 2	SIO-BIC A3432	True	mtgenome	OP648304
+Polynoidae	Polynoidae:71	Macellicephala sp. 3	SIO-BIC A10055	True	18s	OM008004
+Polynoidae	Polynoidae:71	Macellicephala sp. 3	SIO-BIC A10055	True	28s	OM105869
+Polynoidae	Polynoidae:71	Macellicephala sp. 3	SIO-BIC A10055	True	h3	OL960159
+Polynoidae	Polynoidae:71	Macellicephala sp. 3	SIO-BIC A10055	True	mtgenome	OP648305
+Polynoidae	Polynoidae:72	Macellicephala sp. 4	SIO-BIC A10099	True	18s	OM008005
+Polynoidae	Polynoidae:72	Macellicephala sp. 4	SIO-BIC A10099	True	28s	OM105870
+Polynoidae	Polynoidae:72	Macellicephala sp. 4	SIO-BIC A10099	True	h3	OL960160
+Polynoidae	Polynoidae:72	Macellicephala sp. 4	SIO-BIC A10099	True	mtgenome	OP648306
+Polynoidae	Polynoidae:73	Macellicephalinae sp.	SIO-BIC A10163	True	18s	OM007998
+Polynoidae	Polynoidae:73	Macellicephalinae sp.	SIO-BIC A10163	True	28s	OM105863
+Polynoidae	Polynoidae:73	Macellicephalinae sp.	SIO-BIC A10163	True	h3	OL960153
+Polynoidae	Polynoidae:73	Macellicephalinae sp.	SIO-BIC A10163	True	mtgenome	MW816923
+Polynoidae	Polynoidae:74	Macellicephaloides alvini Pettibone, 1989	SIO-BIC A14221	True	18s	OP651045
+Polynoidae	Polynoidae:74	Macellicephaloides alvini Pettibone, 1989	SIO-BIC A14221	True	28s	OP651057
+Polynoidae	Polynoidae:74	Macellicephaloides alvini Pettibone, 1989	SIO-BIC A14221	True	h3	OP648308
+Polynoidae	Polynoidae:74	Macellicephaloides alvini Pettibone, 1989	SIO-BIC A14221	True	mtgenome	OP648307
+Polynoidae	Polynoidae:75	Melaenis sp.	Zhang et al. (2018b)	False	18s	KY753849
+Polynoidae	Polynoidae:75	Melaenis sp.	Zhang et al. (2018b)	False	28s	KY753849
+Polynoidae	Polynoidae:75	Melaenis sp.	Zhang et al. (2018b)	False	mtgenome	KY753829
+Polynoidae	Polynoidae:76	Panthalis oerstedi Kinberg, 1856	Zhang et al. (2018b)	False	18s	KY753846
+Polynoidae	Polynoidae:76	Panthalis oerstedi Kinberg, 1856	Zhang et al. (2018b)	False	28s	KY753846
+Polynoidae	Polynoidae:76	Panthalis oerstedi Kinberg, 1856	Zhang et al. (2018b)	False	mtgenome	KY753832
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	16s	MH127422
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	18s	MH124629
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	28s	MH124618
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	coi	MH115413
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	h3	MH120847
+Polynoidae	Polynoidae:77	Peinaleopolynoe elvisi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A8488; Hatch et al. (2020)	False	cob	MH115423
+Polynoidae	Polynoidae:78	Peinaleopolynoe goffrediae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A5485; Hatch et al. (2020)	False	16s	MN428330
+Polynoidae	Polynoidae:78	Peinaleopolynoe goffrediae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A5485; Hatch et al. (2020)	False	18s	MN428336
+Polynoidae	Polynoidae:78	Peinaleopolynoe goffrediae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A5485; Hatch et al. (2020)	False	28s	MN428323
+Polynoidae	Polynoidae:78	Peinaleopolynoe goffrediae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A5485; Hatch et al. (2020)	False	coi	MN431782
+Polynoidae	Polynoidae:78	Peinaleopolynoe goffrediae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A5485; Hatch et al. (2020)	False	h3	MN431801
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	16s	MN428331
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	18s	MN428337
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	28s	MN428324
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	coi	MN431773
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	h3	MN431802
+Polynoidae	Polynoidae:79	Peinaleopolynoe mineoi Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A9919; Hatch et al. (2020)	False	cob	MN431803
+Polynoidae	Polynoidae:80	Peinaleopolynoe orphanae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A6163	True	18s	OM007999
+Polynoidae	Polynoidae:80	Peinaleopolynoe orphanae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A6163	True	28s	OM105864
+Polynoidae	Polynoidae:80	Peinaleopolynoe orphanae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A6163	True	h3	OL960154
+Polynoidae	Polynoidae:80	Peinaleopolynoe orphanae Hatch & Rouse, in Hatch et al. 2020	SIO-BIC A6163	True	mtgenome	MW783706
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	16s	MH127413
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	18s	MH124621
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	28s	MH124612
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	coi	MH115411
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	h3	MH120846
+Polynoidae	Polynoidae:81	Peinaleopolynoe santacatalina Pettibone, 1993	SIO-BIC A8487; Hatch et al. (2020)	False	cob	MH115422
+Polynoidae	Polynoidae:82	Peinaleopolynoe sillardi Desbruyères & Laubier, 1988	MNHN-IA-2010-399; Hatch et al. (2020)	False	16s	MH127421
+Polynoidae	Polynoidae:82	Peinaleopolynoe sillardi Desbruyères & Laubier, 1988	MNHN-IA-2010-399; Hatch et al. (2020)	False	coi	MH115414
+Polynoidae	Polynoidae:83	Pelagomacellicephala cf. iliffei	Gonzalez et al. (2017); Gonzalez et al. (2018)	False	16s	KY454420
+Polynoidae	Polynoidae:83	Pelagomacellicephala cf. iliffei	Gonzalez et al. (2017); Gonzalez et al. (2018)	False	18s	KY454408
+Polynoidae	Polynoidae:83	Pelagomacellicephala cf. iliffei	Gonzalez et al. (2017); Gonzalez et al. (2018)	False	28s	KY823474
+Polynoidae	Polynoidae:83	Pelagomacellicephala cf. iliffei	Gonzalez et al. (2017); Gonzalez et al. (2018)	False	coi	KY454435
+Polynoidae	Polynoidae:84	Pelagomacellicephala iliffei Pettibone, 1985	Gonzalez et al. (2021)	False	18s	MW794264
+Polynoidae	Polynoidae:84	Pelagomacellicephala iliffei Pettibone, 1985	Gonzalez et al. (2021)	False	28s	MW794264
+Polynoidae	Polynoidae:84	Pelagomacellicephala iliffei Pettibone, 1985	Gonzalez et al. (2021)	False	mtgenome	MW794261
+Polynoidae	Polynoidae:85	Pholoe pallida Chambers, 1985	Zhang et al. (2018b)	False	18s	KY753843
+Polynoidae	Polynoidae:85	Pholoe pallida Chambers, 1985	Zhang et al. (2018b)	False	28s	KY753843
+Polynoidae	Polynoidae:85	Pholoe pallida Chambers, 1985	Zhang et al. (2018b)	False	mtgenome	KY753838
+Polynoidae	Polynoidae:86	Pisione sp.	Zhang et al. (2018b)	False	18s	KY753844
+Polynoidae	Polynoidae:86	Pisione sp.	Zhang et al. (2018b)	False	28s	KY753844
+Polynoidae	Polynoidae:86	Pisione sp.	Zhang et al. (2018b)	False	mtgenome	KY753836
+Polynoidae	Polynoidae:87	Themis gen. nov. sp. nov.	SIO-BIC A14236	True	18s	OP651047
+Polynoidae	Polynoidae:87	Themis gen. nov. sp. nov.	SIO-BIC A14236	True	28s	OP651059
+Polynoidae	Polynoidae:87	Themis gen. nov. sp. nov.	SIO-BIC A14236	True	h3	OP648309
+Polynoidae	Polynoidae:87	Themis gen. nov. sp. nov.	SIO-BIC A14236	True	mtgenome	OP648299
+Polynoidae	Polynoidae:88	Thermopolynoe branchiata Miura, 1994	SIO-BIC A10925	True	18s	OM008000
+Polynoidae	Polynoidae:88	Thermopolynoe branchiata Miura, 1994	SIO-BIC A10925	True	28s	OM105865
+Polynoidae	Polynoidae:88	Thermopolynoe branchiata Miura, 1994	SIO-BIC A10925	True	h3	OL960155
+Polynoidae	Polynoidae:88	Thermopolynoe branchiata Miura, 1994	SIO-BIC A10925	True	mtgenome	MW783707
+Hesionidae	Hesionidae:1	Dysponetus caecus (Langerhans, 1880)	Wiklund et al. (2009); Dahlgren et al. (2000)	False	16s	EU555047
+Hesionidae	Hesionidae:1	Dysponetus caecus (Langerhans, 1880)	Wiklund et al. (2009); Dahlgren et al. (2000)	False	18s	AY839568
+Hesionidae	Hesionidae:1	Dysponetus caecus (Langerhans, 1880)	Wiklund et al. (2009); Dahlgren et al. (2000)	False	28s	EU555028
+Hesionidae	Hesionidae:1	Dysponetus caecus (Langerhans, 1880)	Wiklund et al. (2009); Dahlgren et al. (2000)	False	coi	AF221568
+Hesionidae	Hesionidae:2	Nereis pelagica Linnaeus, 1758	Rousset et al. (2007)	False	16s	AY340470
+Hesionidae	Hesionidae:2	Nereis pelagica Linnaeus, 1758	Rousset et al. (2007)	False	18s	AY340438
+Hesionidae	Hesionidae:2	Nereis pelagica Linnaeus, 1758	Rousset et al. (2007)	False	28s	AY340407
+Hesionidae	Hesionidae:3	Amphiduros fuscescens (Marenzeller, 1875)	Ruta et al. (2007)	False	16s	DQ442569
+Hesionidae	Hesionidae:3	Amphiduros fuscescens (Marenzeller, 1875)	Ruta et al. (2007)	False	18s	DQ442584
+Hesionidae	Hesionidae:3	Amphiduros fuscescens (Marenzeller, 1875)	Ruta et al. (2007)	False	28s	DQ442598
+Hesionidae	Hesionidae:3	Amphiduros fuscescens (Marenzeller, 1875)	Ruta et al. (2007)	False	coi	DQ442561
+Hesionidae	Hesionidae:4	Amphiduropsis cf. axialensis sensu Rouse, Carvajal & Pleijel (2018)	Rouse et al. (2018)	False	16s	MG523356
+Hesionidae	Hesionidae:4	Amphiduropsis cf. axialensis sensu Rouse, Carvajal & Pleijel (2018)	Rouse et al. (2018)	False	18s	MG649239
+Hesionidae	Hesionidae:4	Amphiduropsis cf. axialensis sensu Rouse, Carvajal & Pleijel (2018)	Rouse et al. (2018)	False	28s	MG649243
+Hesionidae	Hesionidae:4	Amphiduropsis cf. axialensis sensu Rouse, Carvajal & Pleijel (2018)	Rouse et al. (2018)	False	coi	MG517505
+Hesionidae	Hesionidae:5	Amphiduros pacificus Hartman, 1961	Pleijel et al. (2012)	False	16s	JN631324
+Hesionidae	Hesionidae:5	Amphiduros pacificus Hartman, 1961	Pleijel et al. (2012)	False	18s	JN631334
+Hesionidae	Hesionidae:5	Amphiduros pacificus Hartman, 1961	Pleijel et al. (2012)	False	28s	JN631345
+Hesionidae	Hesionidae:5	Amphiduros pacificus Hartman, 1961	Pleijel et al. (2012)	False	coi	JN631312
+Hesionidae	Hesionidae:6	Dalhousiella yabukii sp. nov.	This study	False	16s	PX353170
+Hesionidae	Hesionidae:6	Dalhousiella yabukii sp. nov.	This study	False	18s	PX353168
+Hesionidae	Hesionidae:6	Dalhousiella yabukii sp. nov.	This study	False	28s	PX353166
+Hesionidae	Hesionidae:6	Dalhousiella yabukii sp. nov.	This study	False	coi	PX353942
+Hesionidae	Hesionidae:7	Elisesione imajimai Jimi, Eibye-Jacobsen & Salazar-Vallejo, 2018	Jimi et al. (2018)	False	18s	LC361352
+Hesionidae	Hesionidae:7	Elisesione imajimai Jimi, Eibye-Jacobsen & Salazar-Vallejo, 2018	Jimi et al. (2018)	False	28s	LC361353
+Hesionidae	Hesionidae:7	Elisesione imajimai Jimi, Eibye-Jacobsen & Salazar-Vallejo, 2018	Jimi et al. (2018)	False	coi	LC361354
+Hesionidae	Hesionidae:8	Gyptis brunnea (Hartman, 1961)	Pleijel et al. (2012)	False	16s	JN631323
+Hesionidae	Hesionidae:8	Gyptis brunnea (Hartman, 1961)	Pleijel et al. (2012)	False	18s	JN631335
+Hesionidae	Hesionidae:8	Gyptis brunnea (Hartman, 1961)	Pleijel et al. (2012)	False	28s	JN631346
+Hesionidae	Hesionidae:8	Gyptis brunnea (Hartman, 1961)	Pleijel et al. (2012)	False	coi	JN631313
+Hesionidae	Hesionidae:9	Gyptis golikovi (Averincev, 1990)	Pleijel et al. (2012)	False	16s	JN631321
+Hesionidae	Hesionidae:9	Gyptis golikovi (Averincev, 1990)	Pleijel et al. (2012)	False	18s	JN631336
+Hesionidae	Hesionidae:9	Gyptis golikovi (Averincev, 1990)	Pleijel et al. (2012)	False	28s	JN631347
+Hesionidae	Hesionidae:10	Gyptis hians Fauchald & Hancock, 1981	Summers et al. (2015)	False	16s	JN571880
+Hesionidae	Hesionidae:10	Gyptis hians Fauchald & Hancock, 1981	Summers et al. (2015)	False	18s	JN571891
+Hesionidae	Hesionidae:10	Gyptis hians Fauchald & Hancock, 1981	Summers et al. (2015)	False	28s	JN571900
+Hesionidae	Hesionidae:10	Gyptis hians Fauchald & Hancock, 1981	Summers et al. (2015)	False	coi	JX503009
+Hesionidae	Hesionidae:11	Gyptis pacificus (Hessle, 1925)	Pleijel et al. (2012)	False	16s	JN631322
+Hesionidae	Hesionidae:11	Gyptis pacificus (Hessle, 1925)	Pleijel et al. (2012)	False	18s	JN631337
+Hesionidae	Hesionidae:11	Gyptis pacificus (Hessle, 1925)	Pleijel et al. (2012)	False	28s	JN631348
+Hesionidae	Hesionidae:11	Gyptis pacificus (Hessle, 1925)	Pleijel et al. (2012)	False	coi	JN631314
+Hesionidae	Hesionidae:12	Gyptis paucilineata Pleijel, Rouse & Nygren, 2009	Pleijel et al. (2009)	False	coi	EU498243
+Hesionidae	Hesionidae:13	Gyptis polymorpha Pleijel, Rouse & Nygren, 2009	Pleijel et al. (2012)	False	coi	EU498247
+Hesionidae	Hesionidae:14	Gyptis propinqua Marion & Bobretzky, 1875	Pleijel et al. (2009)	False	16s	DQ442573
+Hesionidae	Hesionidae:14	Gyptis propinqua Marion & Bobretzky, 1875	Pleijel et al. (2009)	False	28s	DQ442602
+Hesionidae	Hesionidae:14	Gyptis propinqua Marion & Bobretzky, 1875	Pleijel et al. (2009)	False	coi	EU498229
+Hesionidae	Hesionidae:15	Gyptis robertscrippsi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	16s	MG523360
+Hesionidae	Hesionidae:15	Gyptis robertscrippsi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	18s	MG649238
+Hesionidae	Hesionidae:15	Gyptis robertscrippsi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	28s	MG649247
+Hesionidae	Hesionidae:15	Gyptis robertscrippsi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	coi	MG517513
+Hesionidae	Hesionidae:16	Gyptis simpsonorum Pleijel, Rouse & Nygren, 2009	Pleijel et al. (2009)	False	coi	KU738203
+Hesionidae	Hesionidae:17	Gyptis shannonae Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	KP745534
+Hesionidae	Hesionidae:17	Gyptis shannonae Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	KP745537
+Hesionidae	Hesionidae:17	Gyptis shannonae Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	KP745540
+Hesionidae	Hesionidae:18	Hesiolyra bergi Blake, 1985	Rouse et al. (2018)	False	16s	MG523359
+Hesionidae	Hesionidae:18	Hesiolyra bergi Blake, 1985	Rouse et al. (2018)	False	18s	AM159577
+Hesionidae	Hesionidae:18	Hesiolyra bergi Blake, 1985	Rouse et al. (2018)	False	coi	MG517521
+Hesionidae	Hesionidae:19	Hesione sp. sensu Ruta et al. (2007)	Ruta et al. (2007)	False	16s	DQ442615
+Hesionidae	Hesionidae:19	Hesione sp. sensu Ruta et al. (2007)	Ruta et al. (2007)	False	18s	DQ442617
+Hesionidae	Hesionidae:19	Hesione sp. sensu Ruta et al. (2007)	Ruta et al. (2007)	False	28s	DQ442619
+Hesionidae	Hesionidae:20	Hesione reticulata Marenzeller, 1879	Jimi et al. (2017b)	False	coi	LC169754
+Hesionidae	Hesionidae:21	Hesione cf. picta	Ngamniyom et al. (2015)	False	16s	KF006978
+Hesionidae	Hesionidae:21	Hesione cf. picta	Ngamniyom et al. (2015)	False	18s	KJ748004
+Hesionidae	Hesionidae:21	Hesione cf. picta	Ngamniyom et al. (2015)	False	28s	KF006977
+Hesionidae	Hesionidae:22	Hesiospina aurantiaca (M. Sars, 1862)	Pleijel et al. (2012)	False	16s	JN631319
+Hesionidae	Hesionidae:22	Hesiospina aurantiaca (M. Sars, 1862)	Pleijel et al. (2012)	False	18s	JN852829
+Hesionidae	Hesionidae:22	Hesiospina aurantiaca (M. Sars, 1862)	Pleijel et al. (2012)	False	28s	JN852897
+Hesionidae	Hesionidae:23	Hesiospina vestimentifera Blake, 1985	Pleijel et al. (2012)	False	16s	JN852860
+Hesionidae	Hesionidae:23	Hesiospina vestimentifera Blake, 1985	Pleijel et al. (2012)	False	18s	JN631330
+Hesionidae	Hesionidae:23	Hesiospina vestimentifera Blake, 1985	Pleijel et al. (2012)	False	28s	JN631343
+Hesionidae	Hesionidae:23	Hesiospina vestimentifera Blake, 1985	Pleijel et al. (2012)	False	coi	JN631310
+Hesionidae	Hesionidae:24	Heteropodarke formalis Perkins, 1984	Martin et al. (2015)	False	16s	KJ855065
+Hesionidae	Hesionidae:24	Heteropodarke formalis Perkins, 1984	Martin et al. (2015)	False	28s	KJ855076
+Hesionidae	Hesionidae:25	Heteropodarke pleijeli Muona, 2006	Martin et al. (2015)	False	16s	KY823464
+Hesionidae	Hesionidae:25	Heteropodarke pleijeli Muona, 2006	Martin et al. (2015)	False	28s	KY823481
+Hesionidae	Hesionidae:26	Leocrates chinensis Kinberg, 1866	Ruta et al. (2007)	False	16s	DQ442575
+Hesionidae	Hesionidae:26	Leocrates chinensis Kinberg, 1866	Ruta et al. (2007)	False	18s	DQ442589
+Hesionidae	Hesionidae:26	Leocrates chinensis Kinberg, 1866	Ruta et al. (2007)	False	28s	DQ442605
+Hesionidae	Hesionidae:26	Leocrates chinensis Kinberg, 1866	Ruta et al. (2007)	False	coi	DQ442565
+Hesionidae	Hesionidae:27	Leocratides kimuraorum Jimi, Tanaka & Kajihara, 2017	Jimi et al. (2017); Goto et al. (2019)	False	16s	LC480518
+Hesionidae	Hesionidae:27	Leocratides kimuraorum Jimi, Tanaka & Kajihara, 2017	Jimi et al. (2017); Goto et al. (2019)	False	18s	LC480516
+Hesionidae	Hesionidae:27	Leocratides kimuraorum Jimi, Tanaka & Kajihara, 2017	Jimi et al. (2017); Goto et al. (2019)	False	28s	LC480517
+Hesionidae	Hesionidae:27	Leocratides kimuraorum Jimi, Tanaka & Kajihara, 2017	Jimi et al. (2017); Goto et al. (2019)	False	coi	LC258082
+Hesionidae	Hesionidae:28	Leocratides filamentosus Ehlers, 1908	Jimi et al. (2017a)	False	coi	LC258083
+Hesionidae	Hesionidae:29	Leocratides watanabeae sp.nov.	This study	False	16s	PX353169
+Hesionidae	Hesionidae:29	Leocratides watanabeae sp.nov.	This study	False	18s	PX353167
+Hesionidae	Hesionidae:29	Leocratides watanabeae sp.nov.	This study	False	28s	PX353165
+Hesionidae	Hesionidae:29	Leocratides watanabeae sp.nov.	This study	False	coi	PX353941
+Hesionidae	Hesionidae:30	Micropodarke dubia (Hessle, 1925)	Summers et al. (2015)	False	16s	DQ442576
+Hesionidae	Hesionidae:30	Micropodarke dubia (Hessle, 1925)	Summers et al. (2015)	False	18s	JN571888
+Hesionidae	Hesionidae:30	Micropodarke dubia (Hessle, 1925)	Summers et al. (2015)	False	28s	JN571899
+Hesionidae	Hesionidae:30	Micropodarke dubia (Hessle, 1925)	Summers et al. (2015)	False	coi	JN571825
+Hesionidae	Hesionidae:31	Neogyptis carriebowcayi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	16s	JN631325
+Hesionidae	Hesionidae:31	Neogyptis carriebowcayi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	18s	JN631338
+Hesionidae	Hesionidae:31	Neogyptis carriebowcayi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	28s	JN631349
+Hesionidae	Hesionidae:31	Neogyptis carriebowcayi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	coi	JN631315
+Hesionidae	Hesionidae:32	Neogyptis fauchaldi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	16s	JN631326
+Hesionidae	Hesionidae:32	Neogyptis fauchaldi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	18s	JN631339
+Hesionidae	Hesionidae:32	Neogyptis fauchaldi Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	coi	JN631316
+Hesionidae	Hesionidae:33	Neogyptis hinehina Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	16s	JN631328
+Hesionidae	Hesionidae:33	Neogyptis hinehina Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	18s	JN631340
+Hesionidae	Hesionidae:33	Neogyptis hinehina Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	28s	JN631350
+Hesionidae	Hesionidae:33	Neogyptis hinehina Pleijel, Rouse, Sundkvist & Nygren, 2012	Pleijel et al. (2012)	False	coi	JN631317
+Hesionidae	Hesionidae:34	Neogyptis jeffruoccoi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	18s	JN852831
+Hesionidae	Hesionidae:34	Neogyptis jeffruoccoi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	28s	MG649244
+Hesionidae	Hesionidae:34	Neogyptis jeffruoccoi Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	coi	MG517514
+Hesionidae	Hesionidae:35	Neogyptis mediterranea (Pleijel, 1993)	Ruta et al. (2007)	False	16s	DQ442572
+Hesionidae	Hesionidae:35	Neogyptis mediterranea (Pleijel, 1993)	Ruta et al. (2007)	False	28s	DQ442601
+Hesionidae	Hesionidae:35	Neogyptis mediterranea (Pleijel, 1993)	Ruta et al. (2007)	False	coi	DQ442563
+Hesionidae	Hesionidae:36	Neogyptis rosea (Malm, 1874)	Ruta et al. (2007); Summers et al. (2015)	False	16s	DQ442574
+Hesionidae	Hesionidae:36	Neogyptis rosea (Malm, 1874)	Ruta et al. (2007); Summers et al. (2015)	False	18s	JN571890
+Hesionidae	Hesionidae:36	Neogyptis rosea (Malm, 1874)	Ruta et al. (2007); Summers et al. (2015)	False	28s	DQ442603
+Hesionidae	Hesionidae:36	Neogyptis rosea (Malm, 1874)	Ruta et al. (2007); Summers et al. (2015)	False	coi	JN571826
+Hesionidae	Hesionidae:37	Neogyptis julii Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	KP745535
+Hesionidae	Hesionidae:37	Neogyptis julii Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	KP745538
+Hesionidae	Hesionidae:37	Neogyptis julii Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	KP745541
+Hesionidae	Hesionidae:37	Neogyptis julii Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	coi	KP745532
+Hesionidae	Hesionidae:38	Neogyptis sp. A sensu Pleijel et al. (2012)	Pleijel et al. (2012)	False	16s	JN631327
+Hesionidae	Hesionidae:38	Neogyptis sp. A sensu Pleijel et al. (2012)	Pleijel et al. (2012)	False	18s	JN631341
+Hesionidae	Hesionidae:38	Neogyptis sp. A sensu Pleijel et al. (2012)	Pleijel et al. (2012)	False	28s	JN631351
+Hesionidae	Hesionidae:38	Neogyptis sp. A sensu Pleijel et al. (2012)	Pleijel et al. (2012)	False	coi	JN631318
+Hesionidae	Hesionidae:39	Nereimyra aphroditoides (O. Fabricius, 1780)	Pleijel et al. (2012)	False	16s	JF317211
+Hesionidae	Hesionidae:39	Nereimyra aphroditoides (O. Fabricius, 1780)	Pleijel et al. (2012)	False	28s	JF317204
+Hesionidae	Hesionidae:39	Nereimyra aphroditoides (O. Fabricius, 1780)	Pleijel et al. (2012)	False	coi	JF317198
+Hesionidae	Hesionidae:40	Nereimyra punctata (Müller, 1788)	Ruta et al. (2007)	False	16s	DQ442577
+Hesionidae	Hesionidae:40	Nereimyra punctata (Müller, 1788)	Ruta et al. (2007)	False	18s	DQ442591
+Hesionidae	Hesionidae:40	Nereimyra punctata (Müller, 1788)	Ruta et al. (2007)	False	28s	DQ442606
+Hesionidae	Hesionidae:40	Nereimyra punctata (Müller, 1788)	Ruta et al. (2007)	False	coi	DQ442566
+Hesionidae	Hesionidae:41	Nereimyra woodsholea (Hartman, 1965)	Nygren et al. (2005)	False	28s	JF317207
+Hesionidae	Hesionidae:41	Nereimyra woodsholea (Hartman, 1965)	Nygren et al. (2005)	False	coi	AY644802
+Hesionidae	Hesionidae:42	Oxydromus fauveli (Uchida, 2004)	Martin et al. (2015)	False	28s	KJ855078
+Hesionidae	Hesionidae:42	Oxydromus fauveli (Uchida, 2004)	Martin et al. (2015)	False	coi	KJ855071
+Hesionidae	Hesionidae:43	Oxydromus flexuosus (Delle Chiaje, 1827)	Ruta et al. (2007)	False	16s	DQ442578
+Hesionidae	Hesionidae:43	Oxydromus flexuosus (Delle Chiaje, 1827)	Ruta et al. (2007)	False	18s	DQ442592
+Hesionidae	Hesionidae:43	Oxydromus flexuosus (Delle Chiaje, 1827)	Ruta et al. (2007)	False	28s	DQ442607
+Hesionidae	Hesionidae:43	Oxydromus flexuosus (Delle Chiaje, 1827)	Ruta et al. (2007)	False	coi	DQ442567
+Hesionidae	Hesionidae:44	Oxydromus okupa (Martin, Meca, Gil, Drake and Nygran, 2017)	Martin et al. (2015, 2017, 2019)	False	16s	KJ855070
+Hesionidae	Hesionidae:44	Oxydromus okupa (Martin, Meca, Gil, Drake and Nygran, 2017)	Martin et al. (2015, 2017, 2019)	False	18s	KJ855075
+Hesionidae	Hesionidae:44	Oxydromus okupa (Martin, Meca, Gil, Drake and Nygran, 2017)	Martin et al. (2015, 2017, 2019)	False	28s	KJ855082
+Hesionidae	Hesionidae:45	Oxydromus microantennatus (Hutchings & Murray, 1984)	Martin et al. (2015)	False	16s	KJ855067
+Hesionidae	Hesionidae:45	Oxydromus microantennatus (Hutchings & Murray, 1984)	Martin et al. (2015)	False	28s	KJ855079
+Hesionidae	Hesionidae:45	Oxydromus microantennatus (Hutchings & Murray, 1984)	Martin et al. (2015)	False	coi	KJ855072
+Hesionidae	Hesionidae:46	Oxydromus obscurus (Verrill, 1873)	Martin et al. (2015)	False	16s	KJ855068
+Hesionidae	Hesionidae:46	Oxydromus obscurus (Verrill, 1873)	Martin et al. (2015)	False	28s	KJ855080
+Hesionidae	Hesionidae:46	Oxydromus obscurus (Verrill, 1873)	Martin et al. (2015)	False	coi	KJ855073
+Hesionidae	Hesionidae:47	Oxydromus pallidus Claparède, 1864	Ruta et al. (2007)	False	16s	DQ442579
+Hesionidae	Hesionidae:47	Oxydromus pallidus Claparède, 1864	Ruta et al. (2007)	False	18s	DQ442593
+Hesionidae	Hesionidae:47	Oxydromus pallidus Claparède, 1864	Ruta et al. (2007)	False	28s	DQ442608
+Hesionidae	Hesionidae:48	Oxydromus pugettensis (Johnson, 1901)	Martin et al. (2015)	False	16s	KJ855069
+Hesionidae	Hesionidae:48	Oxydromus pugettensis (Johnson, 1901)	Martin et al. (2015)	False	18s	DQ790086
+Hesionidae	Hesionidae:48	Oxydromus pugettensis (Johnson, 1901)	Martin et al. (2015)	False	28s	KJ855081
+Hesionidae	Hesionidae:48	Oxydromus pugettensis (Johnson, 1901)	Martin et al. (2015)	False	coi	KJ855074
+Hesionidae	Hesionidae:49	Parahesione apiculata Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	16s	OP407586
+Hesionidae	Hesionidae:49	Parahesione apiculata Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	28s	OP407537
+Hesionidae	Hesionidae:49	Parahesione apiculata Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	coi	OP404167
+Hesionidae	Hesionidae:50	Parahesione pulvinata sp. nov. Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	16s	OP407585
+Hesionidae	Hesionidae:50	Parahesione pulvinata sp. nov. Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	18s	OP407566
+Hesionidae	Hesionidae:50	Parahesione pulvinata sp. nov. Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	28s	OP407536
+Hesionidae	Hesionidae:50	Parahesione pulvinata sp. nov. Jimi, Gonzalez, Rouse & Britayev in Jimi et al., 2023	Jimi et al. (2023)	False	coi	OP404166
+Hesionidae	Hesionidae:51	Parahesione sp.	Ruta et al. (2007)	False	28s	DQ442613
+Hesionidae	Hesionidae:52	Podarkeopsis arenicolus (La Greca, 1946)	Summers et al. (2015)	False	16s	JN571879
+Hesionidae	Hesionidae:52	Podarkeopsis arenicolus (La Greca, 1946)	Summers et al. (2015)	False	18s	JN571889
+Hesionidae	Hesionidae:52	Podarkeopsis arenicolus (La Greca, 1946)	Summers et al. (2015)	False	28s	DQ442609
+Hesionidae	Hesionidae:52	Podarkeopsis arenicolus (La Greca, 1946)	Summers et al. (2015)	False	coi	JN571827
+Hesionidae	Hesionidae:53	Podarkeopsis helgolandicus (Hilbig & Dittmer, 1979)	Pleijel et al. (2012)	False	18s	JN631331
+Hesionidae	Hesionidae:53	Podarkeopsis helgolandicus (Hilbig & Dittmer, 1979)	Pleijel et al. (2012)	False	28s	JN631344
+Hesionidae	Hesionidae:53	Podarkeopsis helgolandicus (Hilbig & Dittmer, 1979)	Pleijel et al. (2012)	False	coi	JN631311
+Hesionidae	Hesionidae:54	Psamathe fusca Johnston, 1836	Ruta et al. (2007)	False	16s	DQ442581
+Hesionidae	Hesionidae:54	Psamathe fusca Johnston, 1836	Ruta et al. (2007)	False	18s	DQ442595
+Hesionidae	Hesionidae:54	Psamathe fusca Johnston, 1836	Ruta et al. (2007)	False	28s	DQ442610
+Hesionidae	Hesionidae:54	Psamathe fusca Johnston, 1836	Ruta et al. (2007)	False	coi	DQ513294
+Hesionidae	Hesionidae:55	Sirsoe dalailamai Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	16s	MG523357
+Hesionidae	Hesionidae:55	Sirsoe dalailamai Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	18s	MG649240
+Hesionidae	Hesionidae:55	Sirsoe dalailamai Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	28s	MG649245
+Hesionidae	Hesionidae:55	Sirsoe dalailamai Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	coi	MG517498
+Hesionidae	Hesionidae:56	Sirsoe methanicola (Desbruyères & Toulmond, 1998)	Ruta et al. (2007)	False	16s	DQ442582
+Hesionidae	Hesionidae:56	Sirsoe methanicola (Desbruyères & Toulmond, 1998)	Ruta et al. (2007)	False	18s	JN631332
+Hesionidae	Hesionidae:56	Sirsoe methanicola (Desbruyères & Toulmond, 1998)	Ruta et al. (2007)	False	28s	DQ442611
+Hesionidae	Hesionidae:56	Sirsoe methanicola (Desbruyères & Toulmond, 1998)	Ruta et al. (2007)	False	coi	DQ513295
+Hesionidae	Hesionidae:57	Sirsoe munki Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	16s	MG523358
+Hesionidae	Hesionidae:57	Sirsoe munki Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	18s	MG649241
+Hesionidae	Hesionidae:57	Sirsoe munki Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	28s	MG649246
+Hesionidae	Hesionidae:57	Sirsoe munki Rouse, Carvajal & Pleijel, 2018	Rouse et al. (2018)	False	coi	MG517510
+Hesionidae	Hesionidae:58	Sirsoe sirikos Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	JN571882
+Hesionidae	Hesionidae:58	Sirsoe sirikos Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	JN571893
+Hesionidae	Hesionidae:58	Sirsoe sirikos Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	JN571902
+Hesionidae	Hesionidae:58	Sirsoe sirikos Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	coi	JN571829
+Hesionidae	Hesionidae:59	Syllidia armata Quatrefages, 1866	Ruta et al. (2007)	False	16s	DQ442583
+Hesionidae	Hesionidae:59	Syllidia armata Quatrefages, 1866	Ruta et al. (2007)	False	18s	DQ442596
+Hesionidae	Hesionidae:59	Syllidia armata Quatrefages, 1866	Ruta et al. (2007)	False	28s	DQ442612
+Hesionidae	Hesionidae:59	Syllidia armata Quatrefages, 1866	Ruta et al. (2007)	False	coi	DQ442568
+Hesionidae	Hesionidae:60	Vrijenhoekia balaenophila Pleijel, Rouse, Ruta, Wiklund & Nygren, 2008	Pleijel et al. (2008)	False	16s	DQ513301
+Hesionidae	Hesionidae:60	Vrijenhoekia balaenophila Pleijel, Rouse, Ruta, Wiklund & Nygren, 2008	Pleijel et al. (2008)	False	18s	JN631333
+Hesionidae	Hesionidae:60	Vrijenhoekia balaenophila Pleijel, Rouse, Ruta, Wiklund & Nygren, 2008	Pleijel et al. (2008)	False	28s	DQ513306
+Hesionidae	Hesionidae:60	Vrijenhoekia balaenophila Pleijel, Rouse, Ruta, Wiklund & Nygren, 2008	Pleijel et al. (2008)	False	coi	DQ513296
+Hesionidae	Hesionidae:61	Vrijenhoekia ahabi Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	JN571887
+Hesionidae	Hesionidae:61	Vrijenhoekia ahabi Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	JN571898
+Hesionidae	Hesionidae:61	Vrijenhoekia ahabi Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	JN571907
+Hesionidae	Hesionidae:61	Vrijenhoekia ahabi Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	coi	JN571876
+Hesionidae	Hesionidae:62	Vrijenhoekia falenothiras Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	JN571886
+Hesionidae	Hesionidae:62	Vrijenhoekia falenothiras Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	JN571897
+Hesionidae	Hesionidae:62	Vrijenhoekia falenothiras Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	JN571906
+Hesionidae	Hesionidae:62	Vrijenhoekia falenothiras Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	coi	JN571875
+Hesionidae	Hesionidae:63	Vrijenhoekia ketea Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	16s	JN571885
+Hesionidae	Hesionidae:63	Vrijenhoekia ketea Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	18s	JN571896
+Hesionidae	Hesionidae:63	Vrijenhoekia ketea Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	28s	JN571905
+Hesionidae	Hesionidae:63	Vrijenhoekia ketea Summers, Pleijel & Rouse, 2015	Summers et al. (2015)	False	coi	JN571838
+Hesionidae	Hesionidae:64	Vrijenhoekia sp. A sensu Summers et al. (2015)	Summers et al. (2015)	False	16s	KP745536
+Hesionidae	Hesionidae:64	Vrijenhoekia sp. A sensu Summers et al. (2015)	Summers et al. (2015)	False	18s	KP745539
+Hesionidae	Hesionidae:64	Vrijenhoekia sp. A sensu Summers et al. (2015)	Summers et al. (2015)	False	28s	KP745542
+Hesionidae	Hesionidae:64	Vrijenhoekia sp. A sensu Summers et al. (2015)	Summers et al. (2015)	False	coi	KP745533
+Opheliidae	Opheliidae:1	Arabella iricolor (Montagu, 1804)	Bamfield, Canada	False	16s	HM746709
+Opheliidae	Opheliidae:1	Arabella iricolor (Montagu, 1804)	Bamfield, Canada	False	18s	HM746724
+Opheliidae	Opheliidae:2	Arenicola marina (Linnaeus, 1758)	GenBank	False	16s	AY532328
+Opheliidae	Opheliidae:2	Arenicola marina (Linnaeus, 1758)	GenBank	False	18s	AF508116
+Opheliidae	Opheliidae:2	Arenicola marina (Linnaeus, 1758)	GenBank	False	28s	AY612629
+Opheliidae	Opheliidae:2	Arenicola marina (Linnaeus, 1758)	GenBank	False	h3	DQ779718
+Opheliidae	Opheliidae:3	Armandia bilobata Hartmann-Schröder, 1986	GenBank	False	16s	DQ779604
+Opheliidae	Opheliidae:3	Armandia bilobata Hartmann-Schröder, 1986	GenBank	False	18s	DQ779641
+Opheliidae	Opheliidae:3	Armandia bilobata Hartmann-Schröder, 1986	GenBank	False	28s	DQ779676
+Opheliidae	Opheliidae:3	Armandia bilobata Hartmann-Schröder, 1986	GenBank	False	h3	DQ779719
+Opheliidae	Opheliidae:4	Armandia brevis (Moore, 1906)	Friday Harbor, WA, USA	False	16s	HM746708
+Opheliidae	Opheliidae:4	Armandia brevis (Moore, 1906)	Friday Harbor, WA, USA	False	18s	EU418854
+Opheliidae	Opheliidae:4	Armandia brevis (Moore, 1906)	Friday Harbor, WA, USA	False	28s	HM746736
+Opheliidae	Opheliidae:4	Armandia brevis (Moore, 1906)	Friday Harbor, WA, USA	False	h3	HM746752
+Opheliidae	Opheliidae:5	Armandia maculata Blanchard, 1954	Twin Cayes, Belize	False	18s	AY040681
+Opheliidae	Opheliidae:5	Armandia maculata Blanchard, 1954	Twin Cayes, Belize	False	28s	HM746737
+Opheliidae	Opheliidae:5	Armandia maculata Blanchard, 1954	Twin Cayes, Belize	False	h3	HM746753
+Opheliidae	Opheliidae:6	Axiokebuita sp.	GenBank	False	18s	AY612616
+Opheliidae	Opheliidae:6	Axiokebuita sp.	GenBank	False	28s	AY612622
+Opheliidae	Opheliidae:7	Cirratulus cirratus (Müller, 1776)	GenBank	False	16s	DQ779609
+Opheliidae	Opheliidae:7	Cirratulus cirratus (Müller, 1776)	GenBank	False	18s	DQ779645
+Opheliidae	Opheliidae:7	Cirratulus cirratus (Müller, 1776)	GenBank	False	28s	DQ779683
+Opheliidae	Opheliidae:7	Cirratulus cirratus (Müller, 1776)	GenBank	False	h3	DQ779724
+Opheliidae	Opheliidae:8	Cossura candida Hartman, 1955	Santa Barbara, CA, USA	False	16s	HM746710
+Opheliidae	Opheliidae:8	Cossura candida Hartman, 1955	Santa Barbara, CA, USA	False	18s	AY532350
+Opheliidae	Opheliidae:8	Cossura candida Hartman, 1955	Santa Barbara, CA, USA	False	h3	HM746754
+Opheliidae	Opheliidae:9	Euzonus ezoensis (Okuda, 1936)	Esashi, Japan	False	18s	HM746725
+Opheliidae	Opheliidae:9	Euzonus ezoensis (Okuda, 1936)	Esashi, Japan	False	28s	HM746738
+Opheliidae	Opheliidae:9	Euzonus ezoensis (Okuda, 1936)	Esashi, Japan	False	h3	HM746755
+Opheliidae	Opheliidae:10	Glycera tridactyla Spencer, 1959	Roscoff, France	False	16s	HM746711
+Opheliidae	Opheliidae:10	Glycera tridactyla Spencer, 1959	Roscoff, France	False	18s	HM746726
+Opheliidae	Opheliidae:10	Glycera tridactyla Spencer, 1959	Roscoff, France	False	28s	HM746739
+Opheliidae	Opheliidae:10	Glycera tridactyla Spencer, 1959	Roscoff, France	False	h3	HM746756
+Opheliidae	Opheliidae:11	Hyboscolex pacifica (Moore, 1909)	Santa Barbara, CA, USA	False	16s	HM746712
+Opheliidae	Opheliidae:11	Hyboscolex pacifica (Moore, 1909)	Santa Barbara, CA, USA	False	18s	AB106268
+Opheliidae	Opheliidae:11	Hyboscolex pacifica (Moore, 1909)	Santa Barbara, CA, USA	False	28s	HM746740
+Opheliidae	Opheliidae:11	Hyboscolex pacifica (Moore, 1909)	Santa Barbara, CA, USA	False	h3	HM746757
+Opheliidae	Opheliidae:12	Lipobranchius jeffreysii McIntosh, 1869	GenBank	False	18s	AF448161
+Opheliidae	Opheliidae:13	Lobochesis bibranchia Hutchings & Murray, 1984	GenBank	False	18s	DQ779641
+Opheliidae	Opheliidae:14	Lumbrineris zonata (Johnson, 1901)	Bamfield, Canada	False	16s	HM746713
+Opheliidae	Opheliidae:14	Lumbrineris zonata (Johnson, 1901)	Bamfield, Canada	False	18s	HM746727
+Opheliidae	Opheliidae:14	Lumbrineris zonata (Johnson, 1901)	Bamfield, Canada	False	28s	HM746741
+Opheliidae	Opheliidae:14	Lumbrineris zonata (Johnson, 1901)	Bamfield, Canada	False	h3	HM746758
+Opheliidae	Opheliidae:15	Neolipobranchius sp.	GenBank	False	18s	AY612615
+Opheliidae	Opheliidae:15	Neolipobranchius sp.	GenBank	False	28s	AY612626
+Opheliidae	Opheliidae:16	Notomastus hemipodus Hendel, 1935	Bamfield, Canada	False	16s	HM746714
+Opheliidae	Opheliidae:16	Notomastus hemipodus Hendel, 1935	Bamfield, Canada	False	18s	HM746728
+Opheliidae	Opheliidae:16	Notomastus hemipodus Hendel, 1935	Bamfield, Canada	False	28s	HM746742
+Opheliidae	Opheliidae:16	Notomastus hemipodus Hendel, 1935	Bamfield, Canada	False	h3	HM746759
+Opheliidae	Opheliidae:17	Onuphis iridescens (Johnson, 1901)	Bamfield, Canada	False	16s	HM746715
+Opheliidae	Opheliidae:17	Onuphis iridescens (Johnson, 1901)	Bamfield, Canada	False	18s	HM746729
+Opheliidae	Opheliidae:17	Onuphis iridescens (Johnson, 1901)	Bamfield, Canada	False	28s	HM746743
+Opheliidae	Opheliidae:17	Onuphis iridescens (Johnson, 1901)	Bamfield, Canada	False	h3	HM746760
+Opheliidae	Opheliidae:18	Ophelia bicornis Savigny, 1818	Arcachon (FRA)	False	18s	AF508122
+Opheliidae	Opheliidae:18	Ophelia bicornis Savigny, 1818	Arcachon (FRA)	False	28s	HM746745
+Opheliidae	Opheliidae:18	Ophelia bicornis Savigny, 1818	Arcachon (FRA)	False	h3	HM746762
+Opheliidae	Opheliidae:19	Ophelia neglecta Schneider, 1892	Concarneau, France	False	16s	HM746718
+Opheliidae	Opheliidae:19	Ophelia neglecta Schneider, 1892	Concarneau, France	False	18s	AF448156
+Opheliidae	Opheliidae:19	Ophelia neglecta Schneider, 1892	Concarneau, France	False	28s	HM746747
+Opheliidae	Opheliidae:19	Ophelia neglecta Schneider, 1892	Concarneau, France	False	h3	HM746764
+Opheliidae	Opheliidae:20	Ophelia rathkei Mcintosh, 1908	GenBank	False	18s	AF448157
+Opheliidae	Opheliidae:20	Ophelia rathkei Mcintosh, 1908	GenBank	False	28s	AY366513
+Opheliidae	Opheliidae:21	Ophelina acuminata Örsted, 1843	Helgoland, Germany	False	16s	HM746716
+Opheliidae	Opheliidae:21	Ophelina acuminata Örsted, 1843	Helgoland, Germany	False	18s	HM746730
+Opheliidae	Opheliidae:21	Ophelina acuminata Örsted, 1843	Helgoland, Germany	False	28s	HM746744
+Opheliidae	Opheliidae:21	Ophelina acuminata Örsted, 1843	Helgoland, Germany	False	h3	HM746761
+Opheliidae	Opheliidae:22	Ophelina cylindricaudata (Hansen, 1878)	New England, USA	False	16s	HM746717
+Opheliidae	Opheliidae:22	Ophelina cylindricaudata (Hansen, 1878)	New England, USA	False	18s	HM746735
+Opheliidae	Opheliidae:22	Ophelina cylindricaudata (Hansen, 1878)	New England, USA	False	28s	HM746746
+Opheliidae	Opheliidae:22	Ophelina cylindricaudata (Hansen, 1878)	New England, USA	False	h3	HM746763
+Opheliidae	Opheliidae:23	Polyophthalmus pictus Dujardin, 1839	GenBank	False	18s	AB106266
+Opheliidae	Opheliidae:23	Polyophthalmus pictus Dujardin, 1839	GenBank	False	28s	AF185171
+Opheliidae	Opheliidae:23	Polyophthalmus pictus Dujardin, 1839	GenBank	False	h3	AF185259
+Opheliidae	Opheliidae:24	Polyphysia crassa (Örsted, 1843)	Tjaerno, Sweden	False	16s	HM746719
+Opheliidae	Opheliidae:24	Polyphysia crassa (Örsted, 1843)	Tjaerno, Sweden	False	18s	HM746731
+Opheliidae	Opheliidae:24	Polyphysia crassa (Örsted, 1843)	Tjaerno, Sweden	False	28s	HM746748
+Opheliidae	Opheliidae:24	Polyphysia crassa (Örsted, 1843)	Tjaerno, Sweden	False	h3	HM746765
+Opheliidae	Opheliidae:25	Scalibregma inflatum Rathke, 1843	GenBank	False	16s	AY532331
+Opheliidae	Opheliidae:25	Scalibregma inflatum Rathke, 1843	GenBank	False	18s	AF508120
+Opheliidae	Opheliidae:25	Scalibregma inflatum Rathke, 1843	GenBank	False	28s	AY612624
+Opheliidae	Opheliidae:25	Scalibregma inflatum Rathke, 1843	GenBank	False	h3	DQ779764
+Opheliidae	Opheliidae:26	Sclerobregma branchiata Hartman, 1965	GenBank	False	18s	DQ790093
+Opheliidae	Opheliidae:26	Sclerobregma branchiata Hartman, 1965	GenBank	False	28s	AY612623
+Opheliidae	Opheliidae:27	Travisia brevis Moore, 1923	Friday Harbor, WA, USA	False	16s	HM746721
+Opheliidae	Opheliidae:27	Travisia brevis Moore, 1923	Friday Harbor, WA, USA	False	18s	AY966901
+Opheliidae	Opheliidae:27	Travisia brevis Moore, 1923	Friday Harbor, WA, USA	False	28s	HM746749
+Opheliidae	Opheliidae:27	Travisia brevis Moore, 1923	Friday Harbor, WA, USA	False	h3	HM746767
+Opheliidae	Opheliidae:28	Travisia forbesii *Johnston, 1840	GenBank	False	16s	DQ779637
+Opheliidae	Opheliidae:28	Travisia forbesii *Johnston, 1840	GenBank	False	28s	DQ779713
+Opheliidae	Opheliidae:28	Travisia forbesii *Johnston, 1840	GenBank	False	h3	DQ779770
+Opheliidae	Opheliidae:29	Travisia pupa Moore, 1906	Bamfield, Canada	False	16s	HM746722
+Opheliidae	Opheliidae:29	Travisia pupa Moore, 1906	Bamfield, Canada	False	18s	HM746733
+Opheliidae	Opheliidae:29	Travisia pupa Moore, 1906	Bamfield, Canada	False	28s	HM746750
+Opheliidae	Opheliidae:29	Travisia pupa Moore, 1906	Bamfield, Canada	False	h3	HM746768

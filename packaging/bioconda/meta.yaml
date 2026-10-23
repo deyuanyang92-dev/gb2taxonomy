@@ -1,0 +1,55 @@
+# Draft Bioconda recipe. Submit to https://github.com/bioconda/bioconda-recipes (recipes/g2t/meta.yaml)
+# after the release is on PyPI; fill in the sha256 of the sdist (pip download g2t==<version> --no-binary :all:).
+{% set name = "g2t" %}
+{% set version = "0.0.4" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: FILL_IN
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+  entry_points:
+    - g2t = g2t._cli:main_pipeline
+    - g2t-download = g2t._cli:main_download
+    - g2t-extract = g2t._cli:main_extract
+    - g2t-classify = g2t._cli:main_classify
+    - g2t-voucher = g2t._cli:main_voucher
+    - g2t-reconcile = g2t._cli:main_reconcile
+    - g2t-organize = g2t._cli:main_organize
+    - g2t-curate = g2t._cli:main_curate
+  run_exports:
+    - {{ pin_subpackage(name, max_pin="x.x") }}
+
+requirements:
+  host:
+    - python >=3.9
+    - pip
+    - setuptools >=64
+  run:
+    - python >=3.9
+    - pandas >=1.5
+    - biopython >=1.80
+    - pyyaml >=6.0
+    - openpyxl >=3.0
+
+test:
+  imports:
+    - g2t
+  commands:
+    - g2t --version
+    - g2t-download --help
+
+about:
+  home: https://github.com/deyuanyang92-dev/gb2taxonomy
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: "GenBank to Taxonomy: download a taxon from NCBI and build a specimen x gene matrix"
+  dev_url: https://github.com/deyuanyang92-dev/gb2taxonomy

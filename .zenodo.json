@@ -1,0 +1,13 @@
+{
+  "title": "g2t: GenBank to Taxonomy",
+  "description": "Downloads the GenBank records of a taxon from NCBI and turns them into a specimen × gene matrix: metadata extraction, gene-type classification, voucher linking with evidence-based reconciliation of voucher variants, and specimen-level curation.",
+  "upload_type": "software",
+  "license": "MIT",
+  "creators": [
+    {"name": "Yang, Deyuan"}
+  ],
+  "keywords": ["GenBank", "NCBI", "taxonomy", "DNA barcoding", "multi-locus matrix", "specimen voucher", "phylogenetics"],
+  "related_identifiers": [
+    {"identifier": "https://github.com/deyuanyang92-dev/gb2taxonomy", "relation": "isSupplementTo", "scheme": "url"}
+  ]
+}
