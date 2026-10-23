@@ -74,6 +74,7 @@ NAMES = {
     "hesionidae": "Hesionidae",
     "opheliidae": "Opheliidae",
     "phyllodocida": "Phyllodocida",
+    "priapulidae": "Priapulidae",
     "nymphaeaceae": "Nymphaeaceae",
     "ginkgoaceae": "Ginkgoaceae",
     "ophioglossaceae": "Ophioglossaceae",
