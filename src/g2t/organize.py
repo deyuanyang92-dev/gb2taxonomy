@@ -171,13 +171,14 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> di
     gene_order = config.gene_order
     gene_ids: dict[str, list[str]] = {g: [] for g in gene_order}
 
-    for row in group.itertuples(index=False):
-        if pd.isna(row.gene_type) or pd.isna(row.LocusID):
+    # zip over the two columns: itertuples() builds a tuple of every column per row (slow with ~50 columns)
+    for gene_type, locusid in zip(group["gene_type"], group["LocusID"]):
+        if pd.isna(gene_type) or pd.isna(locusid):
             continue
-        locusid = str(row.LocusID).strip()
+        locusid = str(locusid).strip()
         if not locusid:
             continue
-        raw_genes = [g.strip() for g in str(row.gene_type).split(",")]
+        raw_genes = [g.strip() for g in str(gene_type).split(",")]
         genes = [normalize_gene_name(g) for g in raw_genes]
         for gene in genes:
             if gene in gene_ids:
