@@ -35,6 +35,25 @@ from collections import defaultdict
 
 import pandas as pd
 
+GENE_COLS_PLANT = [
+    "plastome",
+    "rbcl",
+    "matk",
+    "trnl-trnf",
+    "psba-trnh",
+    "rpl16",
+    "rps16",
+    "ndhf",
+    "rpoc1",
+    "ycf1",
+    "rpl32-trnl",
+    "trns-trng",
+    "atpf-atph",
+    "petb-petd",
+    "psbe-petl",
+    "rbcl-atpb",
+    "trnk",
+]
 GENE_COLS = [
     "mtgenome",
     "coi",
@@ -70,7 +89,7 @@ def matrix_cells(run_dir: str) -> list[tuple[str, int, str]]:
     m = pd.read_csv(f"{run_dir}/organized_genes/organized_species_voucher.csv", dtype=str)
     out = []
     for i, row in m.iterrows():
-        for col in GENE_COLS:
+        for col in GENE_COLS + GENE_COLS_PLANT:
             if col in m.columns and pd.notna(row[col]):
                 out += [(_base(tok), i, col) for tok in re.split(r"[;,\s]+", row[col]) if tok]
     return out
@@ -183,6 +202,9 @@ def main() -> None:
 
     gold = pd.read_csv(a.gold, sep="\t", dtype={"specimen_level": bool})
     gold = gold[gold.dataset == a.dataset]
+    if gold.empty:  # dataset without a published table: report nothing to score
+        print(json.dumps({"dataset": a.dataset, "gene_type": {}, "linking": {}}, indent=1))
+        return
     genes, detail = gene_scores(gold, a.run)
     if a.details:
         detail.to_csv(a.details, sep="\t", index=False)

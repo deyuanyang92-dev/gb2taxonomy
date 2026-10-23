@@ -32,10 +32,15 @@ declare -A INPUT=(
   [hesionidae]="Hesionidae"
   [opheliidae]="Opheliidae"
   [phyllodocida]="Phyllodocida"
+  [nymphaeaceae]="Nymphaeaceae"
+  [ginkgoaceae]="Ginkgoaceae"
+  [ophioglossaceae]="Ophioglossaceae"
 )
-declare -A GOLD=([haplotaxidae]=Haplotaxidae [hesionidae]=Hesionidae [opheliidae]=Opheliidae [phyllodocida]=Polynoidae)
+# plant families have no published specimen table: they show gene-type coverage, specimens and run time
+declare -A GOLD=([haplotaxidae]=Haplotaxidae [hesionidae]=Hesionidae [opheliidae]=Opheliidae [phyllodocida]=Polynoidae
+  [nymphaeaceae]=none [ginkgoaceae]=none [ophioglossaceae]=none)
 
-for name in haplotaxidae hesionidae opheliidae phyllodocida; do
+for name in haplotaxidae hesionidae opheliidae phyllodocida nymphaeaceae ginkgoaceae ophioglossaceae; do
   src="${INPUT[$name]}"
   if [ -f "$src" ]; then
     in="$src"

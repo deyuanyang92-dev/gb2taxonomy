@@ -17,6 +17,34 @@ from pathlib import Path
 
 import pandas as pd
 
+GENES_EXTRA = [
+    "nd1",
+    "nd2",
+    "nd3",
+    "nd4",
+    "nd4l",
+    "nd5",
+    "nd6",
+    "atp6",
+    "atp8",
+    "plastome",
+    "rbcl",
+    "matk",
+    "trnl-trnf",
+    "psba-trnh",
+    "rpl16",
+    "rps16",
+    "ndhf",
+    "rpoc1",
+    "ycf1",
+    "rpl32-trnl",
+    "trns-trng",
+    "atpf-atph",
+    "petb-petd",
+    "psbe-petl",
+    "rbcl-atpb",
+    "trnk",
+]
 GENES = [
     "mtgenome",
     "coi",
@@ -46,12 +74,15 @@ NAMES = {
     "hesionidae": "Hesionidae",
     "opheliidae": "Opheliidae",
     "phyllodocida": "Phyllodocida",
+    "nymphaeaceae": "Nymphaeaceae",
+    "ginkgoaceae": "Ginkgoaceae",
+    "ophioglossaceae": "Ophioglossaceae",
 }
 
 
 def matrix_stats(run: Path) -> tuple[int, int]:
     m = pd.read_csv(run / "organized_genes" / "organized_species_voucher.csv", dtype=str)
-    n_genes = m[[g for g in GENES if g in m.columns]].notna().sum(axis=1)
+    n_genes = m[[g for g in dict.fromkeys(GENES + GENES_EXTRA) if g in m.columns]].notna().sum(axis=1)
     return len(m), int((n_genes >= 2).sum())
 
 
