@@ -11,7 +11,8 @@ never from the voucher string alone:
 
 1. Candidates: groups of the *same organism* whose vouchers share a core
    identifier (gene names and collection acronyms stripped; >= 4 characters).
-   Groups of the same genus whose vouchers are identical (ignoring case and
+   Groups of the same genus sharing an identical identifier in any of
+   specimen_voucher/isolate/culture_collection/clone/strain (ignoring case and
    punctuation, e.g. ``Bathykurila sp.`` / ``Bathykurila sp. AH-2023``, both
    ``SIO:BIC:A10920``) are candidates too: one specimen deposited under two
    spellings of its name. Otherwise the same core in different organisms is
@@ -317,8 +318,16 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
 
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
+    # every identifier field, not only the one that made the key: one record may carry the code as
+    # specimen_voucher, another as isolate (MF001136 'personal collection:...:CE14346' + isolate CE14346)
     norm_vouchers = {
-        k: {n for n in (_norm_voucher(v) for v in raw[g.index]) if len(n) >= config.min_core_length}
+        k: {
+            n
+            for c in VOUCHER_FIELDS
+            if c in g.columns
+            for n in (_norm_voucher(v) for v in g[c].fillna("").astype(str))
+            if len(n) >= config.min_core_length and n != "NAN"
+        }
         for k, g in groups.items()
     }
 

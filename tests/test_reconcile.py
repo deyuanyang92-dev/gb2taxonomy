@@ -220,6 +220,25 @@ class TestSameVoucherNameVariants:
         out, _ = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1
 
+    def test_identical_code_in_another_field(self):
+        """MF001136 has voucher 'personal collection:Christer Erseus:CE14346' and isolate CE14346."""
+        df = pd.DataFrame(
+            [
+                rec(
+                    "MF001136",
+                    "Capilloventer australis",
+                    "coi",
+                    "personal collection:Christer Erseus:CE14346",
+                    "Ca_pc_CE14346",
+                    isolate="CE14346",
+                ),
+                rec("PP968629", "Capilloventer australis", "12s", "", "Ca_CE14346", isolate="CE14346"),
+                rec("PP994526", "Capilloventer australis", "28s", "", "Ca_CE14346", isolate="CE14346"),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+
     def test_voucher_punctuation_variant_same_organism_merged(self):
         df = pd.DataFrame(
             [
