@@ -4,7 +4,8 @@
 #
 #   bash benchmark/run_benchmark.sh WORKDIR [NCBI_EMAIL]
 #
-# Needs network access (NCBI E-utilities). Set NCBI_API_KEY for faster downloads.
+# Needs network access (NCBI E-utilities) unless OFFLINE=1 and WORKDIR holds the archived gb_<dataset>/ folders
+# (Zenodo). Set NCBI_API_KEY for faster downloads.
 # Set SUPERCRUNCH_PARSE_LOCI=/path/to/SuperCRUNCH/supercrunch-scripts/Parse_Loci.py to add SuperCRUNCH's parser.
 # Results: WORKDIR/results/<dataset>.json, WORKDIR/results/timing.tsv (appended to when it exists)
 set -euo pipefail
@@ -47,7 +48,8 @@ for name in ${DATASETS:-haplotaxidae hesionidae opheliidae phyllodocida priapuli
   if [ -f "$src" ]; then
     in="$src"
   else
-    timed "$name" download g2t-download -t "$src" -o "$work/gb_$name" -q
+    # OFFLINE=1: start from the archived GenBank files in WORKDIR/gb_<dataset>/markers (no NCBI access)
+    [ "${OFFLINE:-0}" = 1 ] || timed "$name" download g2t-download -t "$src" -o "$work/gb_$name" -q
     in="$work/gb_$name/markers"
   fi
   timed "$name" g2t g2t -i "$in" -o "$work/out_$name" --stream --quiet

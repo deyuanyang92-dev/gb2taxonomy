@@ -20,7 +20,7 @@ timed() {
 # name | taxon | extra query
 run() {
   local name=$1 taxon=$2 extra=${3:-}
-  timed "$name" download g2t-download -t "$taxon" -o "$work/gb_$name" -q ${extra:+--query "$extra"} --tag bg
+  [ "${OFFLINE:-0}" = 1 ] || timed "$name" download g2t-download -t "$taxon" -o "$work/gb_$name" -q ${extra:+--query "$extra"} --tag bg
   local in="$work/gb_$name/bg"
   timed "$name" g2t g2t -i "$in" -o "$work/out_$name" --stream --quiet
   timed "$name" g2t_exact g2t -i "$in" -o "$work/out_${name}_exact" --stream --quiet --skip_reconcile
