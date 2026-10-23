@@ -753,9 +753,19 @@ def match_mito_genes(
     )
 
 
+# rRNA genes flanking the ITS; an ITS record that names one also contains part of it
+_ITS_FLANKS = {
+    "18s": re.compile(r"\b18s (?:ribosomal rna|rrna)|small subunit ribosomal rna"),
+    "28s": re.compile(r"\b28s (?:ribosomal rna|rrna)|large subunit ribosomal rna"),
+}
+
+
 def match_nuclear_genes(definition: str, length_val: int, config: MatchConfig) -> tuple[set[str], list[str]]:
-    """Nuclear gene matching: 18-28s priority, then its1-its2, then other nuclear genes."""
-    return _match_gene_loop(
+    """Nuclear gene matching: 18-28s priority, then its1-its2, then other nuclear genes.
+
+    An its1-its2 record that also covers part of 18S and/or 28S ("small subunit ribosomal RNA gene and
+    internal transcribed spacer 1") is placed in those columns too."""
+    matched, notes = _match_gene_loop(
         definition,
         length_val,
         config,
@@ -764,6 +774,12 @@ def match_nuclear_genes(definition: str, length_val: int, config: MatchConfig) -
         priority_genes=["18-28s", "its1-its2"],
         global_range=config.length2_ntgenes,
     )
+    if matched == {"its1-its2"}:
+        for gene, pat in _ITS_FLANKS.items():
+            if gene in config.nuclear_genes and pat.search(definition.lower()):
+                matched.add(gene)
+                notes.append(f"{gene}: record also covers part of {gene.upper()} (multi-region rDNA)")
+    return matched, notes
 
 
 def _record_group(organelle: str, definition: str) -> str:

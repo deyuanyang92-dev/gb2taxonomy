@@ -12,6 +12,7 @@ from g2t.classify import (
     first_round_match,
     match_mito_genes,
     match_nuclear_genes,
+    process_row,
     recheck_match_row,
     smart_match,
 )
@@ -274,3 +275,62 @@ class TestCategorizeUnmatchedDefinition:
         result = categorize_unmatched_definition("nadh dehydrogenase")
         assert result == "NADH_dehydrogenase"
         # Both "nad" and "nadh" in def_lower, but only line 1005 fires
+
+
+# --- multi-region rDNA records (ITS + flanking 18S/28S) ---
+
+
+class TestMultiRegionRibosomal:
+    """A record that spans ITS and part of 18S or 28S goes into every column it covers (Polynoidae OM007981 etc.)."""
+
+    @pytest.mark.parametrize(
+        "definition,length,expected",
+        [
+            (
+                "Bathykurila sp. ASH-2022 voucher SIO:BIC:A10920 small subunit ribosomal RNA gene and "
+                "internal transcribed spacer 1, partial sequence",
+                1908,
+                "18s,its1-its2",
+            ),
+            (
+                "Bathykurila sp. ASH-2022 voucher SIO:BIC:A10920 internal transcribed spacer 2 and "
+                "large subunit ribosomal RNA gene, partial sequence",
+                4377,
+                "28s,its1-its2",
+            ),
+            (
+                "Priapulus caudatus 5.8S ribosomal RNA gene, partial sequence; internal transcribed spacer 2, "
+                "complete sequence; and 28S ribosomal RNA gene, partial sequence",
+                4271,
+                "28s,its1-its2",
+            ),
+            (
+                "Halicryptus spinulosus 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, "
+                "5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal "
+                "RNA gene, partial sequence",
+                3000,  # below the 18-28s length range: matched as ITS, 18S and 28S
+                "18s,28s,its1-its2",
+            ),
+            (
+                "Nereis sp. internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed "
+                "spacer 2, complete sequence",
+                700,
+                "its1-its2",
+            ),
+        ],
+    )
+    def test_columns(self, config, definition, length, expected):
+        row = {"Definition": definition, "organelle": "", "Length": str(length), "LocusID": "X1"}
+        result = process_row(row, config)
+        assert result["gene_type"] == expected
+
+    def test_full_operon_keeps_18_28s(self, config):
+        row = {
+            "Definition": "Branchinotogluma japonicus 18S ribosomal RNA gene, internal transcribed spacer 1, "
+            "5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal "
+            "RNA gene, partial sequence",
+            "organelle": "",
+            "Length": "8230",
+            "LocusID": "KY753841",
+        }
+        assert process_row(row, config)["gene_type"] == "18-28s"
