@@ -29,7 +29,7 @@ g2t -i gb/markers -o out --stream
 # final matrix: out/organized_genes/organized_species_voucher.csv
 ```
 
-Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 315 specimens, 123 with ≥ 2 genes.
+Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 315 specimens, 128 with ≥ 2 genes (435 specimens and 46 with ≥ 2 genes when voucher variants are not reconciled, `--skip_reconcile`).
 
 ## Usage
 
@@ -63,6 +63,8 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcile_min_confidence high]
 ```
 
+Input: GenBank flat files (`.gb`, `.gbf`, `.gbk`, `.gbff`, `.genbank`) or directories holding them. A small dataset to try offline is in [`examples/haplotaxidae`](examples/haplotaxidae) (347 records, about 4 s). Every command prints its version with `--version`.
+
 | Step | Command | Input → output |
 |---|---|---|
 | 1 | `g2t-extract -i gb/markers -o s1` | GenBank → `final.csv` (one row per record: accession, length, definition, organism, voucher, isolate, locality, coordinates, date, references, …) |
@@ -85,7 +87,8 @@ OUT/
 ├── updated_species_vouchers/updated_species_voucher.csv     step 3
 ├── updated_species_vouchers/reconciled_species_voucher.csv  step 3b
 ├── updated_species_vouchers/reconcile_report.csv            step 3b (every candidate pair + decision)
-└── organized_genes/organized_species_voucher.csv      step 4 (final matrix)
+├── organized_genes/organized_species_voucher.csv      step 4 (final matrix)
+└── g2t_run.json                                       date, command, versions of g2t/Python/Biopython/pandas/ete3, all parameters, input files
 ```
 
 `--resume` skips steps whose output exists; steps 3b and 4 are re-run when the reconcile settings differ from the previous run (stored in `OUT/.g2t_params.json`). Re-running `g2t-classify` into the same directory first removes that step's previous outputs.
@@ -191,11 +194,11 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 
 ## Limitations
 
-1. **Gene type comes from the record's DEFINITION line, for the whole record.** A record that spans several regions gets one type. Multi-region rRNA records named "5.8S … ITS2 … 28S" or "18S … ITS1" are typed `its1-its2`, so their 18S or 28S part is missing from the 18s/28s columns (Priapulidae: 9 of 175 rRNA records, e.g. AY210840 with ~3.7 kb of 28S). See [BUGS.md](BUGS.md).
+1. **Gene type comes from the record's DEFINITION line, for the whole record.** A multi-region rRNA record named "18S … ITS1" or "ITS2 … 28S" is placed in every column it covers (`18s,its1-its2`, `28s,its1-its2`): the same accession appears in both columns and holds the whole record, not the separate region. Records spanning other combinations of genes get the type of the first match.
 2. **Sequences are not cut into genes.** The accession of a mitogenome (`mtgenome`) is copied into all mitochondrial gene columns (coi, 16s, 12s, cob, cox2, cox3) and that of an 18S–ITS–28S record (`18-28s`) into 18s, 28s and its1-its2, **whether or not the record actually annotates that gene** (e.g. FN689349 has no 12S annotation but appears under 12s). Restrict the columns with `g2t-organize --mtgenome_includes coi 16s`. No per-gene sequence is extracted; this has to be done downstream before alignment.
 3. **Length filter.** Records outside 150–50,000 bp (or without a length, or duplicated LocusIDs) are removed before classification. They are not lost silently: each is listed in `filtered_records.csv` with the reason, and `record_status.csv` gives every input record exactly one status. To classify them instead, widen all three ranges: `g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`.
 4. **Only 13 gene types, matched by keywords.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, …) end up in `unmatched_sequences.csv` unless added to `gene_dict.yaml`. Specimen identifiers in the DEFINITION (`isolate CO2`, `voucher COI-12`) and the English word "its" are ignored, and a few look-alikes are excluded (16S rRNA methyltransferase, histone H3 lysine/demethylase, elongation factor-1 beta/gamma), but keyword matching can still misfire on unusual wording.
-5. **Vouchers and metadata.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging). In the matrix, locality, date and other metadata are taken from the first record of the specimen that has a value, column by column, so they can come from different records; `Conflict` is true if any record was flagged.
+5. **Vouchers and metadata.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b also joins identical vouchers (ignoring case and punctuation) of one genus deposited under different names (*Bathykurila* sp. / *Bathykurila* sp. AH-2023); identical vouchers in different genera stay apart and are flagged in `match_evidence`. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging); when both groups already hold the same gene, a shared publication is not enough (CE438 / CE438_2), and the pair is flagged instead. In the matrix, locality, date and other metadata are taken from the first record of the specimen that has a value, column by column, so they can come from different records; `Conflict` is true if any record was flagged.
 6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are unless you correct them in Step 5.
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
