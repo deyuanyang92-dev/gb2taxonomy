@@ -192,3 +192,91 @@ class TestRowOrderIndependence:
         )
         out, report = reconcile_dataframe(df)
         assert out["species_voucher_new"].nunique() == 1
+
+
+class TestSameVoucherNameVariants:
+    """One specimen deposited under slightly different organism names (Polynoidae SIO-BIC A10920)."""
+
+    def test_same_genus_identical_voucher_merged(self):
+        df = pd.DataFrame(
+            [
+                rec("OM007981", "Bathykurila sp.", "18s", "SIO:BIC:A10920", "Bs_A10920"),
+                rec("MW783685", "Bathykurila sp.", "mtgenome", "SIO:BIC:A10920", "Bs_A10920"),
+                rec("OL960135", "Bathykurila sp. AH-2023", "h3", "SIO:BIC:A10920", "BsAH_A10920"),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+        assert set(out["match_basis"]) == {"reconciled"}
+        assert out["match_evidence"].str.contains("organism names differ").all()
+
+    def test_cf_variant_on_isolate_merged(self):
+        df = pd.DataFrame(
+            [
+                rec("PP968595", "Pelodrilus darlingensis", "12s", "", "Pd_CE17262", isolate="CE17262"),
+                rec("PP994587", "Pelodrilus cf. darlingensis", "16s", "", "Pcd_CE17262", isolate="CE17262"),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+
+    def test_voucher_punctuation_variant_same_organism_merged(self):
+        df = pd.DataFrame(
+            [
+                rec("A", "Eulagisca gigantea", "18s", "SIO:BIC:A6302", "k1"),
+                rec("B", "Eulagisca gigantea", "coi", "SIO-BIC A6302", "k2"),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1
+
+    def test_different_genera_kept_apart_with_warning(self):
+        df = pd.DataFrame(
+            [
+                rec("A", "Halicryptus spinulosus", "28s", "WS3020", "Hs_WS3020"),
+                rec("B", "Priapulus caudatus", "coi", "WS3020", "Pc_WS3020"),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+        assert report["decision"].str.startswith("not merged: same voucher, different genera").any()
+        assert out["match_evidence"].str.contains("same voucher as").all()
+
+    def test_conflict_still_blocks(self):
+        df = pd.DataFrame(
+            [
+                rec("A", "Bathykurila sp.", "18s", "SIO:BIC:A10920", "k1", geo_loc_name="USA"),
+                rec("B", "Bathykurila sp. AH-2023", "h3", "SIO:BIC:A10920", "k2", geo_loc_name="Japan"),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+
+
+class TestSameGeneSamePaper:
+    """Martin et al. 2024 (Haplotaxidae) list CE438 and CE438_2 as two specimens; both have a 28S."""
+
+    def test_shared_paper_alone_does_not_merge_same_gene(self):
+        paper = "Towards an integrative revision of Haplotaxidae"
+        df = pd.DataFrame(
+            [
+                rec("PP994571", "Haplotaxidae gen. 1", "28s", "", "k438", isolate="CE438", Ref1Title=paper),
+                rec("PP994570", "Haplotaxidae gen. 1", "28s", "", "k438_2", isolate="CE438_2", Ref1Title=paper),
+                rec("PP968606", "Haplotaxidae gen. 1", "12s", "", "k438_2", isolate="CE438_2", Ref1Title=paper),
+            ]
+        )
+        out, report = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 2
+        assert report["decision"].str.contains("same gene in both groups").any()
+        assert out["match_evidence"].str.contains("similar voucher").all()
+
+    def test_shared_paper_still_merges_different_genes(self):
+        paper = "Towards an integrative revision of Haplotaxidae"
+        df = pd.DataFrame(
+            [
+                rec("A", "P c", "coi", "COI_WS399", "k1", Ref1Title=paper),
+                rec("B", "P c", "28s", "28S_WS399", "k2", Ref1Title=paper),
+            ]
+        )
+        out, _ = reconcile_dataframe(df)
+        assert out["species_voucher_new"].nunique() == 1

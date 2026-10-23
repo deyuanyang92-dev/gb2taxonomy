@@ -11,9 +11,16 @@ never from the voucher string alone:
 
 1. Candidates: groups of the *same organism* whose vouchers share a core
    identifier (gene names and collection acronyms stripped; >= 4 characters).
-   The same core in different organisms is reported, never merged.
+   Groups of the same genus whose vouchers are identical (ignoring case and
+   punctuation, e.g. ``Bathykurila sp.`` / ``Bathykurila sp. AH-2023``, both
+   ``SIO:BIC:A10920``) are candidates too: one specimen deposited under two
+   spellings of its name. Otherwise the same core in different organisms is
+   reported, never merged; an identical voucher in different genera is also
+   flagged in ``match_evidence`` of both rows.
 2. Evidence for each candidate pair:
-     strong    - a shared publication title (not "Direct Submission");
+     strong    - identical voucher (ignoring case and punctuation; moderate
+                 when both groups contain the same gene);
+                 a shared publication title (not "Direct Submission");
                  identical full collection date; coordinates within 0.01 deg
      moderate  - same first author; same collector; same detailed locality;
                  coordinates within 0.5 deg
@@ -21,7 +28,10 @@ never from the voucher string alone:
                  coordinates > 0.5 deg apart
 3. Decision: any conflict -> not merged; >= 1 strong -> merge ("high");
    >= 2 moderate -> merge ("medium"); otherwise not merged. If both groups
-   already contain the same gene, only strong evidence can merge them.
+   already contain the same gene, only specimen-level strong evidence (same
+   date or coordinates, identical voucher) can merge them; a shared paper
+   cannot (CE438 / CE438_2: two specimens of one paper, each with a 28S).
+   Such pairs are noted in match_evidence ("similar voucher ... check").
    Merges are applied greedily (strongest first) and a merge is skipped if it
    would put two conflicting groups in one specimen.
 
@@ -36,6 +46,7 @@ Outputs (in ``output_dir``):
 from __future__ import annotations
 
 import argparse
+import logging
 import math
 import re
 import time
@@ -45,6 +56,8 @@ from pathlib import Path
 import pandas as pd
 
 from g2t.utils import StepResult, read_table
+
+logger = logging.getLogger(__name__)
 
 GENE_TOKENS = (
     r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
@@ -134,6 +147,17 @@ def voucher_core(raw: str, min_len: int = 4) -> str:
     """Primary core identifier of a voucher string ('' if none)."""
     cores = voucher_cores(raw, min_len)
     return cores[0] if cores else ""
+
+
+def _norm_voucher(v: str) -> str:
+    """'SIO:BIC:A10920', 'SIO-BIC A10920' -> 'SIOBICA10920'."""
+    return re.sub(r"[^A-Z0-9]", "", str(v).upper())
+
+
+def _genus(organism: str) -> str:
+    """First word of the name after open-nomenclature qualifiers ('cf. Alluroididae sp.' -> 'alluroididae')."""
+    words = [w for w in str(organism).split() if w.lower().rstrip(".") not in {"cf", "aff", "nr", "?"}]
+    return words[0].lower() if words else ""
 
 
 def _genes(df: pd.DataFrame) -> set:
@@ -246,13 +270,18 @@ def compare_groups(a: pd.DataFrame, b: pd.DataFrame) -> Evidence:
     return ev
 
 
+def _specimen_level(strong: list[str]) -> list[str]:
+    """Strong evidence that points to one specimen: a shared paper does not (a paper has many specimens)."""
+    return [e for e in strong if not e.startswith("same publication")]
+
+
 def _decide(ev: Evidence, gene_overlap: bool, min_conf: str) -> tuple[str, str]:
     """-> (confidence or '', decision text)."""
     if ev.conflicts:
         return "", "not merged: conflicting metadata"
     conf = "high" if ev.strong else ("medium" if len(ev.moderate) >= 2 else "")
-    if gene_overlap and conf != "high":
-        return "", "not merged: same gene in both groups, strong evidence required"
+    if gene_overlap and not _specimen_level(ev.strong):
+        return "", "not merged: same gene in both groups, same date/coordinates required"
     if not conf:
         return "", "not merged: insufficient evidence"
     if RANK[conf] < RANK[min_conf]:
@@ -288,6 +317,17 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
 
     report: list[dict] = []
     groups = {k: g for k, g in df.groupby(key, sort=False)}
+    norm_vouchers = {
+        k: {n for n in (_norm_voucher(v) for v in raw[g.index]) if len(n) >= config.min_core_length}
+        for k, g in groups.items()
+    }
+
+    def genera(k: str) -> set:
+        return {_genus(o) for o in _vals(groups[k], org)}
+
+    def same_genus(ka: str, kb: str) -> bool:
+        return len(genera(ka) | genera(kb)) == 1
+
     cores: dict[str, list[str]] = {}
     for k, g in groups.items():
         for c in sorted({c for lst in all_cores[g.index] for c in lst}):
@@ -298,7 +338,16 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     def evidence(ka: str, kb: str) -> Evidence:
         k = frozenset((ka, kb))
         if k not in cache:
-            cache[k] = compare_groups(groups[ka], groups[kb])
+            ev = compare_groups(groups[ka], groups[kb])
+            if norm_vouchers[ka] & norm_vouchers[kb]:
+                oa, ob = _vals(groups[ka], org), _vals(groups[kb], org)
+                names = f" (organism names differ: {'; '.join(sorted(oa | ob))})" if oa != ob else ""
+                # both groups have the same gene: an identical label alone does not make them one specimen
+                if _genes(groups[ka]) & _genes(groups[kb]):
+                    ev.moderate.insert(0, "identical voucher" + names)
+                else:
+                    ev.strong.insert(0, "identical voucher" + names)
+            cache[k] = ev
         return cache[k]
 
     def row_for(core, ka, kb):
@@ -316,6 +365,8 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         )
 
     edges = []
+    flagged: dict[str, set[str]] = {k: set() for k in groups}
+    similar: dict[str, set[str]] = {k: set() for k in groups}
     seen_pairs: set[frozenset] = set()
     for core, keys in cores.items():
         for i in range(len(keys)):
@@ -331,14 +382,22 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                         {**base, "evidence": "", "confidence": "", "decision": "not merged: organism missing"}
                     )
                     continue
-                if oa != ob:
-                    report.append(
-                        {**base, "evidence": "", "confidence": "", "decision": "not merged: different organisms"}
-                    )
+                identical = bool(norm_vouchers[ka] & norm_vouchers[kb])
+                if oa != ob and not (identical and same_genus(ka, kb)):
+                    if identical:
+                        decision = "not merged: same voucher, different genera (check)"
+                        flagged[ka].add(kb)
+                        flagged[kb].add(ka)
+                    else:
+                        decision = "not merged: different organisms"
+                    report.append({**base, "evidence": "", "confidence": "", "decision": decision})
                     continue
                 ev = evidence(ka, kb)
                 overlap = bool(_genes(groups[ka]) & _genes(groups[kb]))
                 conf, decision = _decide(ev, overlap, config.min_confidence)
+                if overlap and not conf and not ev.conflicts and (ev.strong or ev.moderate):
+                    similar[ka].add(kb)
+                    similar[kb].add(ka)
                 report.append({**base, "evidence": ev.text(), "confidence": conf, "decision": decision})
                 if conf:
                     edges.append((RANK[conf], len(ev.strong), len(ev.moderate), ka, kb, conf, ev.text()))
@@ -357,12 +416,14 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         """Check every pair across the two clusters, not only the pairs that shared a core."""
         for x in sorted(members[ra]):
             for y in sorted(members[rb]):
-                if _vals(groups[x], org) != _vals(groups[y], org):
+                if _vals(groups[x], org) != _vals(groups[y], org) and not (
+                    same_genus(x, y) and norm_vouchers[x] & norm_vouchers[y]
+                ):
                     return "not merged: would join different organisms"
                 ev = evidence(x, y)
                 if ev.conflicts:
                     return f"not merged: would join conflicting groups ({x} vs {y}: {'; '.join(ev.conflicts)})"
-                if _genes(groups[x]) & _genes(groups[y]) and not ev.strong:
+                if _genes(groups[x]) & _genes(groups[y]) and not _specimen_level(ev.strong):
                     return (
                         f"not merged: would put the same gene twice in one specimen without strong "
                         f"evidence ({x} vs {y})"
@@ -406,6 +467,24 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         df.loc[mask, "match_basis"] = "reconciled"
         df.loc[mask, "match_confidence"] = conf
         df.loc[mask, "match_evidence"] = " || ".join(t for _, t in edge_info.get(root, []))
+
+    def add_note(k: str, note: str) -> None:
+        mask = df[key] == k
+        df.loc[mask, "match_evidence"] = [f"{e} || {note}" if e else note for e in df.loc[mask, "match_evidence"]]
+
+    n_flag = 0
+    for k, others in flagged.items():
+        if others:
+            n_flag += 1
+            add_note(k, f"same voucher as {'; '.join(sorted(others))} (different genus, not merged; check)")
+    for k, others in similar.items():
+        if others:
+            add_note(k, f"similar voucher to {'; '.join(sorted(others))} (both have the same gene, not merged; check)")
+    if n_flag:
+        logger.warning(
+            f"Reconcile: {n_flag} specimen groups share a voucher with a group of another genus and were kept "
+            "apart; see match_evidence and reconcile_report.csv"
+        )
 
     cols = [
         "voucher_core",
