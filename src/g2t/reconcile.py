@@ -27,7 +27,9 @@ never from the voucher string alone:
                  groups already contain the same gene
      conflict  - the shared core is followed by different endings (lot or
                  sub-sample numbers: BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 /
-                 -2, CE438 / CE438_2); incompatible collection dates; different
+                 -2), or by a number on one side only (CE438 / CE438_2); an
+                 added letter code is not a conflict (WS16799 / WS16799_Pr21);
+                 incompatible collection dates; different
                  countries; coordinates > 0.5 deg apart
 3. Decision: any conflict -> not merged; >= 1 strong -> merge ("high");
    >= 2 moderate -> merge ("medium"); otherwise not merged. If both groups
@@ -176,6 +178,19 @@ def _sub_ids(ids: list[str], core: str) -> set[str]:
             # a second full identifier is not a sub-number (ZMMU_MSU_WS14906_XZ5507 also names WS14906)
             out.add("" if ID_TOKEN.fullmatch(end) and len(end) >= 4 else end)
     return out
+
+
+def _different_specimens(ends_a: set[str], ends_b: set[str]) -> bool:
+    """Endings after a shared core mark different specimens when they differ on both sides
+    (BIOUG06836-E01 / -E02, A9392-1 / -2), or when one side has none and the other a number
+    (CE438 / CE438_2). A code with letters added on one side is an extra sample code of the same
+    specimen (WS16799 / WS16799_Pr21)."""
+    if ends_a & ends_b:
+        return False
+    for bare, other in ((ends_a, ends_b), (ends_b, ends_a)):
+        if bare == {""}:
+            return all(e.isdigit() for e in other)
+    return True
 
 
 def _genus(organism: str) -> str:
@@ -389,12 +404,12 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         if k not in cache:
             ev = compare_groups(groups[ka], groups[kb])
             # same core, different endings: lot or sub-sample numbers of different specimens
-            # (BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 / -2, CE438 / CE438_2)
+            # (BIOUG06836-E01 / -E02, SIO:BIC:A9392-1 / -2, CE438 / CE438_2); see _different_specimens
             shared = sorted(group_cores[ka] & group_cores[kb])
             if shared:
                 ends = [(_sub_ids(group_ids[ka], c), _sub_ids(group_ids[kb], c)) for c in shared]
                 ends = [(a, b) for a, b in ends if a and b]
-                if ends and all(not (a & b) for a, b in ends):
+                if ends and all(_different_specimens(a, b) for a, b in ends):
                     a, b = ends[0]
                     ev.conflicts.append(
                         f"different sub-identifiers after {shared[0].lstrip('#')} "

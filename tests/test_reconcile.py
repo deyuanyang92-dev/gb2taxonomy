@@ -341,6 +341,7 @@ class TestSubIdentifiers:
             ("WS399_COI", "28S_ZMMU_WS399"),
             ("AM W.51461", "AM:W.51461"),
             ("personal collection:Christer Erseus:CE14346", "CE14346"),
+            ("28S_ZMMU_MSU_WS16799_Pr21", "COI_ZMMU_MSU_WS16799"),  # Pr21: an extra sample code, not a lot number
         ],
     )
     def test_same_suffix_still_merged(self, va, vb):

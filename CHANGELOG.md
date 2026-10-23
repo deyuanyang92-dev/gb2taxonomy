@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- **批号规则细化**：一边无尾号、另一边尾号含字母（`28S_ZMMU_MSU_WS16799_Pr21` / `COI_ZMMU_MSU_WS16799`，Pr21 为附加样品号）不再视为不同标本；只有两边尾号不同（`-E01`/`-E02`）或一边多出纯数字尾号（`CE438`/`CE438_2`）才算。Priapulidae 4 对因此恢复合并。
 - **植物（叶绿体）基因**：按动物的逻辑增加第三组“叶绿体”：`/organelle` 为 plastid/chloroplast，或标题含 chloroplast/plastid（不含 “nuclear gene for chloroplast product”）。新增 17 类：`plastome`（叶绿体基因组，优先匹配；>2 个基因且 ≥20 kb 也归为 plastome，登录号复制到各叶绿体基因列，同 mtgenome）、`rbcl`、`matk`、`trnl-trnf`、`psba-trnh`、`rpl16`、`rps16`、`ndhf`、`rpoc1`、`ycf1` 及间隔区 `rpl32-trnl`、`trns-trng`、`atpf-atph`、`petb-petd`、`psbe-petl`、`rbcl-atpb`、`trnk`（内含子）。间隔区优先于基因（“rbcL-atpB intergenic spacer” 不算 rbcL 基因；基因同义词只用 “(rbcL)”“rbcL gene”、全称）。叶绿体记录按自己的长度范围 150–300,000 bp（`--length2_cpgenes`），叶绿体基因组不再被全局 50 kb 上限过滤；动物数据结果不变。植物核 26S/25S rRNA 归入 `28s`；植物线粒体写法 NADH1–NADH6 归入 nd1–nd6。`g2t-download --gene` 支持 RBCL、MATK、TRNL-TRNF、PSBA-TRNH 等。实测（2026-10-23 下载）：Ophioglossaceae 归类记录 143 → 4,067、≥2 个基因的标本 3 → 1,023；Nymphaeaceae 772 → 1,932、352 → 644；Ginkgoaceae 82 → 325、27 → 130。
 - **修复**：reconcile 合并后的新名字只取最高优先级编号字段的编号主体，该字段无编号（如 voucher 写 “s.n.”、编号只在 isolate）时崩溃（Nymphaeaceae 上发现）。
 - **新增线粒体基因类型 nd1–nd6、nd4l、atp6、atp8**（共 22 类）：原来这些记录全部未归类（Hesionidae 284 条未归类记录中 221 条是 ATP6/ND4/ND5）。同义词含 “NADH dehydrogenase subunits 4”、“ATP synthase Fo subunit 6” 等实际写法；核基因 “ATP synthase subunit beta” 不归入。矩阵新增 9 列（cox3 之后），线粒体基因组的登录号也复制到这些列。
