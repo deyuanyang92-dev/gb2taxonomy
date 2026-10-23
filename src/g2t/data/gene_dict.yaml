@@ -7,7 +7,7 @@
 #   Mitochondrial (default): coi, 16s, 12s, cob, mtgenome, cox3, cox2, nd1-nd6, nd4l, atp6, atp8
 #   Nuclear (default): 18-28s, its1-its2, ef-1, 28s, 18s, h3
 #   Plastid (default): plastome, rbcl, matk, trnl-trnf, psba-trnh, rpl16, rps16, ndhf, rpoc1, ycf1,
-#     rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk
+#     rpl32-trnl, trns-trng, atpf-atph, petb-petd, psbe-petl, rbcl-atpb, trnk, rps4, atpb
 
 gene_types:
   coi:
@@ -86,8 +86,10 @@ gene_types:
       - mitochondrial_genome
       - mt genome
       - mtDNA
-      - complete sequence
-      - complete genome
+      - mitochondrion, complete sequence
+      - mitochondrial DNA, complete sequence
+      - mitochondrion complete sequence
+      - mitochondrial DNA, complete genome
       - mitogenome
       - mitochondrion, complete sequence
 
@@ -279,6 +281,9 @@ gene_types:
   plastome:
     synonyms:
       - "chloroplast, complete genome"
+      - "chloroplast DNA, complete genome"
+      - "plastid DNA, complete genome"
+      - "organelle: plastid"
       - "plastid, complete genome"
       - chloroplast complete genome
       - plastid complete genome
@@ -389,4 +394,18 @@ gene_types:
       - "trnK gene, introns"
       - "(trnK) gene, intron"
       - "(trnK) gene, introns"
+
+  rps4:
+    synonyms:
+      - "(rps4)"
+      - rps4 gene
+      - ribosomal protein S4
+      - rps4-trnS
+
+  atpb:
+    synonyms:
+      - "(atpB)"
+      - atpB gene
+      - ATP synthase beta subunit
+      - ATP synthase CF1 beta subunit
 

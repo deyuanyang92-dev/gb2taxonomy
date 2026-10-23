@@ -192,9 +192,14 @@ class TestConflictCheck:
         assert result["conflict"] is True
 
     def test_multi_mito_three_genes_long_reassigns_mtgenome(self):
-        # Conflict check: >2 mito genes + Length>3000 -> mtgenome
-        result = conflict_check_and_reassign("coi,16s,12s", "some definition", "linear", "mito", 5000)
+        # Conflict check: >2 mito genes + Length>3000 + a genome title -> mtgenome
+        result = conflict_check_and_reassign("coi,16s,12s", "x mitochondrial genome, partial", "linear", "mito", 5000)
         assert result["gene_type"] == "mtgenome"
+
+    def test_multi_mito_fragment_without_genome_title_keeps_genes(self):
+        # plant mitochondrial fragments list several genes over 5-30 kb (Ginkgo MW354251): not a mitogenome
+        result = conflict_check_and_reassign("atp8,nd1,nd5", "nad5 gene, exon 3; trnL gene", "linear", "mito", 22000)
+        assert result["gene_type"] == "atp8,nd1,nd5" and result["conflict"]
 
     def test_18_28s_skips_conflict(self):
         result = conflict_check_and_reassign("18-28s", "some definition", "linear", "nuclear", 8000)

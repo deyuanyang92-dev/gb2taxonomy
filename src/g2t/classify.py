@@ -168,8 +168,10 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "mitochondrial_genome",
                 "mt genome",
                 "mtDNA",
-                "complete sequence",
-                "complete genome",
+                "mitochondrion, complete sequence",
+                "mitochondrial DNA, complete sequence",
+                "mitochondrion complete sequence",
+                "mitochondrial DNA, complete genome",
                 "mitogenome",
                 "mitochondrion, complete sequence",
             ]
@@ -329,6 +331,9 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
             s.lower()
             for s in [
                 "chloroplast, complete genome",
+                "chloroplast DNA, complete genome",
+                "plastid DNA, complete genome",
+                "organelle: plastid",
                 "plastid, complete genome",
                 "chloroplast complete genome",
                 "plastid complete genome",
@@ -506,6 +511,28 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
             ]
         }
     ),
+    "rps4": list(
+        {
+            s.lower()
+            for s in [
+                "(rps4)",
+                "rps4 gene",
+                "ribosomal protein S4",
+                "rps4-trnS",
+            ]
+        }
+    ),
+    "atpb": list(
+        {
+            s.lower()
+            for s in [
+                "(atpB)",
+                "atpB gene",
+                "ATP synthase beta subunit",
+                "ATP synthase CF1 beta subunit",
+            ]
+        }
+    ),
     "18-28s": list(
         {
             s.lower()
@@ -657,6 +684,8 @@ _DEFAULT_PLASTID_GENES = {
     "psbe-petl",
     "rbcl-atpb",
     "trnk",
+    "rps4",
+    "atpb",
 }
 
 
@@ -1294,7 +1323,9 @@ def _conflict_mito(
     resolved = set(genes)
 
     if len(genes) > 2:
-        if mt_min is None or length_val >= mt_min:
+        # a long multi-gene record is a mitogenome only if its title says so (plant mito fragments of 5-30 kb
+        # list several genes: Ginkgo MW354233); otherwise the genes are kept and flagged
+        if (mt_min is None or length_val >= mt_min) and "genome" in definition.lower():
             resolved = {"mtgenome"}
             notes.append(f"Mitochondrial multi-match ({len(genes)}) + Length>={mt_min} -> reassigned to mtgenome")
         else:
@@ -1371,9 +1402,11 @@ def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
     has_mito_def = any(t in definition for t in mito_terms)
     has_mito_org = any(t in organelle.lower() for t in mito_terms)
 
+    group = _record_group(organelle.lower(), definition)
     if topology == "circular":
-        candidates.add("mtgenome")
-        notes.append("Topology=circular -> direct mtgenome")
+        genome = "plastome" if group == "plastid" else "mtgenome"
+        candidates.add(genome)
+        notes.append(f"Topology=circular ({group}) -> direct {genome}")
     else:
         for gene, keywords in GENE_DICT.items():
             if not keywords:
@@ -1412,6 +1445,22 @@ def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
             if re.search(r"(?:fwd|rev)_name:\s*28SC1", pcr_primers, re.IGNORECASE):
                 candidates.add("28s")
                 notes.append("PCR primer match (28SC1) -> 28s")
+
+    # plants have rRNA genes in all three compartments (mitochondrial rrn26 is not nuclear 28S, plastid 16S is not
+    # mitochondrial 16S): there a gene of another compartment is dropped. In animals the record keeps the gene and
+    # is flagged, because "18S ...; mitochondrial" is a submitter's slip, not a mitochondrial 18S.
+    plant = group == "plastid" or "viridiplantae" in str(row.get("Taxonomy", "")).lower()
+    other = (
+        (config.nuclear_genes | config.plastid_genes) - {"mtgenome"}
+        if plant and group == "mito"
+        else (config.mito_genes | config.nuclear_genes) - {"plastome"}
+        if group == "plastid"
+        else set()
+    )
+    dropped = sorted(candidates & other)
+    if dropped:
+        candidates -= set(dropped)
+        notes.append(f"dropped {', '.join(dropped)}: gene of another compartment than this {group} record")
 
     if candidates:
         if len(candidates) > 1:
@@ -2172,7 +2221,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3")
     parser.add_argument(
         "--cpgenes_list",
-        default="plastome,rbcl,matk,trnl-trnf,psba-trnh,rpl16,rps16,ndhf,rpoc1,ycf1,rpl32-trnl,trns-trng,atpf-atph,petb-petd,psbe-petl,rbcl-atpb,trnk",
+        default="plastome,rbcl,matk,trnl-trnf,psba-trnh,rpl16,rps16,ndhf,rpoc1,ycf1,rpl32-trnl,trns-trng,atpf-atph,petb-petd,psbe-petl,rbcl-atpb,trnk,rps4,atpb",
     )
     parser.add_argument("--path_dict", default=None, help="External gene dictionary file")
 

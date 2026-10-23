@@ -154,3 +154,96 @@ def test_matrix_columns_and_plastome_propagation():
 )
 def test_plastid_spacers(config, definition, expected):
     assert typed(config, definition, 900) == expected
+
+
+# --- review round 1 (reviewer 2, M5) ---
+
+
+def test_plant_mito_fragment_is_not_a_mitogenome(config):
+    """Ginkgo MW354248: 5.2 kb with rrn26 + trnY; 'complete sequence' alone does not make a mitogenome."""
+    d = "Ginkgo biloba 26S ribosomal RNA (rrn26) and tRNA-Tyr (trnY) genes, complete sequence; mitochondrial"
+    gt = typed(config, d, 5224, organelle="mitochondrion")
+    assert "mtgenome" not in gt.split(",")
+
+
+def test_mito_rrn26_not_put_in_nuclear_28s():
+    """A mitochondrial 26S rRNA must not land in the nuclear 28s column via round 2."""
+    from g2t.classify import recheck_match_row
+
+    row = {
+        "Definition": "Ginkgo biloba 26S ribosomal RNA (rrn26) gene, partial sequence; mitochondrial",
+        "organelle": "mitochondrion",
+        "Length": "1500",
+        "MoleculeType": "DNA",
+        "Topology": "linear",
+        "Taxonomy": "Eukaryota; Viridiplantae; Streptophyta; Embryophyta; Tracheophyta; Spermatophyta; Ginkgoopsida",
+    }
+    assert "28s" not in recheck_match_row(row, MatchConfig())["gene_type"].split(",")
+
+
+def test_animal_18s_titled_mitochondrial_keeps_gene_and_is_flagged():
+    """Phyllodocida KT270941 '18S ribosomal RNA gene, partial sequence; mitochondrial': a submitter's slip."""
+    import tempfile
+    from pathlib import Path
+
+    import pandas as pd
+
+    from g2t.classify import classify
+
+    d = Path(tempfile.mkdtemp())
+    (d / "final.csv").write_text(
+        "LocusID,ACCESSION,Definition,Length,organelle,MoleculeType,Topology,Taxonomy\n"
+        'KT270941.1,KT270941,"Namalycastis abiuma isolate TRL423 18S ribosomal RNA gene, partial sequence; '
+        'mitochondrial",1700 bp,mitochondrion,DNA,linear,Eukaryota; Metazoa; Annelida\n'
+    )
+    classify(str(d / "final.csv"), str(d / "out"))
+    st = pd.read_csv(d / "out" / "record_status.csv")
+    assert st.loc[0, "gene_type"] == "18s"
+
+
+@pytest.mark.parametrize(
+    "definition,organelle",
+    [
+        ("Ginkgo biloba chloroplast DNA, complete genome", "plastid:chloroplast"),
+        ("Nuphar lutea genome assembly, organelle: plastid:chloroplast", "plastid:chloroplast"),
+    ],
+)
+def test_plastome_titles(config, definition, organelle):
+    assert typed(config, definition, 156945, organelle=organelle) == "plastome"
+
+
+def test_circular_plastid_is_plastome_in_round_2():
+    from g2t.classify import recheck_match_row
+
+    row = {
+        "Definition": "Ginkgo biloba chloroplast DNA, complete genome",
+        "organelle": "plastid:chloroplast",
+        "Length": "156945",
+        "MoleculeType": "DNA",
+        "Topology": "circular",
+    }
+    assert recheck_match_row(row, MatchConfig())["gene_type"] == "plastome"
+
+
+@pytest.mark.parametrize(
+    "definition,expected",
+    [
+        (
+            "Botrychium lunaria ribosomal protein S4 (rps4) gene, partial cds; and rps4-trnS intergenic spacer, "
+            "partial sequence; chloroplast",
+            "rps4",
+        ),
+        ("Ophioglossum sp. ATP synthase beta subunit (atpB) gene, partial cds; chloroplast", "atpb"),
+    ],
+)
+def test_fern_markers(config, definition, expected):
+    assert typed(config, definition, 900) == expected
+
+
+def test_animal_mitogenome_titles_still_typed(config):
+    for d in (
+        "Priapulus caudatus mitochondrion, complete genome",
+        "Hesione sp. mitochondrial DNA, complete genome",
+        "UNVERIFIED: Hesione genetta mitochondrion sequence",
+    ):
+        assert typed(config, d, 15500, organelle="mitochondrion") == "mtgenome", d

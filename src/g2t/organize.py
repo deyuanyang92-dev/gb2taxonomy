@@ -50,6 +50,8 @@ _DEFAULT_GENE_INCLUDES: dict[str, list[str]] = {
         "psbe-petl",
         "rbcl-atpb",
         "trnk",
+        "rps4",
+        "atpb",
     ],
 }
 
@@ -105,6 +107,8 @@ class OrganizeConfig:
             "psbe-petl",
             "rbcl-atpb",
             "trnk",
+            "rps4",
+            "atpb",
         ]
     )
 

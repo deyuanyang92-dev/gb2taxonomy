@@ -75,6 +75,8 @@ GENES = {
     "PSBE-PETL": ['"psbE-petL"[Title]'],
     "RBCL-ATPB": ['"rbcL-atpB"[Title]', '"atpB-rbcL"[Title]'],
     "TRNK": ['"trnK intron"[Title]', "trnK[Gene]"],
+    "RPS4": ["rps4[Gene]", '"ribosomal protein S4"[Title]', "rps4[Title]"],
+    "ATPB": ["atpB[Gene]", '"ATP synthase beta subunit"[Title]', "atpB[Title]"],
 }
 ALIASES = {
     "COX1": "COI",
