@@ -92,6 +92,9 @@ class ReconcileConfig:
     organism_column: str = "organism"
     min_confidence: str = "medium"  # "high" = only strong evidence merges
     min_core_length: int = 4
+    # evidence kinds to disregard, for sensitivity analyses: prefixes of the evidence texts, e.g.
+    # ("same publication",) or ("same collection date", "same coordinates", "coordinates")
+    ignore_evidence: tuple[str, ...] = ()
 
 
 @dataclass
@@ -556,6 +559,9 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
                     ev.moderate.insert(0, "identical voucher" + names)
                 else:
                     ev.strong.insert(0, "identical voucher" + names)
+            if config.ignore_evidence:
+                ev.strong = [e for e in ev.strong if not e.startswith(config.ignore_evidence)]
+                ev.moderate = [e for e in ev.moderate if not e.startswith(config.ignore_evidence)]
             cache[k] = ev
         return cache[k]
 

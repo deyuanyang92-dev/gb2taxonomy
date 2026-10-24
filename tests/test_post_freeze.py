@@ -103,3 +103,17 @@ def test_individuals_of_a_split_lot_are_not_merged_back():
     ]
     out, _ = reconcile_dataframe(pd.DataFrame(rows))
     assert out["species_voucher_new"].nunique() == 3
+
+
+def test_ignore_evidence_for_sensitivity_analysis():
+    from g2t.reconcile import ReconcileConfig
+
+    df = pd.DataFrame(
+        [
+            rec("A", "P c", "coi", "COI_ZMMU_WS399", "k1", collection_date=""),
+            rec("B", "P c", "28s", "28S_ZMMU_WS399", "k2", collection_date=""),
+        ]
+    )
+    assert reconcile_dataframe(df)[0]["species_voucher_new"].nunique() == 1  # shared paper
+    cfg = ReconcileConfig(ignore_evidence=("same publication",))
+    assert reconcile_dataframe(df, cfg)[0]["species_voucher_new"].nunique() == 2
