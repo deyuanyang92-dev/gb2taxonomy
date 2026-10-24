@@ -117,3 +117,23 @@ def test_ignore_evidence_for_sensitivity_analysis():
     assert reconcile_dataframe(df)[0]["species_voucher_new"].nunique() == 1  # shared paper
     cfg = ReconcileConfig(ignore_evidence=("same publication",))
     assert reconcile_dataframe(df, cfg)[0]["species_voucher_new"].nunique() == 2
+
+
+def test_drop_empty_gene_columns(tmp_path):
+    from g2t.organize import OrganizeConfig, organize
+
+    inp = tmp_path / "in.csv"
+    inp.write_text("species_voucher_new,organism,gene_type,LocusID\nk1,P c,coi,A.1\nk1,P c,16s,B.1\n")
+    out = tmp_path / "m.csv"
+    organize(str(inp), str(out))
+    assert "rbcl" in pd.read_csv(out).columns  # default: every gene column, a fixed layout
+    organize(str(inp), str(out), OrganizeConfig(drop_empty_gene_columns=True))
+    cols = pd.read_csv(out).columns
+    assert "coi" in cols and "16s" in cols and "rbcl" not in cols and "12s" not in cols
+
+
+def test_pipeline_cli_has_drop_empty_option():
+    from g2t._cli import main_pipeline
+
+    with pytest.raises(SystemExit):
+        main_pipeline(["--help"])

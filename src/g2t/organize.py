@@ -154,6 +154,9 @@ class OrganizeConfig:
     organize_18_28s: bool = True
     organize_mtgenome: bool = True
     organize_plastome: bool = True
+    # drop gene columns that are empty in every row (an animal matrix has no plastid data); default keeps the
+    # full, fixed column layout so that matrices of different taxa can be stacked
+    drop_empty_gene_columns: bool = False
 
     gene_includes: dict[str, list[str]] = field(default_factory=_default_gene_includes)
 
@@ -623,6 +626,10 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
 
     header = build_header(config, rows[0])
     out_df = pd.DataFrame(rows, columns=header)
+    if config.drop_empty_gene_columns:
+        empty = [g for g in config.gene_order if g in out_df and not out_df[g].astype(str).str.strip().any()]
+        out_df = out_df.drop(columns=empty)
+        header = list(out_df.columns)
 
     out_dir = os.path.dirname(output_file)
     if out_dir:
@@ -710,6 +717,11 @@ def main(argv: list[str] | None = None) -> None:
         help="Prefer NC_ accessions when mtgenome has duplicates",
     )
     parser.add_argument(
+        "--drop_empty_gene_columns",
+        action="store_true",
+        help="leave out gene columns that are empty in every row (default: all gene columns, fixed layout)",
+    )
+    parser.add_argument(
         "--organize_18_28s_separately",
         "--if_organize_18_28s_into_seprate",
         choices=["yes", "no"],
@@ -772,6 +784,7 @@ def main(argv: list[str] | None = None) -> None:
         organize_18_28s=(args.organize_18_28s_separately.lower() == "yes"),
         organize_mtgenome=(args.organize_mtgenome_separately.lower() == "yes"),
         gene_includes=gene_includes,
+        drop_empty_gene_columns=args.drop_empty_gene_columns,
     )
 
     result = organize(args.input, args.output, config)

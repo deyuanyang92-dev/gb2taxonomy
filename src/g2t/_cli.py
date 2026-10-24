@@ -82,6 +82,14 @@ def check_dependencies():
         logging.warning(f"Optional dependencies not installed: {', '.join(missing_optional)}")
 
 
+def _organize_extra(drop_empty: bool) -> dict | None:
+    if not drop_empty:
+        return None
+    from g2t.organize import OrganizeConfig
+
+    return {"config": OrganizeConfig(drop_empty_gene_columns=True)}
+
+
 def main_pipeline(argv=None):
     """g2t — Run the full GenBank-to-Taxonomy pipeline."""
     _version_flag(argv, "g2t")
@@ -118,6 +126,11 @@ def main_pipeline(argv=None):
         help="Evidence needed to merge voucher variants (default: medium)",
     )
     ap.add_argument("--normalize_columns", action="store_true", help="Normalize column names (spaces to underscores)")
+    ap.add_argument(
+        "--drop_empty_gene_columns",
+        action="store_true",
+        help="Leave out gene columns that are empty in every row of the matrix (default: fixed layout)",
+    )
     args = ap.parse_args(argv)
 
     from g2t._pipeline import run
@@ -137,6 +150,7 @@ def main_pipeline(argv=None):
         skip_reconcile=args.skip_reconcile,
         reconcile_min_confidence=args.reconcile_min_confidence,
         normalize_columns=args.normalize_columns,
+        organize_extra=_organize_extra(args.drop_empty_gene_columns),
     )
 
     if not result.success:
