@@ -696,3 +696,18 @@ class TestReviewFixes:
         assert (total, skipped) == (7, 1)
         files, _, _ = ex.discover_gb_files([str(tmp_path / "b.gbf")])
         assert [os.path.basename(f) for f in files] == ["b.gbf"]
+
+    def test_gzipped_genbank_files_are_found_and_read(self, tmp_path):
+        import gzip
+
+        with gzip.open(tmp_path / "a.gb.gz", "wt") as fh:
+            fh.write(make_record("GZP000001"))
+        with gzip.open(tmp_path / "b.GBFF.gz", "wt") as fh:
+            fh.write(make_record("GZP000002"))
+        write(tmp_path / "c.txt.gz", "x")
+        files, total, skipped = ex.discover_gb_files([str(tmp_path)])
+        assert sorted(os.path.basename(f) for f in files) == ["a.gb.gz", "b.GBFF.gz"]
+        assert (total, skipped) == (3, 1)
+        ok, why, n = ex.validate_and_estimate_records(str(tmp_path / "a.gb.gz"))
+        assert ok and n == 1, why
+        assert ex.count_record_terminators(str(tmp_path / "a.gb.gz")) == 1

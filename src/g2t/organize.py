@@ -2,13 +2,8 @@
 """
 Species-Gene Organizer (refactored)
 ===================================
-Groups gene assignment results by species_voucher, one row per species,
+Groups gene assignment results by species_voucher, one row per specimen,
 with gene-type LocusID columns and metadata summaries.
-
-Improvements:
-  - Fixed filenames (organized, single .py extension)
-  - Shared utility functions imported from g2t.utils
-  - Raises exceptions instead of sys.exit() for testability
 """
 
 from __future__ import annotations
@@ -135,6 +130,7 @@ class OrganizeConfig:
             "collection_date",
             "isolate",
             "specimen_voucher",
+            "type_material",
             "host",
             "habitat",
             "isolation_source",

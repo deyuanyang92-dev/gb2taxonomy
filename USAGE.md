@@ -286,20 +286,40 @@ g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 
 ```
 output/
-├── gb_metadata/
-│   └── final.csv                    # Step 1 输出：所有序列的元数据
-├── labeled_genes/
-│   ├── assigned_genes_types_all.csv # Step 2 输出：带基因类型标签
-│   ├── unmatched_sequences.csv      # Step 2：未识别出基因类型的记录
-│   ├── filtered_records.csv         # Step 2：被过滤掉的记录及原因（长度、缺长度、重复 LocusID 等）
-│   └── record_status.csv            # Step 2：每条输入记录一行：assigned / unmatched / filtered + 原因
-├── updated_species_vouchers/
-│   ├── updated_species_voucher.csv  # Step 3 输出：带标本凭证号
-│   ├── reconciled_species_voucher.csv # Step 3b 输出：凭证号核对后
-│   └── reconcile_report.csv         # Step 3b：每对候选的证据与判定
-├── organized_genes/
-│   └── organized_species_voucher.csv # Step 4 输出：最终矩阵
-└── g2t_run.json                     # 完整流程：日期、命令、各软件版本、全部参数、输入 GenBank 文件（路径、大小、SHA-256）、分类信息来源
+├── gb_metadata/                          # Step 1 提取
+│   ├── final.csv                         # 主输出：元数据 + 组装信息，每条记录一行
+│   ├── metadata.csv                      # source 限定词、文献、分类信息（final.csv 的一部分）
+│   ├── assembly.csv                      # 组装 / 测序注释（final.csv 的一部分）
+│   ├── extraction_report.json            # 读入、失败、无效的文件与记录数；错误信息
+│   ├── record_tracking.csv               # 仅 g2t-extract：每条解析的记录一行（文件、序号、登录号、状态）
+│   ├── record_errors.csv                 # 仅 g2t-extract，有时才有：无法解析的记录
+│   ├── taxonomy_cache.json               # TaxID → 纲 / 目 / 科 / 属（之后的运行复用）
+│   └── failed_extract/                   # 无法读取的输入文件副本（有时才有）
+├── labeled_genes/                        # Step 2 基因类型
+│   ├── assigned_genes_types_all.csv      # 主输出：有基因类型的记录（第 1 + 2 轮）
+│   ├── assigned_genes_type.csv           # 第 1 轮（标题关键词、长度范围）
+│   ├── assigned_genes_types2.csv         # 第 2 轮（未匹配记录按所有区室重新检查）
+│   ├── multiple_matched.csv              # 一条记录对应多个基因类型（如 18s,its1-its2）
+│   ├── conflicted_genes.csv              # 标题与基因类型矛盾（如 "18S ...; mitochondrial"）
+│   ├── unmatched_sequences.csv           # 第 1 轮后无基因类型
+│   ├── unmatched_sequences2.csv          # 第 2 轮后无基因类型
+│   ├── unmatched_report.txt              # 未匹配记录按类别统计，附示例
+│   ├── unmatched_categorized.csv         # 未匹配记录及其类别
+│   ├── filtered_records.csv              # 被过滤掉的记录及原因（长度、缺长度、重复 LocusID 等）
+│   └── record_status.csv                 # 每条输入记录一行：assigned / unmatched / filtered + 原因
+├── updated_species_vouchers/             # Step 3 标本；Step 3b 核对
+│   ├── updated_species_voucher.csv       # Step 3 输出：带标本编号的记录
+│   ├── reconciled_species_voucher.csv    # Step 3b 输出：凭证号核对后（match_* 列）
+│   ├── reconcile_report.csv              # Step 3b：每对候选的证据与判定
+│   ├── shorten_species_voucher.csv       # 只含编号相关列，便于检查
+│   ├── only_haplotype.csv                # 带单倍型名称的记录
+│   ├── species_voucher_groups.csv        # 被 2–8 条记录共用的编号，含 frequency_group 列
+│   ├── species_voucher_new_group_N.csv   # 同上，每个组大小 N 一个文件
+│   └── count_species_voucher.txt         # 编号出现 1、2、3 …… 次的个数
+├── organized_genes/                      # Step 4 矩阵
+│   └── organized_species_voucher.csv     # 主输出：每个标本一行，每个基因一列
+├── .g2t_params.json                      # 上次运行的核对设置（设置改变时 --resume 重跑 3b / 4）
+└── g2t_run.json                          # 完整流程：日期、命令、各软件版本、全部参数、输入 GenBank 文件（路径、大小、SHA-256）、分类信息来源
 ```
 
 ---

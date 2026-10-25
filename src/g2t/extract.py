@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """
-GenBank Metadata Extractor (refactored)
-========================================
-Refactored from gb_baseinformation_extractv16.7.py with:
-  - Shared _process_record_loop eliminates triple code duplication (P1-7)
-  - Shared taxonomy cache via multiprocessing.Manager (P1-10)
-  - Combined validate + count in single file read (P1-11)
-  - Renamed parameter to avoid shadowing (P1-20)
-  - Removed duplicate format_size/get_file_size_str
-  - Removed unused _ACCESSION_RE
+GenBank metadata extractor (g2t step 1).
+
+Reads GenBank files (.gb, .gbf, .gbk, .gbff, .genbank, also gzip-compressed) and writes one row of metadata per
+record: source qualifiers, references, assembly data and taxonomy, with a status for every record.
 """
 
 from __future__ import annotations
@@ -62,7 +57,7 @@ class TaxonomyService:
     Backends, in order of preference:
       1. ete3 (local NCBI taxonomy database) when it can be imported;
       2. otherwise Bio.Entrez ``efetch(db="taxonomy")`` in batches of at most
-         200 TaxIDs (L-05).  Results are cached in ``<output_dir>/taxonomy_cache.json``.
+         200 TaxIDs.  Results are cached in ``<output_dir>/taxonomy_cache.json``.
     """
 
     def __init__(self):
@@ -152,7 +147,7 @@ class TaxonomyService:
         self.cache[tax_id_str] = result
         return result
 
-    # ---- Entrez fallback (L-05) -------------------------------------------
+    # ---- Entrez fallback -------------------------------------------
     @staticmethod
     def _load_disk_cache(cache_path: str | None) -> dict[str, dict[str, str]]:
         if not cache_path or not os.path.isfile(cache_path):
@@ -263,6 +258,22 @@ except ImportError:
     psutil = None
 
 GB_EXTENSIONS = (".gb", ".gbf", ".gbk", ".gbff", ".genbank")
+
+
+def is_genbank_name(name: str) -> bool:
+    """A GenBank file name: one of GB_EXTENSIONS, optionally gzip-compressed (``.gb.gz``), case-insensitive."""
+    n = name.lower()
+    return n.endswith(GB_EXTENSIONS) or n.endswith(tuple(e + ".gz" for e in GB_EXTENSIONS))
+
+
+def open_genbank(path: str, binary: bool = False):
+    """Open a GenBank file for reading, decompressing ``.gz`` files on the fly."""
+    if path.lower().endswith(".gz"):
+        import gzip
+
+        return gzip.open(path, "rb") if binary else gzip.open(path, "rt", encoding="utf-8", errors="replace")
+    return open(path, "rb") if binary else open(path, encoding="utf-8", errors="replace")  # noqa: SIM115
+
 
 # ===============================
 # Assembly regex (pre-compiled)
@@ -599,13 +610,13 @@ def discover_gb_files(input_paths: list[str], recursive: bool = True) -> tuple[l
                 dirs.sort()  # os.walk honours in-place sorting: same file order on every filesystem
                 for fn in sorted(files):
                     total_files += 1
-                    if fn.lower().endswith(GB_EXTENSIONS):
+                    if is_genbank_name(fn):
                         gb_files.append(os.path.join(root, fn))
                     else:
                         skipped += 1
         elif os.path.isfile(path):
             total_files += 1
-            if path.lower().endswith(GB_EXTENSIONS):
+            if is_genbank_name(path):
                 gb_files.append(path)
             else:
                 skipped += 1
@@ -615,7 +626,7 @@ def discover_gb_files(input_paths: list[str], recursive: bool = True) -> tuple[l
     return gb_files, total_files, skipped
 
 
-# P1-11: Combined validation + record counting in single file read
+# Combined validation + record counting in single file read
 def validate_and_estimate_records(file_path: str) -> tuple[bool, str, int]:
     """Single-pass: validate file header AND count '//' delimiters."""
     try:
@@ -626,8 +637,8 @@ def validate_and_estimate_records(file_path: str) -> tuple[bool, str, int]:
             return False, "Empty file (0 bytes)", 0
 
         count = 0
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            header = f.read(min(2048, sz))
+        with open_genbank(file_path) as f:
+            header = f.read(2048)
             if not header.strip():
                 return False, "File content empty", 0
             if not header.lstrip().startswith("LOCUS"):
@@ -704,7 +715,7 @@ def collect_taxon_ids(gb_files: list[str]) -> list[str]:
     ids: dict[str, None] = {}
     for fp in gb_files:
         try:
-            with open(fp, encoding="utf-8", errors="replace") as f:
+            with open_genbank(fp) as f:
                 for line in f:
                     if "taxon:" in line:
                         for tid in _TAXON_XREF_RE.findall(line):
@@ -715,7 +726,7 @@ def collect_taxon_ids(gb_files: list[str]) -> list[str]:
 
 
 def prefetch_taxonomy(gb_files: list[str], output_dir: str, include_taxonomy: bool = True) -> None:
-    """Fill the taxonomy cache in bulk when the Entrez fallback is active (L-05)."""
+    """Fill the taxonomy cache in bulk when the Entrez fallback is active."""
     if not include_taxonomy or not _taxonomy.entrez_fallback:
         return
     ids = collect_taxon_ids(gb_files)
@@ -744,7 +755,7 @@ def parse_source_feature(feature: SeqFeature) -> dict[str, str]:
         cleaned = [" ".join(v.replace("\n", " ").split()) for v in vals]
         if q == "db_xref":
             # The first taxon:<id> becomes TaxonID.  Every other cross-reference
-            # (BOLD:..., a second taxon:..., etc.) is kept in the db_xref column (L-19).
+            # (BOLD:..., a second taxon:..., etc.) is kept in the db_xref column.
             tids = [x.split(":", 1)[1].strip() for x in cleaned if x.startswith("taxon:")]
             tids = [t for t in tids if t]
             if tids:
@@ -792,7 +803,7 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> dict[s
     if sources:
         metadata.update(parse_source_feature(sources[0]))
     if not metadata.get("organism"):
-        # No source feature (or no /organism in it): fall back to the record-level organism (L-21)
+        # No source feature (or no /organism in it): fall back to the record-level organism
         metadata["organism"] = metadata.get("Organism", "")
 
     if include_taxonomy:
@@ -953,7 +964,7 @@ def canonical_metadata_columns(present) -> list[str]:
     """Column order shared by every output path: BASE columns, then extras sorted.
 
     Identical to what ``prescan_fieldnames`` returns when ``present`` holds the
-    keys that occur in the data (L-20), but needs no second parse of the files.
+    keys that occur in the data, but needs no second parse of the files.
     """
     base = set(BASE_METADATA_COLUMNS)
     return list(BASE_METADATA_COLUMNS) + sorted(c for c in set(present) if c not in base)
@@ -966,7 +977,7 @@ def prescan_fieldnames(gb_files: list[str]) -> list[str]:
     all_keys = set()
     for fp in gb_files:
         try:
-            with open(fp, encoding="utf-8", errors="replace") as handle:
+            with open_genbank(fp) as handle:
                 for record in SeqIO.parse(handle, "genbank"):
                     for feat in record.features:
                         if feat.type == "source":
@@ -1021,13 +1032,13 @@ def process_record_unified(
 
 
 # ===============================
-# P1-7: Shared record processing loop
+# Shared record processing loop
 # ===============================
 def count_record_terminators(file_path: str) -> int | None:
     """Number of lines that are exactly "//" (GenBank record terminators); None if unreadable."""
     count = 0
     try:
-        with open(file_path, "rb") as f:
+        with open_genbank(file_path, binary=True) as f:
             for line in f:
                 if line.strip() == b"//":
                     count += 1
@@ -1077,7 +1088,7 @@ def _process_record_loop(
     record_idx = 0
     parse_error = ""
     try:
-        with open(file_path, encoding="utf-8", errors="replace") as handle:
+        with open_genbank(file_path) as handle:
             for record in SeqIO.parse(handle, "genbank"):
                 record_idx += 1
                 accession = ""
@@ -1091,7 +1102,7 @@ def _process_record_loop(
                         record, include_taxonomy, do_metadata, do_assembly
                     )
                     if do_assembly:
-                        # L-24: must be set before the callback so that a failing
+                        # must be set before the callback so that a failing
                         # callback is counted as assembly_failed instead of vanishing.
                         track.has_assembly_data = has_asm
 
@@ -1154,7 +1165,7 @@ def _process_record_loop(
     # Set total records after processing
     result.total_records = record_idx
 
-    # L-02: reconcile the number of parsed records with the number of "//"
+    # reconcile the number of parsed records with the number of "//"
     # terminators, so records lost after a mid-file parse error (or a truncated
     # download) can never go unnoticed.
     file_problem = bool(parse_error)
@@ -1212,7 +1223,7 @@ def stream_process_single_file(
     metadata_csv_path: str | None,
     assembly_csv_path: str | None,
     include_taxonomy: bool = True,
-    do_extract_metadata: bool = True,  # P1-20: renamed from extract_metadata
+    do_extract_metadata: bool = True,
     do_extract_assembly: bool = True,
     metadata_delimiter: str = ",",
     assembly_delimiter: str = "\t",
@@ -1281,7 +1292,7 @@ def memory_process_single_file(
     file_path: str,
     include_taxonomy: bool = True,
     do_extract_assembly: bool = True,
-    do_extract_metadata: bool = True,  # P1-20: renamed
+    do_extract_metadata: bool = True,
 ) -> tuple[FileResult, list[dict], list[dict]]:
     md_rows = []
     asm_rows = []
@@ -1305,7 +1316,7 @@ def combine_and_save_final_csv(
     md_file: str, asm_file: str, out_file: str, delimiter: str = ",", md_delimiter: str = ",", asm_delimiter: str = "\t"
 ):
     start = time.time()
-    # L-04: read everything as text so leading zeros ("007"), exponent-like ids
+    # read everything as text so leading zeros ("007"), exponent-like ids
     # ("1E5") and big integers are never rewritten; empty cells stay "" and
     # strings such as "NA" are not turned into NaN.
     try:
@@ -1335,7 +1346,7 @@ def combine_and_save_final_csv(
 
 
 def _write_metadata_frame(rows: list[dict], path: str, delimiter: str) -> pd.DataFrame:
-    """Write metadata rows with the same column set/order as the stream writer (L-20)."""
+    """Write metadata rows with the same column set/order as the stream writer."""
     df = pd.DataFrame(rows)
     df = df.reindex(columns=canonical_metadata_columns(df.columns)).fillna("")
     df.to_csv(path, index=False, sep=delimiter, encoding="utf-8")
@@ -1520,7 +1531,7 @@ def _init_worker(cache_dict, ete3_available=False, entrez_fallback=False):
 
 
 def _unique_batch_names(gb_files: list[str]) -> list[str]:
-    """One output-directory stem per input file; same-named files get a numeric suffix (L-01)."""
+    """One output-directory stem per input file; same-named files get a numeric suffix."""
     used = set()
     names = []
     for fp in gb_files:
@@ -1560,7 +1571,7 @@ def _process_single_file_batch(
 ) -> FileResult:
     """Process one GenBank file into ``<output_dir>/<base>_metadata/``.
 
-    Module-level on purpose: ProcessPoolExecutor must be able to pickle it (L-01);
+    Module-level on purpose: ProcessPoolExecutor must be able to pickle it;
     options are bound with ``functools.partial``.
     """
     sub, md_name, asm_name, final_path = _batch_paths(output_dir, base)
@@ -1612,7 +1623,7 @@ def _process_single_file_batch(
 
 
 def _read_text_csv(path: str, sep: str) -> pd.DataFrame | None:
-    """Read a CSV as text (L-04); None when missing/empty."""
+    """Read a CSV as text; None when missing/empty."""
     try:
         return pd.read_csv(path, sep=sep, dtype=str, keep_default_na=False, low_memory=False)
     except (FileNotFoundError, pd.errors.EmptyDataError):
@@ -1636,7 +1647,7 @@ def _merge_batch_outputs(
 ) -> int:
     """Concatenate the per-file CSVs (in input order) into metadata/assembly/final.csv.
 
-    The result has the same columns and order as the non-batch output (L-01).
+    The result has the same columns and order as the non-batch output.
     Returns the number of merged metadata rows.
     """
     metadata_path = os.path.join(output_dir, metadata_output)
@@ -1712,10 +1723,10 @@ def process_batch_mode(
         log_interval=log_interval,
     )
 
-    # L-05: bulk-load lineages once in the parent; workers only read the cache.
+    # bulk-load lineages once in the parent; workers only read the cache.
     prefetch_taxonomy(gb_files, output_dir, tax)
 
-    # P1-10: Shared taxonomy cache via multiprocessing.Manager
+    # Shared taxonomy cache via multiprocessing.Manager
     manager = multiprocessing.Manager()
     shared_cache = manager.dict()
     # Pre-populate with current cache
@@ -1756,7 +1767,7 @@ def process_batch_mode(
         if i in results:
             summary.add_result(results[i])
 
-    # L-01: merge per-file outputs into <output_dir>/final.csv (+ metadata.csv, assembly.csv)
+    # merge per-file outputs into <output_dir>/final.csv (+ metadata.csv, assembly.csv)
     merged_names = [
         names[i]
         for i in range(len(gb_files))
@@ -1793,7 +1804,7 @@ def _finish_extract(
     rows: int = 0,
     success: bool = False,
 ) -> StepResult:
-    """Always write extraction_report.json (L-02) and build the StepResult."""
+    """Always write extraction_report.json and build the StepResult."""
     summary.total_elapsed_time = time.time() - start_time
     try:
         os.makedirs(output_dir, exist_ok=True)
@@ -1830,7 +1841,7 @@ def extract(
         summary.non_gb_files_skipped = skipped
         summary.gb_files_found = len(gb_files)
         if not gb_files:
-            logger.warning(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}) found in the inputs")
+            logger.warning(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}, also .gz) found in the inputs")
             return _finish_extract(summary, output_dir, start_time)
 
         valid_files = []
@@ -1927,27 +1938,40 @@ def main(argv=None):
     )
     parser.add_argument("-i", "--input", required=True, nargs="+", help="Input GenBank files or directories")
     parser.add_argument("-o", "--output", default=".", help="Output directory")
-    parser.add_argument("-m", "--metadata-output", default="metadata.csv")
-    parser.add_argument("-a", "--assembly-output", default="assembly.csv")
-    parser.add_argument("-f", "--final-output", default="final.csv")
+    parser.add_argument("-m", "--metadata-output", default="metadata.csv", help="Metadata table (one row per record)")
+    parser.add_argument("-a", "--assembly-output", default="assembly.csv", help="Assembly / sequencing data table")
+    parser.add_argument("-f", "--final-output", default="final.csv", help="Metadata and assembly data merged")
 
-    parser.add_argument("--stream", action="store_true", help="Stream processing (recommended for large files)")
+    parser.add_argument(
+        "--stream",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stream processing (default; same results, less memory on large inputs)",
+    )
     parser.add_argument("--batch", action="store_true", help="Batch mode (parallel)")
-    parser.add_argument("--max_tasks", type=int, default=4)
-    parser.add_argument("--log_interval", type=int, default=5000)
+    parser.add_argument("--max_tasks", type=int, default=4, help="Parallel processes in --batch mode")
+    parser.add_argument("--log_interval", type=int, default=5000, help="Log progress every N records (0 = never)")
 
-    parser.add_argument("--metadata_delimiter", default=",")
-    parser.add_argument("--assembly_delimiter", default="\t")
-    parser.add_argument("--final_delimiter", default=",")
+    parser.add_argument("--metadata_delimiter", default=",", help="Column delimiter of the metadata table")
+    parser.add_argument("--assembly_delimiter", default="\t", help="Column delimiter of the assembly table")
+    parser.add_argument("--final_delimiter", default=",", help="Column delimiter of the merged table")
 
     exclusive_group = parser.add_mutually_exclusive_group()
-    exclusive_group.add_argument("--only_assembly_meta", "-oam", action="store_true")
-    exclusive_group.add_argument("--only_except_assembly_meta", "-oeam", action="store_true")
+    exclusive_group.add_argument(
+        "--only_assembly_meta", "-oam", action="store_true", help="Extract only the assembly / sequencing data"
+    )
+    exclusive_group.add_argument(
+        "--only_except_assembly_meta", "-oeam", action="store_true", help="Extract only the metadata (no assembly data)"
+    )
 
-    parser.add_argument("--update_taxonomy", action="store_true")
-    parser.add_argument("--no_report", action="store_true")
-    parser.add_argument("--no_tracking", action="store_true")
-    parser.add_argument("--no_recursive", action="store_true")
+    parser.add_argument(
+        "--update_taxonomy", action="store_true", help="Update the local ete3 NCBI taxonomy database first"
+    )
+    parser.add_argument(
+        "--no_report", action="store_true", help="Do not write extraction_report.json and the error table"
+    )
+    parser.add_argument("--no_tracking", action="store_true", help="Do not write the per-record tracking table")
+    parser.add_argument("--no_recursive", action="store_true", help="Do not search subdirectories of the inputs")
     parser.add_argument("--if_use_chunksize", action="store_true", help="(Legacy) same as --stream")
 
     args = parser.parse_args(argv)

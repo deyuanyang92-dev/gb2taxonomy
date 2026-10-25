@@ -104,16 +104,21 @@ def main_pipeline(argv=None):
     ap.add_argument("-i", "--input", nargs="+", required=True, help="GenBank files or directories")
     ap.add_argument("-o", "--output", required=True, help="Root output directory")
     ap.add_argument(
-        "--stream", action="store_true", help="Use streaming mode for extraction (recommended for large files)"
+        "--stream",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stream the extraction step (default; same results, less memory on large inputs)",
     )
     ap.add_argument("--batch", action="store_true", help="Use batch parallel processing")
     ap.add_argument("--max_tasks", type=int, default=1, help="Max parallel tasks for batch mode")
     ap.add_argument("--resume", action="store_true", help="Skip steps whose output already exists")
-    ap.add_argument("--quiet", action="store_true")
-    ap.add_argument("--skip_extract", action="store_true")
-    ap.add_argument("--skip_classify", action="store_true")
-    ap.add_argument("--skip_voucher", action="store_true")
-    ap.add_argument("--skip_organize", action="store_true")
+    ap.add_argument(
+        "--quiet", action="store_true", help="No progress messages or final summary (errors are still printed)"
+    )
+    ap.add_argument("--skip_extract", action="store_true", help="Skip step 1 (use its output in -o)")
+    ap.add_argument("--skip_classify", action="store_true", help="Skip step 2 (use its output in -o)")
+    ap.add_argument("--skip_voucher", action="store_true", help="Skip step 3 (use its output in -o)")
+    ap.add_argument("--skip_organize", action="store_true", help="Skip step 4, the matrix")
     ap.add_argument(
         "--skip_reconcile",
         action="store_true",

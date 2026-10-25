@@ -89,3 +89,25 @@ def test_version_flag(entry, prog, capsys):
         getattr(_cli, entry)(["--version"])
     assert e.value.code == 0
     assert capsys.readouterr().out.strip() == f"{prog} {g2t.__version__}"
+
+
+def test_gzipped_input_gives_the_same_matrix(result, tmp_path):
+    """A .gb.gz copy of the example gives the same specimen matrix as the plain file."""
+    import gzip
+    import shutil
+
+    gz = tmp_path / "haplotaxidae.gb.gz"
+    with open(EXAMPLE, "rb") as src, gzip.open(gz, "wb") as dst:
+        shutil.copyfileobj(src, dst)
+    mp = pytest.MonkeyPatch()
+    mp.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    mp.setitem(sys.modules, "ete3", None)
+    mp.setattr(Entrez, "efetch", _blocked)
+    mp.setattr(Entrez, "sleep_between_tries", 0)
+    res = run(input_files=[str(gz)], output_dir=str(tmp_path / "out"), quiet=True)
+    mp.undo()
+    assert res.success, res.log
+    name = "organized_genes/organized_species_voucher.csv"
+    plain = pd.read_csv(result[1] / name, dtype=str)
+    zipped = pd.read_csv(tmp_path / "out" / name, dtype=str)
+    pd.testing.assert_frame_equal(plain, zipped)

@@ -303,20 +303,40 @@ g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 
 ```
 output/
-├── gb_metadata/
-│   └── final.csv                    # Step 1 output: metadata of all sequences
-├── labeled_genes/
-│   ├── assigned_genes_types_all.csv # Step 2 output: records with gene type
-│   ├── unmatched_sequences.csv      # Step 2: records with no gene type
-│   ├── filtered_records.csv         # Step 2: removed records and the reason (length, missing length, duplicate LocusID, etc.)
-│   └── record_status.csv            # Step 2: one row per input record: assigned / unmatched / filtered + reason
-├── updated_species_vouchers/
-│   ├── updated_species_voucher.csv  # Step 3 output: records with specimen voucher
-│   ├── reconciled_species_voucher.csv # Step 3b output: after voucher reconciliation
-│   └── reconcile_report.csv         # Step 3b: evidence and decision for every candidate pair
-├── organized_genes/
-│   └── organized_species_voucher.csv # Step 4 output: final matrix
-└── g2t_run.json                     # pipeline: date, command, versions (g2t, Python, Biopython, pandas, ete3, pyyaml), parameters, input files (path, size, SHA-256), taxonomy source
+├── gb_metadata/                          # Step 1, extract
+│   ├── final.csv                         # main output: metadata + assembly data, one row per record
+│   ├── metadata.csv                      # source qualifiers, references, taxonomy (part of final.csv)
+│   ├── assembly.csv                      # assembly / sequencing comments (part of final.csv)
+│   ├── extraction_report.json            # files and records read, failed, invalid; errors
+│   ├── record_tracking.csv               # g2t-extract only: one row per parsed record (file, index, accession, status)
+│   ├── record_errors.csv                 # g2t-extract only, if any: records that could not be parsed
+│   ├── taxonomy_cache.json               # TaxID -> class / order / family / genus (reused by later runs)
+│   └── failed_extract/                   # copies of input files that could not be read (only if any)
+├── labeled_genes/                        # Step 2, gene types
+│   ├── assigned_genes_types_all.csv      # main output: records with a gene type (rounds 1 + 2)
+│   ├── assigned_genes_type.csv           # round 1 (title keywords, length windows)
+│   ├── assigned_genes_types2.csv         # round 2 (unmatched records re-checked against all compartments)
+│   ├── multiple_matched.csv              # records with several gene types (e.g. 18s,its1-its2)
+│   ├── conflicted_genes.csv              # title contradicts the gene type (e.g. "18S ...; mitochondrial")
+│   ├── unmatched_sequences.csv           # no gene type after round 1
+│   ├── unmatched_sequences2.csv          # no gene type after round 2
+│   ├── unmatched_report.txt              # unmatched records by category, with examples
+│   ├── unmatched_categorized.csv         # unmatched records with their category
+│   ├── filtered_records.csv              # removed records and the reason (length, missing length, duplicate LocusID ...)
+│   └── record_status.csv                 # one row per input record: assigned / unmatched / filtered + reason
+├── updated_species_vouchers/             # Step 3, specimens; Step 3b, reconciliation
+│   ├── updated_species_voucher.csv       # Step 3 output: records with their specimen identifier
+│   ├── reconciled_species_voucher.csv    # Step 3b output: after voucher reconciliation (match_* columns)
+│   ├── reconcile_report.csv              # Step 3b: evidence and decision for every candidate pair
+│   ├── shorten_species_voucher.csv       # the identifier columns only, for checking
+│   ├── only_haplotype.csv                # records that carry a haplotype name
+│   ├── species_voucher_groups.csv        # identifiers shared by 2-8 records, with frequency_group
+│   ├── species_voucher_new_group_N.csv   # the same, one file per group size N
+│   └── count_species_voucher.txt         # how many identifiers occur 1, 2, 3 ... times
+├── organized_genes/                      # Step 4, matrix
+│   └── organized_species_voucher.csv     # main output: one row per specimen, one column per gene
+├── .g2t_params.json                      # reconcile settings of the last run (--resume re-runs 3b / 4 when they change)
+└── g2t_run.json                          # date, command, versions (g2t, Python, Biopython, pandas, ete3, pyyaml), parameters, input files (path, size, SHA-256), taxonomy source
 ```
 
 ---

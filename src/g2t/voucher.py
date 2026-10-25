@@ -3,13 +3,6 @@
 Species Voucher Builder (refactored)
 ====================================
 Builds unified species_voucher identifiers from gene assignment results.
-
-Improvements:
-  - Unicode normalization (sanitize_string)
-  - str2bool raises errors for invalid input instead of defaulting to True
-  - Fixed output filename typos (vourcher -> voucher, speces -> species)
-  - Consolidated frequency group files into single CSV + frequency_group column
-  - Shared utility functions imported from g2t.utils
 """
 
 from __future__ import annotations
@@ -64,7 +57,7 @@ def normalize_columns_inplace(df: pd.DataFrame, lowercase: bool = True) -> None:
 
     ``lowercase`` defaults to True only for backward compatibility of direct callers. The pipeline
     (``build_species_vouchers(normalize_column_names=True)``) passes ``lowercase=False``: case is
-    preserved so required columns such as ``LocusID`` / ``ACCESSION`` survive for later steps (L-11).
+    preserved so required columns such as ``LocusID`` / ``ACCESSION`` survive for later steps.
     """
     new_cols = [col_key(c) if lowercase else str(c).strip().replace(" ", "_") for c in df.columns]
     seen: dict[str, int] = {}
@@ -102,7 +95,7 @@ def _is_blank_value(v, specimen_voucher: bool = False) -> bool:
 
 
 def _blank_to_na(series: pd.Series, specimen_voucher: bool = False) -> pd.Series:
-    """Return *series* as string dtype with blank / punctuation-only values replaced by NA (L-22)."""
+    """Return *series* as string dtype with blank / punctuation-only values replaced by NA."""
     s = series.astype("string")
     blank = pd.Series([_is_blank_value(v, specimen_voucher) for v in s], index=s.index, dtype=bool)
     return s.mask(blank)
@@ -192,7 +185,7 @@ def build_species_vouchers(
     fill_from_fallback = 0
 
     if resolved_order_cols:
-        # Whitespace-only / punctuation-only values (" ", "..", "()") count as empty (L-22),
+        # Whitespace-only / punctuation-only values (" ", "..", "()") count as empty,
         # so the fallback to the next column works; non-blank values are kept verbatim.
         tmp = pd.concat(
             [_blank_to_na(df[c], specimen_voucher=c == "specimen_voucher").rename(c) for c in resolved_order_cols],

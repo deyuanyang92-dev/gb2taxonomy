@@ -603,7 +603,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
                 "ef1a",
                 "ef-1a",
                 "elongation factor 1 alpha",
-                "EF1alpha",  # P1-12: added missing synonyms
+                "EF1alpha",
             ]
         }
     ),
@@ -654,8 +654,7 @@ _BUILTIN_GENE_DICT: dict[str, list[str]] = {
 # Initialize from YAML (preferred) or built-in
 GENE_DICT: dict[str, list[str]] = _load_gene_dict_yaml() or _BUILTIN_GENE_DICT
 
-# P2-21: Gene sets are now managed in MatchConfig, not as module-level mutable globals
-# We keep these as defaults for init_gene_groups backward compatibility
+# Default gene sets; a run uses the copies in MatchConfig (also the defaults of init_gene_groups)
 _DEFAULT_MITO_GENES = {
     "coi",
     "cox3",
@@ -699,7 +698,7 @@ _DEFAULT_PLASTID_GENES = {
 
 
 # =========================
-# P1-9: Pre-compiled regex patterns
+# Pre-compiled regex patterns
 # =========================
 _COMPILED_PATTERNS: dict[str, re.Pattern] = {}
 
@@ -759,7 +758,7 @@ def init_gene_groups(
 
 
 # =========================
-# Configuration dataclass (P2-21: gene sets now live here)
+# Configuration dataclass (holds the gene sets of a run)
 # =========================
 @dataclass
 class MatchConfig:
@@ -798,7 +797,7 @@ class MatchConfig:
     add_assignment_reasons: bool = True
     record_conflict_reasons: bool = True
 
-    # P2-21: Gene sets as config fields instead of mutable globals
+    # gene sets of this run
     mito_genes: set[str] = field(default_factory=lambda: _DEFAULT_MITO_GENES.copy())
     nuclear_genes: set[str] = field(default_factory=lambda: _DEFAULT_NUCLEAR_GENES.copy())
     plastid_genes: set[str] = field(default_factory=lambda: _DEFAULT_PLASTID_GENES.copy())
@@ -861,7 +860,7 @@ def load_path_dict(path_dict: str) -> None:
 
 
 def smart_match(phrase: str, text: str) -> bool:
-    """Smart phrase matching using pre-compiled patterns (P1-9)."""
+    """Smart phrase matching using pre-compiled patterns."""
     key = phrase.lower()
     pat = _COMPILED_PATTERNS.get(key)
     if pat is None:
@@ -890,7 +889,7 @@ def clean_length(length_str: str) -> int:
         return 0
 
 
-# Words that look like gene keywords but are not marker genes (review item L-06).
+# Words that look like gene keywords but are not marker genes.
 NEGATIVE_CONTEXT: dict[str, re.Pattern] = {
     "16s": re.compile(
         r"16s\s+r?rna\s+(?:\((?:[^()]|\([^()]*\))*\)[\s-]*)?"
@@ -914,7 +913,7 @@ _SPECIMEN_TOKEN = re.compile(
 
 def clean_definition(definition: Any) -> str:
     """Lower-cased DEFINITION for keyword matching: specimen identifiers ('isolate CO2', 'voucher COI-12')
-    and the English word 'its' are removed first, so they are not read as gene names (review item L-06)."""
+    and the English word 'its' are removed first, so they are not read as gene names."""
     text = str(definition or "")
     text = _SPECIMEN_TOKEN.sub(" ", text)
     text = re.sub(r"\bits\b", " ", text)  # lower-case possessive only; 'ITS' is kept
@@ -1033,7 +1032,7 @@ CLASSIFY_OUTPUTS = [
 
 
 def _clean_outputs(output_dir: str, extra: list[str] | None = None) -> None:
-    """Remove the products of a previous run, so stale files are never read back (L-10, C2)."""
+    """Remove the products of a previous run, so stale files are never read back."""
     for name in CLASSIFY_OUTPUTS + list(extra or []):
         path = os.path.join(output_dir, name)
         if os.path.isfile(path):
@@ -1067,7 +1066,7 @@ def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# P1-8: Shared gene matching loop
+# Shared gene matching loop
 # =========================
 def _match_gene_loop(
     definition: str,
@@ -1243,7 +1242,6 @@ def first_round_match(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
     elif group == "plastid":
         matched, notes = match_plastid_genes(definition, length_val, config)
     else:
-        # P2-19: Removed unreachable dead code (mito check in nuclear branch)
         matched, notes = match_nuclear_genes(definition, length_val, config)
 
     gene_type = ",".join(sorted(matched))
@@ -1257,7 +1255,7 @@ def first_round_match(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
 def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> dict | None:
     if gene == "12s" and re.search(r"large subunit ribosomal", definition, re.IGNORECASE):
         return {
-            "resolved": {"12s"},  # P0-4: preserve original (consistent with 18s/28s now)
+            "resolved": {"12s"},  # the original name is kept, the conflict is recorded (as for 18s/28s)
             "reason": "12s matched with 'large subunit ribosomal' in definition, possible 16S mismatch, flagged",
             "conflict_reason": "12s conflicts with 'large subunit ribosomal' description",
         }
@@ -1268,7 +1266,7 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> di
             "conflict_reason": "16s conflicts with 'small subunit ribosomal' description",
         }
     if gene in ("18s", "28s") and "mitochondrial" in definition.lower():
-        # P0-4: Always preserve original gene name, record conflict in metadata
+        # Always preserve original gene name, record conflict in metadata
         if length_val > 800:
             return {
                 "resolved": {gene},
@@ -1277,7 +1275,7 @@ def _check_ribosomal_conflict(gene: str, definition: str, length_val: int) -> di
             }
         else:
             return {
-                "resolved": {gene},  # P0-4: no more '?' suffix — consistent with 12s/16s
+                "resolved": {gene},
                 "reason": f"{gene} in definition with 'mitochondrial' and length {length_val}<=800, "
                 "flagged as uncertain",
                 "conflict_reason": f"{gene} conflicts with mitochondrial annotation, short length",
@@ -1643,7 +1641,7 @@ def process_prematch(
 
     results = []
     conflict_records = []
-    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces (L-14)
+    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces
         res = process_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -1720,7 +1718,7 @@ def process_recheck(
         _save_csv(df, output_dir, unmatched_out, "Round 2 unmatched")
         return df
 
-    # P0-3: Use union of mt+nt ranges instead of nuclear-only
+    # Use union of mt+nt ranges instead of nuclear-only
     if apply_length_filter:
         df["Length"] = df["Length"].astype(str).str.replace(r"\s*bp\s*", "", regex=True).str.replace(",", "")
         df["Length"] = pd.to_numeric(df["Length"], errors="coerce")
@@ -1734,7 +1732,7 @@ def process_recheck(
 
     results = []
     conflict_records = []
-    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces (L-14)
+    for row_dict in df.to_dict("records"):  # itertuples renamed columns with spaces
         res = recheck_match_row(row_dict, config)
         row_dict["gene_type"] = res["gene_type"]
         row_dict["match_source"] = res["match_source"]
@@ -2200,53 +2198,97 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("-i", "--input", required=True, help="Input file (CSV/TSV/Excel)")
     parser.add_argument("-o", "--output", default="assign_genes_type", help="Output directory")
 
-    parser.add_argument("--prematch_output_file_name", default="assigned_genes_type.csv")
-    parser.add_argument("--multip_matched_genestype", default="multiple_matched.csv")
-    parser.add_argument("--unmatched_sequences", default="unmatched_sequences.csv")
-    parser.add_argument("--conflicted_sequences", default="conflicted_genes.csv")
+    parser.add_argument(
+        "--prematch_output_file_name", default="assigned_genes_type.csv", help="Round-1 assignments (file name in -o)"
+    )
+    parser.add_argument(
+        "--multip_matched_genestype", default="multiple_matched.csv", help="Records matching several gene types"
+    )
+    parser.add_argument(
+        "--unmatched_sequences", default="unmatched_sequences.csv", help="Records matching no gene type"
+    )
+    parser.add_argument(
+        "--conflicted_sequences", default="conflicted_genes.csv", help="Records whose title contradicts the gene type"
+    )
 
-    parser.add_argument("--if_remove_matched_sequences", "-ifrms", default="no")
+    parser.add_argument(
+        "--if_remove_matched_sequences",
+        "-ifrms",
+        default="no",
+        help="yes: stop at the first matching gene type (one gene per record)",
+    )
 
-    parser.add_argument("--length_range2_mtgenome", default="3000:500000")
-    parser.add_argument("--length_range2_plastome", default="20000:300000")
-    parser.add_argument("--length_range2_18_28s", default="5000:15000")
-    parser.add_argument("--length_range2_coi", default="none")
-    parser.add_argument("--length_range2_its", default="none")
-    parser.add_argument("--length_range2_cob", default="none")
-    parser.add_argument("--length_range2_12s", default="none")
-    parser.add_argument("--length_range2_16s", default="none")
-    parser.add_argument("--length_range2_18s", default="none")
-    parser.add_argument("--length_range2_28s", default="none")
-    parser.add_argument("--length_range2_h3", default="none")
+    parser.add_argument("--length_range2_mtgenome", default="3000:500000", help="Length window (bp) of mitogenomes")
+    parser.add_argument("--length_range2_plastome", default="20000:300000", help="Length window (bp) of plastomes")
+    parser.add_argument(
+        "--length_range2_18_28s", default="5000:15000", help="Length window (bp) of whole 18S-ITS-28S records"
+    )
+    parser.add_argument("--length_range2_coi", default="none", help="Length window (bp) of coi; none = no limit")
+    parser.add_argument("--length_range2_its", default="none", help="Length window (bp) of its; none = no limit")
+    parser.add_argument("--length_range2_cob", default="none", help="Length window (bp) of cob; none = no limit")
+    parser.add_argument("--length_range2_12s", default="none", help="Length window (bp) of 12s; none = no limit")
+    parser.add_argument("--length_range2_16s", default="none", help="Length window (bp) of 16s; none = no limit")
+    parser.add_argument("--length_range2_18s", default="none", help="Length window (bp) of 18s; none = no limit")
+    parser.add_argument("--length_range2_28s", default="none", help="Length window (bp) of 28s; none = no limit")
+    parser.add_argument("--length_range2_h3", default="none", help="Length window (bp) of h3; none = no limit")
 
     parser.add_argument("--gene_length_range", nargs="*", default=None, help="Per-gene length ranges: gene=lower:upper")
 
-    parser.add_argument("--length2_mtgenes", default="150:50000")
-    parser.add_argument("--length2_ntgenes", default="150:50000")
-    parser.add_argument("--length2_cpgenes", default="150:300000")
-    parser.add_argument("--length_range2_all", default="150:50000")
-    parser.add_argument("--length", default="all")
-    parser.add_argument("--organelle", default="all")
-    parser.add_argument("--moleculetype", default="all")
-    parser.add_argument("--mol_type", default="all")
+    parser.add_argument(
+        "--length2_mtgenes", default="150:50000", help="Length (bp) a record needs to be typed as a mitochondrial gene"
+    )
+    parser.add_argument(
+        "--length2_ntgenes", default="150:50000", help="Length (bp) a record needs to be typed as a nuclear gene"
+    )
+    parser.add_argument(
+        "--length2_cpgenes", default="150:300000", help="Length (bp) a record needs to be typed as a plastid gene"
+    )
+    parser.add_argument(
+        "--length_range2_all",
+        default="150:50000",
+        help="Global length filter of round 1 (plastid records use --length2_cpgenes); others are listed as filtered",
+    )
+    parser.add_argument("--length", default="all", help="Extra length filter, e.g. 300:2000 (all = none)")
+    parser.add_argument("--organelle", default="all", help="Keep only this /organelle value, e.g. mitochondrion")
+    parser.add_argument("--moleculetype", default="all", help="Keep only this LOCUS molecule type, e.g. DNA")
+    parser.add_argument("--mol_type", default="all", help="Keep only these /mol_type values (comma-separated)")
 
     parser.add_argument(
-        "--mtgenes_list", default="coi,cox3,cox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,atp6,atp8"
+        "--mtgenes_list",
+        default="coi,cox3,cox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,atp6,atp8",
+        help="Mitochondrial gene types searched",
     )
-    parser.add_argument("--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3")
+    parser.add_argument(
+        "--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3", help="Nuclear gene types searched"
+    )
     parser.add_argument(
         "--cpgenes_list",
         default="plastome,rbcl,matk,trnl-trnf,psba-trnh,rpl16,rps16,ndhf,rpoc1,ycf1,rpl32-trnl,trns-trng,atpf-atph,petb-petd,psbe-petl,rbcl-atpb,trnk,rps4,atpb",
+        help="Plastid gene types searched",
     )
     parser.add_argument("--path_dict", default=None, help="External gene dictionary file")
 
-    # P2-15: Fixed typo, with backward-compatible alias
-    parser.add_argument("--which_gene_types_extract", "--which_gene_types_extact", "-wgte", default=None)
+    # "--which_gene_types_extact" (misspelt) is still accepted
+    parser.add_argument(
+        "--which_gene_types_extract",
+        "--which_gene_types_extact",
+        "-wgte",
+        default=None,
+        help="Also write one file per gene type for these types (comma-separated)",
+    )
 
-    parser.add_argument("--if_recheck_unmatched", default="yes")
-    parser.add_argument("--if_length_range_work2_recheck", default="yes")
-    parser.add_argument("--if_add_assigned_gene_types_reasons", default="yes")
-    parser.add_argument("--if_recorded_conflict_reasons", default="yes")
+    parser.add_argument(
+        "--if_recheck_unmatched",
+        default="yes",
+        help="yes: round 2 re-checks unmatched records against all compartments (circular = genome)",
+    )
+    parser.add_argument(
+        "--if_length_range_work2_recheck", default="yes", help="yes: round 2 applies the length windows too"
+    )
+    parser.add_argument(
+        "--if_add_assigned_gene_types_reasons", default="yes", help="yes: write the Assignment_reason column"
+    )
+    parser.add_argument("--if_recorded_conflict_reasons", default="yes", help="yes: write the Conflict_reason column")
 
     args = parser.parse_args(argv)
 

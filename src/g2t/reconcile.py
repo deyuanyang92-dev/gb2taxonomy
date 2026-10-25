@@ -747,7 +747,7 @@ def reconcile(
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Evidence-based merging of voucher variants (Step 3b)")
     p.add_argument("-i", "--input", required=True, help="updated_species_voucher.csv from g2t-voucher")
-    p.add_argument("-o", "--output_dir", required=True)
+    p.add_argument("-o", "--output_dir", required=True, help="Output directory")
     p.add_argument(
         "--min_confidence",
         choices=["high", "medium"],

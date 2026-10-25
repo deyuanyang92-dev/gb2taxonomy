@@ -445,3 +445,23 @@ class TestNonIdentifierColumnNames:
         assert "10" in per["Depth (m)"] and "20" in per["Depth (m)"] and "Mam" in per["class"]
         adv = metadata_advanced(df, {"coi": "L1", "16s": "L2"}, ["Depth (m)", "class"])
         assert "10" in adv["Depth (m)"] and "Mam" in adv["class"]
+
+
+def test_type_material_reaches_the_matrix(tmp_path):
+    """/type_material (holotype, paratype ...) is extracted with the other source qualifiers and is a matrix column."""
+    df = pd.DataFrame(
+        {
+            "species_voucher_new": ["Eunoe_sp_A1", "Eunoe_sp_A1", "Eunoe_oerstedi_B2"],
+            "organism": ["Eunoe sp.", "Eunoe sp.", "Eunoe oerstedi"],
+            "gene_type": ["coi", "16s", "coi"],
+            "LocusID": ["L1", "L2", "L3"],
+            "type_material": ["holotype of Eunoe sp. A", "holotype of Eunoe sp. A", None],
+        }
+    )
+    src = tmp_path / "in.csv"
+    df.to_csv(src, index=False)
+    out = tmp_path / "matrix.csv"
+    assert organize(str(src), str(out)).success
+    m = pd.read_csv(out, dtype=str).set_index("species_voucher_new")
+    assert m.loc["Eunoe_sp_A1", "type_material"] == "holotype of Eunoe sp. A"
+    assert pd.isna(m.loc["Eunoe_oerstedi_B2", "type_material"])
