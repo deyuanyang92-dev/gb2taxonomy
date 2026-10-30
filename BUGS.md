@@ -65,6 +65,18 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
+## 2026-10-30: 金标准漏掉带不可见字符的登录号（benchmark/build_gold.py）
+
+**问题描述**:
+Polynoidae 金标准（Hiley, Mongiardino Koch & Rouse 2024, *Biology* 13:979, Table S1）有 11 个登录号前面带 BOM 字符（`\ufeffON244617`），
+正则不匹配而被丢掉（3 个物种：Branchinotogluma nikkoensis、B. pettiboneae、B. sagamiensis）。
+
+**解决方案**:
+已修复：解析前去掉 BOM 和零宽字符。重建后 Polynoidae 金标准 292 → 303 条（只增不减），Hesionidae、Opheliidae 不变；
+新增的 11 条 g2t 全部归对基因列。论文中 Polynoidae 的基因归类数字需要按新金标准更新。
+
+---
+
 ## 2026-10-30: ete3 查询全部失败 `no such column: "1"`，科名大面积为空
 
 **问题描述**:

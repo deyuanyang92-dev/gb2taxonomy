@@ -41,7 +41,8 @@ GENE = {
 
 def _accessions(cell) -> list[str]:
     out = []
-    for tok in re.split(r"[,;/\s]+", str(cell)):
+    # invisible characters copied along from Word/PDF (BOM, zero-width space) would hide an accession
+    for tok in re.split(r"[,;/\s]+", re.sub(r"[\ufeff\u200b\u200c\u200d]", "", str(cell))):
         tok = tok.strip().rstrip("*")
         if ACC_RE.match(tok):
             out.append(tok.split(".")[0])
