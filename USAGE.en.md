@@ -228,6 +228,10 @@ Each cell holds the LocusID of that specimen's sequence for that gene; several s
 
 **Output file**: `organized_species_voucher.csv`
 
+**Split by family (or order, genus)**: `g2t ... --split_by Family --drop_empty_gene_columns` also writes one matrix per family to
+`organized_genes/by_Family/` (same columns as the full matrix) and `_summary.csv` (specimens, species, specimens with >= 2 genes,
+specimens per gene); rows without a family go to `unassigned_Family.csv`.
+
 ---
 
 ### Vouchers in the matrix

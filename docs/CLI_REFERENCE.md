@@ -10,7 +10,7 @@ usage: g2t [-h] [--version] -i INPUT [INPUT ...] -o OUTPUT
            [--resume] [--quiet] [--skip_extract] [--skip_classify]
            [--skip_voucher] [--skip_organize] [--skip_reconcile]
            [--reconcile_min_confidence {high,medium}] [--normalize_columns]
-           [--drop_empty_gene_columns]
+           [--drop_empty_gene_columns] [--split_by COLUMN]
 
 GenBank to Taxonomy pipeline: extract -> classify -> voucher -> reconcile ->
 organize
@@ -24,7 +24,7 @@ options:
                         Root output directory
   --stream, --no-stream
                         Stream the extraction step (default; same results,
-                        less memory on large inputs) (default: True)
+                        less memory on large inputs)
   --batch               Use batch parallel processing
   --max_tasks MAX_TASKS
                         Max parallel tasks for batch mode
@@ -44,6 +44,8 @@ options:
   --drop_empty_gene_columns
                         Leave out gene columns that are empty in every row of
                         the matrix (default: fixed layout)
+  --split_by COLUMN     Also write one matrix per value of COLUMN (e.g.
+                        Family, Order) into by_<COLUMN>/ with _summary.csv
 ```
 
 ## g2t-download
@@ -410,7 +412,7 @@ usage: make_cli_reference.py [-h] -i INPUT [-o OUTPUT]
                              [--metadata_columns METADATA_COLUMNS [METADATA_COLUMNS ...]]
                              [--extra_columns [EXTRA_COLUMNS ...]]
                              [--mtgenome_prefer_nc {yes,no}]
-                             [--drop_empty_gene_columns]
+                             [--drop_empty_gene_columns] [--split_by COLUMN]
                              [--organize_18_28s_separately {yes,no}]
                              [--organize_mtgenome_separately {yes,no}]
                              [--mtgenome_includes [MTGENOME_INCLUDES ...]]
@@ -443,6 +445,8 @@ options:
   --drop_empty_gene_columns
                         leave out gene columns that are empty in every row
                         (default: all gene columns, fixed layout)
+  --split_by COLUMN     Also write one matrix per value of COLUMN (e.g.
+                        Family, Order) into by_<COLUMN>/ with _summary.csv
   --organize_18_28s_separately {yes,no}, --if_organize_18_28s_into_seprate {yes,no}
                         Propagate 18-28s LocusIDs to sub-gene columns
   --organize_mtgenome_separately {yes,no}, --if_organize_mtgenomes_into_sep {yes,no}

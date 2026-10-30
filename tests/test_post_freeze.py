@@ -132,6 +132,37 @@ def test_drop_empty_gene_columns(tmp_path):
     assert "coi" in cols and "16s" in cols and "rbcl" not in cols and "12s" not in cols
 
 
+def test_split_by_family(tmp_path):
+    from g2t.organize import OrganizeConfig, organize
+
+    inp = tmp_path / "in.csv"
+    inp.write_text(
+        "species_voucher_new,organism,gene_type,LocusID,Family\n"
+        "k1,Nereis a,coi,A.1,Nereididae\nk1,Nereis a,16s,B.1,Nereididae\n"
+        "k2,Nereis b,coi,C.1,Nereididae\nk3,Syllis c,18s,D.1,Syllidae\nk4,Polychaeta sp,coi,E.1,\n"
+    )
+    out = tmp_path / "m.csv"
+    organize(str(inp), str(out), OrganizeConfig(drop_empty_gene_columns=True, split_by="Family"))
+    d = tmp_path / "by_Family"
+    assert sorted(p.name for p in d.iterdir()) == [
+        "Nereididae.csv",
+        "Syllidae.csv",
+        "_summary.csv",
+        "unassigned_Family.csv",
+    ]
+    assert list(pd.read_csv(d / "Nereididae.csv")["species_voucher_new"]) == ["k1", "k2"]
+    assert list(pd.read_csv(d / "Syllidae.csv").columns) == list(pd.read_csv(out).columns)
+    s = pd.read_csv(d / "_summary.csv").set_index("Family")
+    assert s.loc["Nereididae", ["specimens", "species", "specimens_2plus_genes", "coi", "16s"]].tolist() == [
+        2,
+        2,
+        1,
+        2,
+        1,
+    ]
+    assert s.loc["unassigned_Family", "specimens"] == 1
+
+
 def test_pipeline_cli_has_drop_empty_option():
     from g2t._cli import main_pipeline
 

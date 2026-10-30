@@ -82,12 +82,12 @@ def check_dependencies():
         logging.warning(f"Optional dependencies not installed: {', '.join(missing_optional)}")
 
 
-def _organize_extra(drop_empty: bool) -> dict | None:
-    if not drop_empty:
+def _organize_extra(drop_empty: bool, split_by: str = "") -> dict | None:
+    if not drop_empty and not split_by:
         return None
     from g2t.organize import OrganizeConfig
 
-    return {"config": OrganizeConfig(drop_empty_gene_columns=True)}
+    return {"config": OrganizeConfig(drop_empty_gene_columns=drop_empty, split_by=split_by)}
 
 
 def main_pipeline(argv=None):
@@ -136,6 +136,12 @@ def main_pipeline(argv=None):
         action="store_true",
         help="Leave out gene columns that are empty in every row of the matrix (default: fixed layout)",
     )
+    ap.add_argument(
+        "--split_by",
+        default="",
+        metavar="COLUMN",
+        help="Also write one matrix per value of COLUMN (e.g. Family, Order) into by_<COLUMN>/ with _summary.csv",
+    )
     args = ap.parse_args(argv)
 
     from g2t._pipeline import run
@@ -155,7 +161,7 @@ def main_pipeline(argv=None):
         skip_reconcile=args.skip_reconcile,
         reconcile_min_confidence=args.reconcile_min_confidence,
         normalize_columns=args.normalize_columns,
-        organize_extra=_organize_extra(args.drop_empty_gene_columns),
+        organize_extra=_organize_extra(args.drop_empty_gene_columns, args.split_by),
     )
 
     if not result.success:

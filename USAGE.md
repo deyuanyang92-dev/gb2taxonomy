@@ -217,6 +217,9 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 **输出文件**: `organized_species_voucher.csv`
 
+**按科（或目、属）拆分**：`g2t ... --split_by Family --drop_empty_gene_columns` 另在 `organized_genes/by_Family/` 下每科写一个矩阵（列与总矩阵相同），
+`_summary.csv` 列出每科的标本数、物种数、≥2 个基因的标本数和各基因标本数；没有科名的行放在 `unassigned_Family.csv`。
+
 ---
 
 ### 矩阵中的凭证号

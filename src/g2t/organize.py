@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import sys
 import time
 import warnings
@@ -153,6 +154,9 @@ class OrganizeConfig:
     # drop gene columns that are empty in every row (an animal matrix has no plastid data); default keeps the
     # full, fixed column layout so that matrices of different taxa can be stacked
     drop_empty_gene_columns: bool = False
+    # also write one matrix per value of this column (e.g. "Family") into <output dir>/by_<column>/,
+    # plus _summary.csv; rows with an empty value go to unassigned_<column>.csv
+    split_by: str = ""
 
     gene_includes: dict[str, list[str]] = field(default_factory=_default_gene_includes)
 
@@ -633,6 +637,9 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
     out_df.to_csv(output_file, index=False)
     logger.info(f"Output: {output_file} ({len(out_df)} rows, {len(header)} columns)")
 
+    if config.split_by:
+        write_split(out_df, os.path.join(out_dir, f"by_{config.split_by}"), config.split_by, config.gene_order)
+
     gene_stats = []
     for gene in config.gene_order:
         if gene in out_df.columns:
@@ -642,6 +649,27 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
 
     elapsed = time.time() - start_time
     return StepResult(success=True, output_file=output_file, rows=len(out_df), elapsed=elapsed)
+
+
+def write_split(out_df: pd.DataFrame, split_dir: str, column: str, gene_order: list[str]) -> None:
+    """One CSV per value of ``column`` plus ``_summary.csv`` (specimens, species, specimens per gene)."""
+    if column not in out_df.columns:
+        logger.warning(f"--split_by: no column '{column}' in the matrix; not split")
+        return
+    os.makedirs(split_dir, exist_ok=True)
+    genes = [g for g in gene_order if g in out_df.columns]
+    keys = out_df[column].fillna("").astype(str).str.strip().replace("", f"unassigned_{column}")
+    rows = []
+    for value, sub in out_df.groupby(keys, sort=True):
+        sub.to_csv(os.path.join(split_dir, re.sub(r"[^\w.-]+", "_", value) + ".csv"), index=False)
+        has = sub[genes].fillna("").astype(str).apply(lambda c: c.str.strip() != "")
+        row = {column: value, "specimens": len(sub), "species": sub.iloc[:, 1].nunique()}
+        row["specimens_2plus_genes"] = int((has.sum(axis=1) >= 2).sum())
+        row.update({g: int(has[g].sum()) for g in genes})
+        rows.append(row)
+    summary = pd.DataFrame(rows).sort_values("specimens", ascending=False, kind="stable")
+    summary.to_csv(os.path.join(split_dir, "_summary.csv"), index=False)
+    logger.info(f"Split by {column}: {len(rows)} files -> {split_dir}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -718,6 +746,12 @@ def main(argv: list[str] | None = None) -> None:
         help="leave out gene columns that are empty in every row (default: all gene columns, fixed layout)",
     )
     parser.add_argument(
+        "--split_by",
+        default="",
+        metavar="COLUMN",
+        help="Also write one matrix per value of COLUMN (e.g. Family, Order) into by_<COLUMN>/ with _summary.csv",
+    )
+    parser.add_argument(
         "--organize_18_28s_separately",
         "--if_organize_18_28s_into_seprate",
         choices=["yes", "no"],
@@ -781,6 +815,7 @@ def main(argv: list[str] | None = None) -> None:
         organize_mtgenome=(args.organize_mtgenome_separately.lower() == "yes"),
         gene_includes=gene_includes,
         drop_empty_gene_columns=args.drop_empty_gene_columns,
+        split_by=args.split_by,
     )
 
     result = organize(args.input, args.output, config)
