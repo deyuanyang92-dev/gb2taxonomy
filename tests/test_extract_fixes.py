@@ -13,7 +13,9 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import sys
+import types
 
 import pandas as pd
 import pytest
@@ -497,6 +499,66 @@ class TestL05EntrezFallback:
         assert res.success
         assert fake.calls == [["6232"]]
         assert set(read_str_csv(out / "final.csv")["Family"]) == {"Priapulidae"}
+
+
+class _FakeNCBITaxa:
+    """ete3.NCBITaxa on an in-memory database; get_rank() fails like ete3 3.1.3 on SQLite >= 3.41."""
+
+    def __init__(self):
+        self.db = sqlite3.connect(":memory:")
+        self.db.execute("CREATE TABLE species (taxid INT PRIMARY KEY, parent INT, spname TEXT, rank TEXT)")
+        rows = [(1, 1, "root", "no rank"), (6340, 1, "Annelida", "phylum"), (6341, 6340, "Polychaeta", "class")]
+        rows += [(6342, 6341, "Phyllodocida", "order"), (6343, 6342, "Nereididae", "family")]
+        rows += [(6344, 6343, "Nereis", "genus"), (6232, 6344, "Nereis pelagica", "species")]
+        self.db.executemany("INSERT INTO species VALUES (?,?,?,?)", rows)
+
+    def get_lineage(self, taxid):
+        lineage = []
+        while True:
+            row = self.db.execute("SELECT parent FROM species WHERE taxid=?", (taxid,)).fetchone()
+            if row is None:
+                raise ValueError(f"{taxid} taxid not found")
+            lineage.insert(0, taxid)
+            if taxid == 1:
+                return lineage
+            taxid = row[0]
+
+    def get_rank(self, taxids):
+        raise sqlite3.OperationalError('no such column: "1" - should this be a string literal in single-quotes?')
+
+    get_taxid_translator = get_rank
+
+
+class TestEte3Backend:
+    def _use_fake_ete3(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "ete3", types.SimpleNamespace(NCBITaxa=_FakeNCBITaxa))
+
+    def test_lineage_read_without_get_rank(self, tmp_path, monkeypatch):
+        self._use_fake_ete3(monkeypatch)
+        fp = write(tmp_path / "in" / "t.gb", make_record("TST000501"))  # taxon 6232
+        out = tmp_path / "out"
+        assert ex.extract([fp], str(out), stream=True).success
+        got = read_str_csv(out / "final.csv")
+        assert list(got[["Class", "Order", "Family", "Genus"]].iloc[0]) == [
+            "Polychaeta",
+            "Phyllodocida",
+            "Nereididae",
+            "Nereis",
+        ]
+
+    def test_taxid_missing_locally_is_fetched_from_entrez(self, tmp_path, monkeypatch):
+        self._use_fake_ete3(monkeypatch)
+        fake = install_fake_entrez(monkeypatch, FakeEntrez({"9999999": PRIAP["6232"]}))
+        fp = write(
+            tmp_path / "in" / "t.gb",
+            make_record("TST000502"),
+            make_record("TST000503", taxon="9999999", organism="Priapulus caudatus"),
+        )
+        out = tmp_path / "out"
+        assert ex.extract([fp], str(out), stream=True).success
+        got = read_str_csv(out / "final.csv")
+        assert list(got["Family"]) == ["Nereididae", "Priapulidae"]
+        assert fake.calls == [["9999999"]]  # only the id the local database lacks
 
 
 # ---------------------------------------------------------------------------

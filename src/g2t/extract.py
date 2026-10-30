@@ -123,29 +123,57 @@ class TaxonomyService:
         if not self.ete3_available or not self.ncbi_taxa_cls:
             # Entrez fallback: lineages are bulk-loaded by prefetch_entrez(); never one request per record.
             return {}
+        result, error = self._ete3_lineage(tax_id_str)
+        if error and tax_id_str not in self.errors_reported:
+            logger.warning(f"TaxonID '{tax_id_str}' query error: {error}")
+            self.errors_reported.add(tax_id_str)
+        self.cache[tax_id_str] = result
+        return result
+
+    def _ete3_lineage(self, tax_id_str: str) -> tuple[dict[str, str], str]:
+        """Class/Order/Family/Genus from the local ete3 database, and the error text ("" when none)."""
         try:
             tax_id = int(tax_id_str)
         except ValueError:
-            self.cache[tax_id_str] = {}
-            return {}
+            return {}, ""
         try:
             ncbi = self.ncbi_taxa_cls()
             lineage = ncbi.get_lineage(tax_id)
             if not lineage:
-                self.cache[tax_id_str] = {}
-                return {}
-            rank_dict = ncbi.get_rank(lineage)
-            names = ncbi.get_taxid_translator(lineage)
+                return {}, ""
+            # Not ncbi.get_rank()/get_taxid_translator(): ete3 3.1.3 quotes the ids with "...", which
+            # SQLite >= 3.41 rejects ("no such column"), so every lineage came back empty.
+            rows = ncbi.db.execute(
+                f"SELECT taxid, rank, spname FROM species WHERE taxid IN ({','.join('?' * len(lineage))})",
+                [int(t) for t in lineage],
+            ).fetchall()
+            info = {int(tid): (rank, name) for tid, rank, name in rows}
             result = {
-                rank_dict[tid].capitalize(): names[tid] for tid in lineage if rank_dict.get(tid) in _LINEAGE_RANKS
+                info[tid][0].capitalize(): info[tid][1]
+                for tid in lineage
+                if tid in info and info[tid][0] in _LINEAGE_RANKS
             }
+            return result, ""
         except Exception as e:
-            if tax_id_str not in self.errors_reported:
-                logger.warning(f"TaxonID '{tax_id_str}' query error: {e}")
-                self.errors_reported.add(tax_id_str)
-            result = {}
-        self.cache[tax_id_str] = result
-        return result
+            return {}, str(e)
+
+    def prefetch_missing_local(self, tax_ids, cache_path: str | None = None) -> None:
+        """ete3 backend: look up on NCBI Entrez the TaxonIDs the local database does not know (newer taxa)."""
+        if not self.ete3_available or not self.ncbi_taxa_cls:
+            return
+        missing = []
+        for t in tax_ids:
+            t = str(t).strip()
+            if t in self.cache:
+                continue
+            result, _ = self._ete3_lineage(t)
+            if result:
+                self.cache[t] = result
+            else:
+                missing.append(t)
+        if missing:
+            logger.info(f"Taxonomy: {len(missing)} TaxonID(s) not in the local ete3 database")
+            self.prefetch_entrez(missing, cache_path, force=True)
 
     # ---- Entrez fallback -------------------------------------------
     @staticmethod
@@ -209,9 +237,9 @@ class TaxonomyService:
                     out[tid] = lineage
         return out
 
-    def prefetch_entrez(self, tax_ids, cache_path: str | None = None) -> None:
+    def prefetch_entrez(self, tax_ids, cache_path: str | None = None, force: bool = False) -> None:
         """Bulk-load Class/Order/Family/Genus for ``tax_ids`` via Entrez (no-op unless fallback is active)."""
-        if not self.entrez_fallback:
+        if not self.entrez_fallback and not force:
             return
         wanted: list[str] = []
         seen = set()
@@ -726,12 +754,17 @@ def collect_taxon_ids(gb_files: list[str]) -> list[str]:
 
 
 def prefetch_taxonomy(gb_files: list[str], output_dir: str, include_taxonomy: bool = True) -> None:
-    """Fill the taxonomy cache in bulk when the Entrez fallback is active."""
-    if not include_taxonomy or not _taxonomy.entrez_fallback:
+    """Fill the taxonomy cache in bulk (Entrez fallback, or the TaxonIDs missing from the local ete3 database)."""
+    if not include_taxonomy or not (_taxonomy.entrez_fallback or _taxonomy.ete3_available):
         return
     ids = collect_taxon_ids(gb_files)
-    if ids:
-        _taxonomy.prefetch_entrez(ids, os.path.join(output_dir, TAXONOMY_CACHE_NAME))
+    if not ids:
+        return
+    cache_path = os.path.join(output_dir, TAXONOMY_CACHE_NAME)
+    if _taxonomy.entrez_fallback:
+        _taxonomy.prefetch_entrez(ids, cache_path)
+    else:
+        _taxonomy.prefetch_missing_local(ids, cache_path)
 
 
 # ===============================

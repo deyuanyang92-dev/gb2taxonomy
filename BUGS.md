@@ -61,6 +61,24 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 - 忽略此警告（不影响核心功能）
 - 或更新 ete3 数据库: `ete3 -u`
 
+**2026-10-30 更新**：已修复。本地 ete3 数据库中没有的 TaxonID，在提取前通过 NCBI Entrez 批量查询（每批 200 个，写入 `taxonomy_cache.json`）。
+
+---
+
+## 2026-10-30: ete3 查询全部失败 `no such column: "1"`，科名大面积为空
+
+**问题描述**:
+多毛纲 76,761 条记录运行时，日志中有 10,497 个 TaxonID 报 `query error: no such column: "1" - should this be a string literal in single-quotes?`，
+它们的 Class/Order/Family/Genus 为空。旧基准结果也受影响（dev3 Phyllodocida 矩阵中 18,092 行只有 9,672 行有 Family）。
+
+**原因**:
+ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号写 taxid（`"1"`），SQLite ≥ 3.41 默认不再把双引号当字符串，
+本机所有环境的 SQLite 为 3.49–3.54。`get_lineage()` 本身不受影响。
+
+**解决方案**:
+已修复（`extract.py` `TaxonomyService._ete3_lineage`）：取得 lineage 后，用参数化查询直接读 ete3 数据库的 `species` 表（rank、名称），
+不再调用这两个函数。回归测试：`tests/test_extract_fixes.py::TestEte3Backend`。
+
 ---
 
 ## 2026-05-12: 未匹配序列数量较多
