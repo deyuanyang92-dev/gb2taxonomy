@@ -29,10 +29,11 @@ dependencies = [
     "pandas>=1.5",
     "biopython>=1.80",
     "openpyxl>=3.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-yaml = ["pyyaml>=6.0"]
+yaml = ["pyyaml>=6.0"]  # now a core dependency; extra kept so old install commands work
 xlsx = ["openpyxl>=3.0"]
 dev = ["pytest", "pytest-cov", "ruff", "mypy", "types-PyYAML", "openpyxl>=3.0", "pre-commit"]
 

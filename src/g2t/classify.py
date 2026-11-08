@@ -9,6 +9,7 @@ import re
 import sys
 import warnings
 from dataclasses import dataclass, field
+from functools import cache, lru_cache
 from typing import Any
 
 import pandas as pd
@@ -27,632 +28,63 @@ class CustomFormatter(logging.Formatter):
         return super().format(record)
 
 
-def setup_logging(log_file: str = "extract_methods.log") -> None:
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    formatter = CustomFormatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+def setup_logging(log_file: str = "classify.log") -> logging.Handler:
+    """Write the full (DEBUG) log of this run to ``log_file``. The console is left to the caller
+    (``g2t-classify`` configures it once; adding a second console handler printed every line twice)."""
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(CustomFormatter("%(asctime)s - %(levelname)s - %(message)s"))
+    pkg_logger = logging.getLogger("g2t")
+    pkg_logger.setLevel(logging.DEBUG)
+    pkg_logger.addHandler(handler)
+    return handler
 
 
 logger = logging.getLogger(__name__)
 
 
 # =========================
-# GENE_DICT: load from YAML or use built-in fallback
+# Gene dictionary: the packaged data/gene_dict.yaml is the single source of synonyms
 # =========================
-def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]] | None:
-    """Load gene dictionary from YAML file. Returns None if unavailable."""
-    if yaml_path is None:
-        try:
-            from importlib.resources import files
-
-            yaml_path = str(files("g2t") / "data" / "gene_dict.yaml")
-        except Exception:
-            yaml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gene_dict.yaml")
-    if not os.path.exists(yaml_path):
-        return None
+def _yaml_path() -> str:
     try:
-        import yaml
+        from importlib.resources import files
 
-        with open(yaml_path, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        result = {}
-        for k, v in data.get("gene_types", {}).items():
-            synonyms = v.get("synonyms", []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
-            result[k.lower()] = list({str(s).lower() for s in synonyms if isinstance(s, str)})
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load YAML gene dict: {e}")
-        return None
+        return str(files("g2t") / "data" / "gene_dict.yaml")
+    except Exception:  # noqa: BLE001 - zipped or unusual installs
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gene_dict.yaml")
 
 
-# Built-in fallback dictionary (kept for backward compatibility)
-_BUILTIN_GENE_DICT: dict[str, list[str]] = {
-    "coi": list(
-        {
-            s.lower()
-            for s in [
-                "cytochrome oxidase I",
-                "cytochrome oxidase subunit 1 gene",
-                "cytochrome c oxidase subunit I",
-                "cytochrome oxidase subunit I",
-                "cytochrome c oxidase subunit I",
-                "cytochrome oxidase subunit 1",
-                "mitochondrial COI",
-                "cytochrome c oxidase I",
-                "cytochrome c oxidase subunit 1",
-                "cytochrome c oxidase gene",
-                "cox1",
-                "cytochrome oxidase subunit I-like",
-                "COI",
-                "CO1",
-                "COXI",
-                "COX1",
-            ]
-        }
-    ),
-    "16s": list(
-        {
-            s.lower()
-            for s in [
-                "16S ribosomal RNA",
-                "16S ribosomal RNA gene, partial sequence; mitochondrial",
-                "large subunit ribosomal RNA gene, partial sequence; mitochondrial",
-                "mitochondrial gene for 16S rRNA, partial sequence",
-                "16S ribosomal RNA, partial sequence",
-                "large subunit ribosomal RNA",
-                "16S rRNA gene",
-                "16S ribosomal RNA gene",
-                "16S-rRNA",
-                "16S ribosomal",
-                "16S large subunit rRNA gene",
-                "ribosomal RNA large subunit",
-                "16s rRNA",
-                "16S subunit RNA",
-                "LSU rRNA",
-            ]
-        }
-    ),
-    "12s": list(
-        {
-            s.lower()
-            for s in [
-                "12S ribosomal RNA gene, partial sequence; mitochondrial",
-                "mitochondrial gene for 12S ribosomal RNA, patial sequence",
-                "small subunit ribosomal RNA gene, partial sequence; mitochondrial",
-                "small subunit ribosomal RNA gene",
-                "small subunit ribosomal RNA gene, partial sequence; mitochondrial",
-                "small subunit ribosomal",
-                "12S rRNA gene",
-                "12S rRNA",
-                "12S small subunit rRNA gene",
-                "12S rRNA, partial sequence",
-                "ribosomal RNA small subunit",
-                "12S ribosomal RNA",
-                "SSU rRNA",
-            ]
-        }
-    ),
-    "cob": list(
-        {
-            s.lower()
-            for s in [
-                "cytochrome b",
-                "cytb",
-                "cytochrome b gene, partial cds; mitochondrial",
-                "mitochondrial cytb gene for cytochrome b, partial cds",
-                "cytochrome b (Cytb) gene, partial cds; mitochondrial",
-                "cytochrome b (CytB) gene, partial cds; mitochondrial",
-                "mitochondrial cytb gene for cytochrome b, partial cds",
-                "cytochrome oxidase subunit b",
-                "COB",
-                "cytochrome b-like",
-                "cytB",
-            ]
-        }
-    ),
-    "mtgenome": list(
-        {
-            s.lower()
-            for s in [
-                "organelle: mitochondrion",
-                "mitochondrion, complete genome",
-                "mitochondrion, partial genome",
-                "mitochondrion sequence",
-                "mitochondrial genome",
-                "mitochondrial DNA, nearly complete genome",
-                "chromosome: MIT",
-                "mitochondrial_genome",
-                "mt genome",
-                "mtDNA",
-                "mitochondrion, complete sequence",
-                "mitochondrial DNA, complete sequence",
-                "mitochondrion complete sequence",
-                "mitochondrial DNA, complete genome",
-                "mitogenome",
-                "mitochondrion, complete sequence",
-            ]
-        }
-    ),
-    "cox3": list(
-        {
-            s.lower()
-            for s in [
-                "cytochrome oxidase subunit III",
-                "cytochrome c oxidase subunit 3",
-                "cytochrome oxidase 3",
-                "cytochrome c oxidase subunit III",
-                "cytochrome c oxidase III",
-                "cytochrome oxidase subunit 3 mRNA",
-                "cytochrome oxidase subunit 3",
-                "cytochrome c oxidase subunit III (cox3) gene",
-                "COX3",
-                "CO3",
-                "COXIII",
-            ]
-        }
-    ),
-    "cox2": list(
-        {
-            s.lower()
-            for s in [
-                "cytochrome oxidase subunit II",
-                "cytochrome oxidase subunit 2",
-                "cytochrome c oxidase subunit II",
-                "cytochrome c oxidase subunit 2",
-                "COX2",
-                "CO2",
-                "COXII",
-            ]
-        }
-    ),
-    "nd1": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 1",
-                "NADH dehydrogenase subunits 1",
-                "NADH dehydrogenase subunit I",
-                "ND1",
-                "NAD1",
-                "NADH1",
-            ]
-        }
-    ),
-    "nd2": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 2",
-                "NADH dehydrogenase subunits 2",
-                "NADH dehydrogenase subunit II",
-                "ND2",
-                "NAD2",
-                "NADH2",
-            ]
-        }
-    ),
-    "nd3": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 3",
-                "NADH dehydrogenase subunits 3",
-                "NADH dehydrogenase subunit III",
-                "ND3",
-                "NAD3",
-                "NADH3",
-            ]
-        }
-    ),
-    "nd4": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 4",
-                "NADH dehydrogenase subunits 4",
-                "NADH dehydrogenase subunit IV",
-                "ND4",
-                "NAD4",
-                "NADH4",
-            ]
-        }
-    ),
-    "nd4l": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 4L",
-                "NADH dehydrogenase subunits 4L",
-                "NADH dehydrogenase subunit IVL",
-                "ND4L",
-                "NAD4L",
-            ]
-        }
-    ),
-    "nd5": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 5",
-                "NADH dehydrogenase subunits 5",
-                "NADH dehydrogenase subunit V",
-                "ND5",
-                "NAD5",
-                "NADH5",
-            ]
-        }
-    ),
-    "nd6": list(
-        {
-            s.lower()
-            for s in [
-                "NADH dehydrogenase subunit 6",
-                "NADH dehydrogenase subunits 6",
-                "NADH dehydrogenase subunit VI",
-                "ND6",
-                "NAD6",
-                "NADH6",
-            ]
-        }
-    ),
-    "atp6": list(
-        {
-            s.lower()
-            for s in [
-                "ATP synthase F0 subunit 6",
-                "ATP synthase Fo subunit 6",
-                "ATP synthase subunit 6",
-                "ATP synthase subunit a",
-                "ATPase subunit 6",
-                "ATPase 6",
-                "ATP6",
-            ]
-        }
-    ),
-    "atp8": list(
-        {
-            s.lower()
-            for s in [
-                "ATP synthase F0 subunit 8",
-                "ATP synthase Fo subunit 8",
-                "ATP synthase subunit 8",
-                "ATPase subunit 8",
-                "ATPase 8",
-                "ATP8",
-            ]
-        }
-    ),
-    "plastome": list(
-        {
-            s.lower()
-            for s in [
-                "chloroplast, complete genome",
-                "chloroplast DNA, complete genome",
-                "chloroplast sequence",
-                "plastid sequence",
-                "plastid DNA, complete genome",
-                "organelle: plastid",
-                "plastid, complete genome",
-                "chloroplast complete genome",
-                "plastid complete genome",
-                "chloroplast genome",
-                "plastid genome",
-                "complete plastome",
-                "plastome",
-                "chloroplast, partial genome",
-                "plastid, partial genome",
-            ]
-        }
-    ),
-    "rbcl": list(
-        {
-            s.lower()
-            for s in [
-                "(rbcL)",
-                "rbcL gene",
-                "ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit",
-                "ribulose 1,5-bisphosphate carboxylase/oxygenase large subunit",
-                "ribulose-1,5-bisphosphate carboxylase large subunit",
-                "ribulose 1,5-bisphosphate carboxylase large subunit",
-            ]
-        }
-    ),
-    "matk": list(
-        {
-            s.lower()
-            for s in [
-                "(matK)",
-                "matK gene",
-                "maturase K",
-                "maturase-K",
-            ]
-        }
-    ),
-    "trnl-trnf": list(
-        {
-            s.lower()
-            for s in [
-                "trnL-trnF",
-                "trnL-F",
-                "trnL intron",
-                "tRNA-Leu (trnL)",
-                "trnL gene",
-                "trnF-trnL",
-            ]
-        }
-    ),
-    "psba-trnh": list(
-        {
-            s.lower()
-            for s in [
-                "psbA-trnH",
-                "trnH-psbA",
-                "psbA-trnH intergenic spacer",
-                "trnH-psbA intergenic spacer",
-            ]
-        }
-    ),
-    "rpl16": list(
-        {
-            s.lower()
-            for s in [
-                "(rpl16)",
-                "rpl16 gene",
-                "ribosomal protein L16",
-            ]
-        }
-    ),
-    "rps16": list(
-        {
-            s.lower()
-            for s in [
-                "(rps16)",
-                "rps16 gene",
-                "ribosomal protein S16",
-            ]
-        }
-    ),
-    "ndhf": list(
-        {
-            s.lower()
-            for s in [
-                "(ndhF)",
-                "ndhF gene",
-                "NADH dehydrogenase subunit F",
-                "NADH-plastoquinone oxidoreductase subunit 5",
-            ]
-        }
-    ),
-    "rpoc1": list(
-        {
-            s.lower()
-            for s in [
-                "(rpoC1)",
-                "rpoC1 gene",
-                "RNA polymerase beta' subunit",
-            ]
-        }
-    ),
-    "ycf1": list(
-        {
-            s.lower()
-            for s in [
-                "(ycf1)",
-                "ycf1 gene",
-                "hypothetical chloroplast RF1",
-            ]
-        }
-    ),
-    "rpl32-trnl": list(
-        {
-            s.lower()
-            for s in [
-                "rpl32-trnL",
-                "trnL-rpl32",
-            ]
-        }
-    ),
-    "trns-trng": list(
-        {
-            s.lower()
-            for s in [
-                "trnS-trnG",
-                "trnG-trnS",
-            ]
-        }
-    ),
-    "atpf-atph": list(
-        {
-            s.lower()
-            for s in [
-                "atpF-atpH",
-                "atpH-atpF",
-            ]
-        }
-    ),
-    "petb-petd": list(
-        {
-            s.lower()
-            for s in [
-                "petB-petD",
-                "petD-petB",
-            ]
-        }
-    ),
-    "psbe-petl": list(
-        {
-            s.lower()
-            for s in [
-                "psbE-petL",
-                "petL-psbE",
-            ]
-        }
-    ),
-    "rbcl-atpb": list(
-        {
-            s.lower()
-            for s in [
-                "rbcL-atpB",
-                "atpB-rbcL",
-            ]
-        }
-    ),
-    "trnk": list(
-        {
-            s.lower()
-            for s in [
-                "trnK intron",
-                "trnK gene, intron",
-                "trnK gene, introns",
-                "(trnK) gene, intron",
-                "(trnK) gene, introns",
-            ]
-        }
-    ),
-    "rps4": list(
-        {
-            s.lower()
-            for s in [
-                "(rps4)",
-                "rps4 gene",
-                "ribosomal protein S4",
-                "rps4-trnS",
-            ]
-        }
-    ),
-    "atpb": list(
-        {
-            s.lower()
-            for s in [
-                "(atpB)",
-                "atpB gene",
-                "ATP synthase beta subunit",
-                "ATP synthase CF1 beta subunit",
-            ]
-        }
-    ),
-    "18-28s": list(
-        {
-            s.lower()
-            for s in [
-                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
-                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
-                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
-                "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
-                "small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene",  # noqa: E501
-                "small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA gene",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, internal transcribed spacer 2, and 28S ribosomal RNA gene, complete sequence",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
-                "18S ribosomal RNA gene, internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence",  # noqa: E501
-                "18S ribosomal RNA gene, complete sequence; and 28S ribosomal RNA gene, partial sequence",
-            ]
-        }
-    ),
-    "its1-its2": list(
-        {
-            s.lower()
-            for s in [
-                "5.8S rRNA",
-                "5.8S ribosomal RNA",
-                "internal transcribed spacer",  # P0-2a: fixed "trancribed" -> "transcribed"
-                "ITS1",
-                "ITS2",
-                "internal transcribed spacer 1 intergenic spacer",
-                "internal transcribed spacer 1 intergenic spacer, partial sequence; 5.8S ribosomal RNA gene, complete sequence; and internal transcribed spacer 2 intergenic spacer, partial sequence",  # noqa: E501
-                "ITS",
-            ]
-        }
-    ),
-    "28s": list(
-        {
-            s.lower()
-            for s in [
-                "28S ribosomal RNA gene",
-                "26S ribosomal RNA",
-                "25S ribosomal RNA",
-                "26S rRNA",
-                "25S rRNA",
-                "LSU rRNA",
-                "28S ribosomal RNA gene, partial sequence",
-                "large subunit ribosomal RNA gene, partial sequence",
-                "28S rRNA, partial sequence",
-                "28S rRNA",
-                "large subunit ribosomal RNA",
-                "ribosomal RNA large subunit gene",
-                "28S ribosomal RNA",
-            ]
-        }
-    ),
-    "ef-1": list(
-        {
-            s.lower()
-            for s in [
-                "elongation factor-1 alpha (EF-1 alpha) mRNA",
-                "elongation factor-1",
-                "elongation factor-1alpha",
-                "elongation factor 1-alpha",
-                "ef1a",
-                "ef-1a",
-                "elongation factor 1 alpha",
-                "EF1alpha",
-            ]
-        }
-    ),
-    "18s": list(
-        {
-            s.lower()
-            for s in [
-                "small subunit ribosomal RNA gene, partial sequence",
-                "18S ribosomal RNA, partial sequence",
-                "18s rRNA, complete sequence",
-                "18S rRNA, partial sequence",
-                "18S ribosomal RNA gene, partial sequence",
-                "18S ribosomal RNA, partial sequence",
-                "18S ribosomal RNA gene",
-                "small subunit ribosomal RNA gene, partial sequence",
-                "18S ribosomal RNA",
-                "small subunit RNA",
-                "nuclear small subunit ribosomal RNA",
-                "small subunit ribosomal RNA",
-                "macronuclear small-subunit ribosomal RNA",
-                "18S small subunit ribosomal RNA",
-                "18S rRNA",
-                "small subunit ribosomal RNA gen",
-                "18S ribosomal RNA",  # P0-2b: fixed "ribosoaml" -> "ribosomal"
-                "ribosomal RNA small-subunit",
-                "SSU rRNA",
-                "18S small ribosomal RNA",
-            ]
-        }
-    ),
-    "h3": list(
-        {
-            s.lower()
-            for s in [
-                "histone H3",
-                "histone 3",
-                "histone 3 (H3)",
-                "histone 3 (H3) gene, partial cds",
-                "histone H3 gene",
-                "H3 histone",
-                "histone (H3) gene",
-                "histone 3 gene",
-            ]
-        }
-    ),
-}
+def _load_gene_dict_yaml(yaml_path: str | None = None) -> dict[str, list[str]]:
+    """Read a gene dictionary in the gene_dict.yaml layout (``gene_types: {gene: {synonyms: [...]}}``).
 
-# Initialize from YAML (preferred) or built-in
-GENE_DICT: dict[str, list[str]] = _load_gene_dict_yaml() or _BUILTIN_GENE_DICT
+    Raises on a missing or unreadable file: classifying with an empty or partial dictionary
+    would silently leave records unmatched."""
+    import yaml
+
+    path = yaml_path or _yaml_path()
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    result: dict[str, list[str]] = {}
+    for k, v in (data.get("gene_types") or {}).items():
+        synonyms = v.get("synonyms", []) if isinstance(v, dict) else (v if isinstance(v, list) else [])
+        result[str(k).lower()] = sorted({s.lower() for s in synonyms if isinstance(s, str)})
+    if not result:
+        raise ValueError(f"No gene_types in gene dictionary {path}")
+    return result
+
+
+@lru_cache(maxsize=1)
+def _packaged_gene_dict() -> tuple[tuple[str, tuple[str, ...]], ...]:
+    return tuple((k, tuple(v)) for k, v in _load_gene_dict_yaml().items())
+
+
+def default_gene_dict() -> dict[str, list[str]]:
+    """A fresh, caller-owned copy of the packaged gene dictionary (gene -> lower-case synonyms)."""
+    return {k: list(v) for k, v in _packaged_gene_dict()}
+
 
 # Default gene sets; a run uses the copies in MatchConfig (also the defaults of init_gene_groups)
 _DEFAULT_MITO_GENES = {
@@ -698,56 +130,33 @@ _DEFAULT_PLASTID_GENES = {
 
 
 # =========================
-# Pre-compiled regex patterns
+# Keyword patterns (pure memoisation: a phrase always compiles to the same pattern)
 # =========================
-_COMPILED_PATTERNS: dict[str, re.Pattern] = {}
-
-
-def _precompile_patterns():
-    """Pre-compile all keyword patterns at module load time."""
-    for keywords in GENE_DICT.values():
-        for phrase in keywords:
-            key = phrase.lower()
-            if key in _COMPILED_PATTERNS:
-                continue
-            escaped = re.escape(key)
-            left = r"\b" if re.match(r"\w", key) else r"(?:(?<=\s)|^)"
-            right = r"\b" if (key and re.match(r"\w", key[-1])) else r"(?=\s|$)"
-            _COMPILED_PATTERNS[key] = re.compile(left + escaped + right, re.IGNORECASE)
-
-
-_precompile_patterns()
-
-
-def _reset_patterns():
-    """Clear and recompile patterns — for test isolation."""
-    _COMPILED_PATTERNS.clear()
-    _precompile_patterns()
+@cache
+def _phrase_pattern(key: str) -> re.Pattern:
+    escaped = re.escape(key)
+    left = r"\b" if re.match(r"\w", key) else r"(?:(?<=\s)|^)"
+    right = r"\b" if (key and re.match(r"\w", key[-1])) else r"(?=\s|$)"
+    return re.compile(left + escaped + right, re.IGNORECASE)
 
 
 def init_gene_groups(
-    mtgenes_list: list[str], ntgenes_list: list[str], cpgenes_list: list[str] | None = None
+    mtgenes_list: list[str],
+    ntgenes_list: list[str],
+    cpgenes_list: list[str] | None = None,
+    gene_dict: dict[str, list[str]] | None = None,
 ) -> tuple[set[str], ...]:
-    """Initialize gene sets. Returns (mito_genes, nuclear_genes), plus plastid_genes when cpgenes_list is given."""
+    """Normalise the gene lists of a run. Returns (mito_genes, nuclear_genes), plus plastid_genes when
+    cpgenes_list is given. Genes without synonyms in ``gene_dict`` (default: the packaged dictionary)
+    are logged; they stay in the sets but can never match. Nothing global is changed."""
+    known = default_gene_dict() if gene_dict is None else gene_dict
     mito_genes = {g.strip().lower() for g in mtgenes_list}
     nuclear_genes = {g.strip().lower() for g in ntgenes_list}
     plastid_genes = {g.strip().lower() for g in cpgenes_list or []}
-    for gene in plastid_genes:
-        if gene not in GENE_DICT:
-            logger.warning(f"Plastid gene '{gene}' not in dictionary, adding empty entry")
-            GENE_DICT[gene] = []
-
-    for gene in mito_genes:
-        if gene not in GENE_DICT:
-            logger.warning(f"Mitochondrial gene '{gene}' not in dictionary, adding empty entry")
-            GENE_DICT[gene] = []
-    for gene in nuclear_genes:
-        if gene not in GENE_DICT:
-            logger.warning(f"Nuclear gene '{gene}' not in dictionary, adding empty entry")
-            GENE_DICT[gene] = []
-
-    # Re-compile after adding new entries
-    _precompile_patterns()
+    for label, genes in (("Mitochondrial", mito_genes), ("Nuclear", nuclear_genes), ("Plastid", plastid_genes)):
+        for gene in sorted(genes):
+            if not known.get(gene):
+                logger.warning(f"{label} gene '{gene}' has no synonyms in the gene dictionary; it cannot match")
 
     logger.info(f"Mitochondrial genes: {', '.join(sorted(mito_genes))}")
     logger.info(f"Nuclear genes: {', '.join(sorted(nuclear_genes))}")
@@ -802,6 +211,9 @@ class MatchConfig:
     nuclear_genes: set[str] = field(default_factory=lambda: _DEFAULT_NUCLEAR_GENES.copy())
     plastid_genes: set[str] = field(default_factory=lambda: _DEFAULT_PLASTID_GENES.copy())
 
+    # gene -> lower-case synonyms; each config owns its copy (see load_path_dict to add entries)
+    gene_dict: dict[str, list[str]] = field(default_factory=default_gene_dict)
+
     def get_gene_length_range(self, gene: str) -> str:
         return self.gene_length_ranges.get(gene.lower(), "none")
 
@@ -809,68 +221,59 @@ class MatchConfig:
 # =========================
 # Load external gene dictionary
 # =========================
-def load_path_dict(path_dict: str) -> None:
-    global GENE_DICT
+def read_gene_dict_file(path_dict: str) -> dict[str, list[str]]:
+    """Read a user gene dictionary (.txt ``gene: syn 1, syn 2`` lines, .csv with ``gene,synonyms``,
+    or .py defining ``gene_dict``). Raises on a missing, unreadable or empty file."""
     if not os.path.exists(path_dict):
-        logger.error(f"Gene dictionary file not found: {path_dict}")
-        return
-
+        raise FileNotFoundError(f"Gene dictionary file not found: {path_dict}")
     ext = os.path.splitext(path_dict)[1].lower()
     new_dict: dict[str, list[str]] = {}
+    if ext == ".py":
+        spec = importlib.util.spec_from_file_location("ext_dict", path_dict)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load {path_dict}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if not hasattr(mod, "gene_dict"):
+            raise ValueError(f"{path_dict}: Python file has no 'gene_dict' variable")
+        new_dict = {str(k).strip().lower(): [str(x).lower() for x in v] for k, v in mod.gene_dict.items()}
+    elif ext == ".txt":
+        with open(path_dict, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and ":" in line:
+                    gene, syns = line.split(":", 1)
+                    new_dict[gene.strip().lower()] = [s.strip().lower() for s in syns.split(",") if s.strip()]
+    elif ext == ".csv":
+        df = pd.read_csv(path_dict, dtype=str)
+        if not {"gene", "synonyms"}.issubset(df.columns):
+            raise ValueError(f"{path_dict}: CSV must contain 'gene' and 'synonyms' columns")
+        for row in df.itertuples(index=False):
+            gene = row.gene.strip().lower()
+            new_dict[gene] = [s.strip().lower() for s in str(row.synonyms).split(",") if s.strip()]
+    else:
+        raise ValueError(f"Unsupported gene dictionary format: {ext} (use .txt, .csv or .py)")
+    if not new_dict:
+        raise ValueError(f"No gene entries in {path_dict}")
+    return new_dict
 
-    try:
-        if ext == ".py":
-            spec = importlib.util.spec_from_file_location("ext_dict", path_dict)
-            if spec is None or spec.loader is None:
-                raise ImportError(f"cannot load {path_dict}")
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            if hasattr(mod, "gene_dict"):
-                new_dict = {str(k).strip().lower(): [str(x).lower() for x in v] for k, v in mod.gene_dict.items()}
-            else:
-                logger.error("Python file missing 'gene_dict' variable")
-        elif ext == ".txt":
-            with open(path_dict, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and ":" in line:
-                        gene, syns = line.split(":", 1)
-                        new_dict[gene.strip().lower()] = [s.strip().lower() for s in syns.split(",") if s.strip()]
-        elif ext == ".csv":
-            df = pd.read_csv(path_dict, dtype=str)
-            if {"gene", "synonyms"}.issubset(df.columns):
-                for row in df.itertuples(index=False):
-                    gene = row.gene.strip().lower()
-                    new_dict[gene] = [s.strip().lower() for s in str(row.synonyms).split(",") if s.strip()]
-            else:
-                logger.error("CSV must contain 'gene' and 'synonyms' columns")
-        else:
-            logger.error(f"Unsupported dictionary format: {ext}")
-    except Exception as e:
-        logger.error(f"Failed to load external gene dictionary: {e}")
 
-    if new_dict:
-        for gene, synonyms in new_dict.items():
-            if gene in GENE_DICT:
-                GENE_DICT[gene] = list(set(GENE_DICT[gene] + synonyms))
-            else:
-                GENE_DICT[gene] = synonyms
-        _precompile_patterns()
-        logger.info(f"External gene dictionary loaded ({len(new_dict)} genes)")
+def load_path_dict(path_dict: str, base: dict[str, list[str]] | None = None) -> dict[str, list[str]]:
+    """Return ``base`` (default: the packaged dictionary) merged with the entries of ``path_dict``.
+
+    Synonyms of a known gene are added to it; new genes are added. ``base`` is not modified.
+    Use the result as ``MatchConfig(gene_dict=...)``."""
+    merged = {k: list(v) for k, v in (default_gene_dict() if base is None else base).items()}
+    new_dict = read_gene_dict_file(path_dict)
+    for gene, synonyms in new_dict.items():
+        merged[gene] = sorted(set(merged.get(gene, [])) | set(synonyms))
+    logger.info(f"External gene dictionary loaded ({len(new_dict)} genes)")
+    return merged
 
 
 def smart_match(phrase: str, text: str) -> bool:
-    """Smart phrase matching using pre-compiled patterns."""
-    key = phrase.lower()
-    pat = _COMPILED_PATTERNS.get(key)
-    if pat is None:
-        # Fallback for phrases not in GENE_DICT (e.g. from external dicts)
-        escaped = re.escape(key)
-        left = r"\b" if re.match(r"\w", key) else r"(?:(?<=\s)|^)"
-        right = r"\b" if (key and re.match(r"\w", key[-1])) else r"(?=\s|$)"
-        pat = re.compile(left + escaped + right, re.IGNORECASE)
-        _COMPILED_PATTERNS[key] = pat
-    return pat.search(text) is not None
+    """Whole-word, case-insensitive phrase match."""
+    return _phrase_pattern(phrase.lower()).search(text) is not None
 
 
 def any_match(word_list: list[str], text: str) -> bool:
@@ -1090,7 +493,7 @@ def _match_gene_loop(
     for pg in priority_genes:
         if pg in skip_genes or pg not in gene_set:
             continue
-        if any_match(GENE_DICT.get(pg, []), definition) and not _negative_hit(pg, definition):
+        if any_match(config.gene_dict.get(pg, []), definition) and not _negative_hit(pg, definition):
             range_str = config.get_gene_length_range(pg)
             if length_in_range(length_val, range_str):
                 # Extra check for mtgenome
@@ -1108,7 +511,7 @@ def _match_gene_loop(
     for gene in sorted(gene_set):
         if gene in skip_genes or gene in priority_genes:
             continue
-        keywords = GENE_DICT.get(gene, [])
+        keywords = config.gene_dict.get(gene, [])
         if not keywords:
             continue
         if not any_match(keywords, definition):
@@ -1421,7 +824,7 @@ def recheck_match_row(row: dict[str, Any], config: MatchConfig) -> dict[str, Any
         candidates.add(genome)
         notes.append(f"Topology=circular ({group}) -> direct {genome}")
     else:
-        for gene, keywords in GENE_DICT.items():
+        for gene, keywords in config.gene_dict.items():
             if not keywords:
                 continue
             if not any_match(keywords, definition):
@@ -1918,7 +1321,19 @@ def generate_unmatched_report(unmatched_df: pd.DataFrame, output_dir: str) -> st
 # Main
 # =========================
 def _run_cli(args: argparse.Namespace) -> None:
-    setup_logging()
+    os.makedirs(args.output, exist_ok=True)
+    pkg_logger = logging.getLogger("g2t")
+    old_level = pkg_logger.level
+    handler = setup_logging(os.path.join(args.output, "classify.log"))
+    try:
+        _run_cli_steps(args)
+    finally:
+        pkg_logger.removeHandler(handler)
+        pkg_logger.setLevel(old_level)
+        handler.close()
+
+
+def _run_cli_steps(args: argparse.Namespace) -> None:
     logger.info("=" * 60)
     logger.info("Gene Type Classifier (refactored)")
     logger.info("=" * 60)
@@ -1938,10 +1353,8 @@ def _run_cli(args: argparse.Namespace) -> None:
     mtgenes = [s.strip() for s in args.mtgenes_list.split(",") if s.strip()]
     ntgenes = [s.strip() for s in args.ntgenes_list.split(",") if s.strip()]
     cpgenes = [s.strip() for s in args.cpgenes_list.split(",") if s.strip()]
-    mito_genes, nuclear_genes, plastid_genes = init_gene_groups(mtgenes, ntgenes, cpgenes)
-
-    if args.path_dict:
-        load_path_dict(args.path_dict)
+    gene_dict = load_path_dict(args.path_dict) if args.path_dict else default_gene_dict()
+    mito_genes, nuclear_genes, plastid_genes = init_gene_groups(mtgenes, ntgenes, cpgenes, gene_dict)
 
     gene_ranges = {
         "mtgenome": args.length_range2_mtgenome,
@@ -1974,6 +1387,7 @@ def _run_cli(args: argparse.Namespace) -> None:
         mito_genes=mito_genes,
         nuclear_genes=nuclear_genes,
         plastid_genes=plastid_genes,
+        gene_dict=gene_dict,
     )
 
     # Round 1

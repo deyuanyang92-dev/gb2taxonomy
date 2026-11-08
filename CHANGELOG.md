@@ -2,6 +2,14 @@
 
 ## 未发布
 
+- **基因词典只剩一份，分类器不再改模块全局**（据两份结构审查核对后修改）：
+  - 删除 `classify.py` 里约 580 行的 `_BUILTIN_GENE_DICT`（与 `data/gene_dict.yaml` 逐条相同，41 类、同义词无差异）；pyyaml 改为必装依赖（这份内置副本原本就是为未装 pyyaml 准备的）；yaml 读不到时报错，不再静默换用另一份。
+  - 删除 `GENE_DICT`、`_COMPILED_PATTERNS`、`_precompile_patterns`、`_reset_patterns`：词典放进 `MatchConfig.gene_dict`（每个配置一份），正则改为纯缓存 `_phrase_pattern`。`load_path_dict(path, base=None)` 返回合并后的新词典（原来就地修改全局，同一进程里后续运行都会带上）；新增 `default_gene_dict()`、`read_gene_dict_file()`。Python API 现在可以 `MatchConfig(gene_dict=load_path_dict("my.txt"))`。
+  - `--path_dict` 文件不存在、格式不支持或没有条目时报错停止（原来只记一条 error，然后用默认词典照常分类）。`--mtgenes_list` 等列出的基因在加载 `--path_dict` 之后再检查（原来先检查，用户词典里的新基因会误报“不在词典中”）。
+  - `g2t-classify` 每行日志只打印一次（原来 `_cli` 和 `setup_logging` 各挂一个控制台 handler，每行两遍）；完整日志写到输出目录的 `classify.log`，不再在当前目录写 `extract_methods.log`，也不再改根 logger 的级别。
+- **三份基因名单对齐**：下载补上分类已有的 ND3、ND4L、ND6、ATP8（原来 `g2t-download --gene ND6` 报 Unknown gene），别名补 NAD2–NAD6、NAD4L；reconcile 的凭证基因前后缀补 ND4L、EF-1 和叶绿体基因（`KUN 12345 matK` 原来得不到凭证主体）。新测试 `tests/test_gene_dictionary.py` 检查三份名单一致，以后漏改一处测试即失败。RPB2、5.8S 只能下载、不单独分类，已在测试里列明。
+- `reconcile` 不再引用 `voucher._is_blank_value`：空白判断移到 `utils.is_blank_value`（`voucher._is_blank_value` 保留为别名）。
+
 - **读取 gzip 压缩的 GenBank 文件**：`.gb.gz`、`.gbf.gz`、`.gbff.gz` 等直接作为输入（文件发现、校验、计数、解析都支持）；示例数据压缩后得到的矩阵与未压缩时完全相同。
 - **命令行默认流式提取**：`g2t` 与 `g2t-extract` 默认 `--stream`，与 Python API 一致（示例数据上两种模式的基因表与矩阵逐字节相同）；`--no-stream` 恢复内存模式，旧写法 `--stream` 照常可用。
 - **矩阵新增 `type_material` 列**：模式标本信息（如 "holotype of …"）原本已随 source 限定词提取，但没有进入矩阵；Phyllodocida 有 570 条记录带此信息。

@@ -62,14 +62,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from g2t.utils import StepResult, read_table
-from g2t.voucher import _is_blank_value
+from g2t.utils import StepResult, is_blank_value, read_table
 
 logger = logging.getLogger(__name__)
 
+# gene names written into vouchers (COI_ZMMU_WS399); tests/test_gene_lists.py checks that every
+# single-locus gene type of data/gene_dict.yaml is covered
 GENE_TOKENS = (
-    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
-    r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO"
+    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND4L|NAD4L|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
+    r"H3|ITS1?|ITS2|EF-?1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO|"
+    r"RBCL|MATK|NDHF|RPOC1|YCF1|RPL16|RPS16|RPS4|ATPB|TRNK"
 )
 GENE_PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 GENE_SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
@@ -433,7 +435,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
             # same rule as voucher.py (blank, placeholder, institution code alone)
-            if not _is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
+            if not is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
                 return v
         return ""
 
@@ -447,7 +449,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
         out = []
         for c in VOUCHER_FIELDS:
             v = str(row.get(c, "") or "").strip()
-            if not _is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
+            if not is_blank_value(v, c == "specimen_voucher") and v.lower() != "nan":
                 out += [p for p in SPLIT.split(v) if p.strip()]
         return out
 
@@ -466,7 +468,7 @@ def reconcile_dataframe(df: pd.DataFrame, config: ReconcileConfig | None = None)
     if "isolate" in df.columns:
         iso = df["isolate"].fillna("").astype(str).str.strip()
         for k, g in list(df.groupby(key, sort=False)):
-            vals = {iso[i] for i in g.index if not _is_blank_value(iso[i]) and iso[i].lower() != "nan"}
+            vals = {iso[i] for i in g.index if not is_blank_value(iso[i]) and iso[i].lower() != "nan"}
             if len(vals) < 2:
                 continue
             owner: dict[str, str] = {}

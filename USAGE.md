@@ -15,7 +15,7 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 - openpyxl ≥ 3.0: Step 5（`g2t-curate`）读写 Excel 文件
 
 **可选依赖**:
-- pyyaml: 读取自带的 `gene_dict.yaml`；未安装时使用内置的相同副本（不提示）
+- pyyaml（必需）: 读取自带的 `gene_dict.yaml`，这是同义词的唯一来源
 - ete3: NCBI 分类学查询（用于 Class/Order/Family/Genus；不可用时——如 Python 3.13——改为按 TaxonID 从 NCBI Taxonomy 在线获取一次并缓存到 `gb_metadata/taxonomy_cache.json`；无网络时这几列为空并给出警告）
 - pytest: 开发测试
 
@@ -335,7 +335,7 @@ output/
 
 ### Q: 如何添加自定义基因类型？
 
-编辑 `src/g2t/data/gene_dict.yaml`（仅在安装 pyyaml 时读取；否则使用内置的相同副本），添加新的基因类型和同义词：
+编辑 `src/g2t/data/gene_dict.yaml`（同义词的唯一来源），添加新的基因类型和同义词：
 
 ```yaml
 gene_types:

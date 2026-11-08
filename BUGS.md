@@ -65,6 +65,19 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
+## 2026-11-08: 结构审查核对（基因词典三份、分类器全局状态）
+
+两份外部结构审查逐条对照代码核对。已修（分支 `refactor/gene-catalog`，见 CHANGELOG）：内置词典与 yaml 重复（逐条相同）；`GENE_DICT` / `_COMPILED_PATTERNS` 全局被 `init_gene_groups`、`load_path_dict` 修改；`--path_dict` 读失败只记日志；`g2t-classify` 每行日志打印两遍、日志写到当前目录 `extract_methods.log`；下载缺 ND3/ND4L/ND6/ATP8；reconcile 缺叶绿体基因 token；reconcile 依赖 `voucher._is_blank_value`。
+验证：567 → 585 个测试全过；示例 haplotaxidae（347 条）整条流水线 20 个 CSV 与 main 逐字节相同。
+
+审查漏掉的一点：内置词典存在的原因是 pyyaml 当时为可选依赖，删除它必须同时把 pyyaml 改为必装，否则未装 pyyaml 时分类器没有词典。
+
+未采纳 / 暂缓（及原因）：
+- 去掉 `__init__._CallableModule`：`g2t.extract(...)` 是 README 写明的公开用法且有测试；去掉会破坏用户代码，收益只是少一个技巧。保留。
+- 统一步骤签名 `(inp, out, config)`、流水线改成列表、只用 `PipelineStepError`：会改所有公开函数的参数名，需要兼容层；每步的回退文件名、reconcile 参数检查各不相同，列表化省不了多少代码。等 classify/extract 拆分之后再评估。
+- `curate` 不在 `run()` 里：有意如此，它需要用户的更正表，不是自动步骤。
+- 拆分 `classify.py` / `extract.py`、测试文件按行为改名、`scripts/` 移走已被取代的脚本：都是下一步，本次没动，避免一次改动过大。
+
 ## 2026-10-30: 金标准漏掉带不可见字符的登录号（benchmark/build_gold.py）
 
 **问题描述**:

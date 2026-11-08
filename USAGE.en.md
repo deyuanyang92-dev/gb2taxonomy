@@ -17,7 +17,7 @@ In taxonomy and phylogenetics, several gene markers (e.g. COI, 16S, 18S) are oft
 - openpyxl ≥ 3.0: reading and writing Excel files in Step 5 (`g2t-curate`)
 
 **Optional dependencies**:
-- pyyaml: reads the bundled `gene_dict.yaml`; without it the identical built-in copy is used (no warning)
+- pyyaml (required): reads the bundled `gene_dict.yaml`, the only copy of the gene synonyms
 - ete3: NCBI taxonomy lookup (for Class/Order/Family/Genus). If ete3 is not available (e.g. on Python 3.13), these columns are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access the columns stay empty and a warning is printed.
 - pytest: development tests
 
@@ -353,7 +353,7 @@ The program tries isolate → culture_collection → clone → strain in turn, a
 
 ### Q: How do I add a custom gene type?
 
-Edit `src/g2t/data/gene_dict.yaml` (read only when pyyaml is installed; otherwise an identical built-in copy is used) and add the new gene type and its synonyms:
+Edit `src/g2t/data/gene_dict.yaml` (the only copy of the synonyms) and add the new gene type and its synonyms:
 
 ```yaml
 gene_types:
