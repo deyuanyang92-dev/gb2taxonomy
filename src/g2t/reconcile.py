@@ -62,17 +62,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from g2t.genes import VOUCHER_GENE_TOKENS
 from g2t.utils import StepResult, is_blank_value, read_table
 
 logger = logging.getLogger(__name__)
 
-# gene names written into vouchers (COI_ZMMU_WS399); tests/test_gene_lists.py checks that every
-# single-locus gene type of data/gene_dict.yaml is covered
-GENE_TOKENS = (
-    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND4L|NAD4L|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
-    r"H3|ITS1?|ITS2|EF-?1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO|"
-    r"RBCL|MATK|NDHF|RPOC1|YCF1|RPL16|RPS16|RPS4|ATPB|TRNK"
-)
+GENE_TOKENS = VOUCHER_GENE_TOKENS  # defined in g2t.genes, shared with curate
 GENE_PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 GENE_SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
 CORE = re.compile(r"(?:^|[^A-Za-z0-9])([A-Za-z]{0,6})[\s_\-]?((?:(?:1[89]|20)\d{2}[\s_.\-])?\d{2,8}[A-Za-z]?)$")

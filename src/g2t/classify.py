@@ -14,6 +14,7 @@ from typing import Any
 
 import pandas as pd
 
+from g2t.genes import MITO_TYPES, NUCLEAR_TYPES, PLASTID_TYPES
 from g2t.utils import StepResult, UnsupportedFormatError, length_in_range, parse_interval
 from g2t.utils import read_table as utils_read_table
 
@@ -87,46 +88,9 @@ def default_gene_dict() -> dict[str, list[str]]:
 
 
 # Default gene sets; a run uses the copies in MatchConfig (also the defaults of init_gene_groups)
-_DEFAULT_MITO_GENES = {
-    "coi",
-    "cox3",
-    "cox2",
-    "16s",
-    "12s",
-    "cob",
-    "mtgenome",
-    "nd1",
-    "nd2",
-    "nd3",
-    "nd4",
-    "nd4l",
-    "nd5",
-    "nd6",
-    "atp6",
-    "atp8",
-}
-_DEFAULT_NUCLEAR_GENES = {"18-28s", "its1-its2", "ef-1", "28s", "18s", "h3"}
-_DEFAULT_PLASTID_GENES = {
-    "plastome",
-    "rbcl",
-    "matk",
-    "trnl-trnf",
-    "psba-trnh",
-    "rpl16",
-    "rps16",
-    "ndhf",
-    "rpoc1",
-    "ycf1",
-    "rpl32-trnl",
-    "trns-trng",
-    "atpf-atph",
-    "petb-petd",
-    "psbe-petl",
-    "rbcl-atpb",
-    "trnk",
-    "rps4",
-    "atpb",
-}
+_DEFAULT_MITO_GENES = set(MITO_TYPES)
+_DEFAULT_NUCLEAR_GENES = set(NUCLEAR_TYPES)
+_DEFAULT_PLASTID_GENES = set(PLASTID_TYPES)
 
 
 # =========================
@@ -1669,15 +1633,13 @@ def main(argv: list[str] | None = None) -> None:
 
     parser.add_argument(
         "--mtgenes_list",
-        default="coi,cox3,cox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,atp6,atp8",
+        default=",".join(MITO_TYPES),
         help="Mitochondrial gene types searched",
     )
-    parser.add_argument(
-        "--ntgenes_list", default="18-28s,its1-its2,ef-1,28s,18s,h3", help="Nuclear gene types searched"
-    )
+    parser.add_argument("--ntgenes_list", default=",".join(NUCLEAR_TYPES), help="Nuclear gene types searched")
     parser.add_argument(
         "--cpgenes_list",
-        default="plastome,rbcl,matk,trnl-trnf,psba-trnh,rpl16,rps16,ndhf,rpoc1,ycf1,rpl32-trnl,trns-trng,atpf-atph,petb-petd,psbe-petl,rbcl-atpb,trnk,rps4,atpb",
+        default=",".join(PLASTID_TYPES),
         help="Plastid gene types searched",
     )
     parser.add_argument("--path_dict", default=None, help="External gene dictionary file")

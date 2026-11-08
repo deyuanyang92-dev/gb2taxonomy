@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- **基因类型名单收成一份 `g2t/genes.py`**（第二轮结构审查核对后）：线粒体 / 核 / 叶绿体三组类型和矩阵列顺序（`MITO_TYPES`、`NUCLEAR_TYPES`、`PLASTID_TYPES`、`GENE_ORDER`）、凭证里的基因名（`VOUCHER_GENE_TOKENS`）。以下各处原来各写一份，现在都从这里导入：classify 的默认基因集合和 `--mtgenes_list/--ntgenes_list/--cpgenes_list` 默认串、organize 的 `gene_order` 和 `known_mito`（去掉了 yaml 里不存在的 `cytb`）、reconcile 和 curate 的 `GENE_TOKENS`。curate 原来那份缺 ND4L、EF-1 和叶绿体基因（`matK KUN 12345` 原来不剥掉 matK）。测试检查三组类型正好等于 `gene_dict.yaml` 的键，并且各步确实使用这份共享名单。
+- **文档**：pyyaml 列入必需依赖（原来放在“可选依赖”下面却标着“必需”），“仅安装依赖”的 pip 命令补上 pyyaml；README 的 `--gene` 名单补 ND3、ND4L、ND6、ATP8；测试数量改为本次实测（589；3.12 与 3.9）。`docs/CLI_REFERENCE.md` 中 6 个命令的用法行写成了 `usage: make_cli_reference.py`，生成脚本已修好并重新生成；classify 默认基因串的顺序随 `GENE_ORDER` 变化（集合不变）。
+
 - **基因词典只剩一份，分类器不再改模块全局**（据两份结构审查核对后修改）：
   - 删除 `classify.py` 里约 580 行的 `_BUILTIN_GENE_DICT`（与 `data/gene_dict.yaml` 逐条相同，41 类、同义词无差异）；pyyaml 改为必装依赖（这份内置副本原本就是为未装 pyyaml 准备的）；yaml 读不到时报错，不再静默换用另一份。
   - 删除 `GENE_DICT`、`_COMPILED_PATTERNS`、`_precompile_patterns`、`_reset_patterns`：词典放进 `MatchConfig.gene_dict`（每个配置一份），正则改为纯缓存 `_phrase_pattern`。`load_path_dict(path, base=None)` 返回合并后的新词典（原来就地修改全局，同一进程里后续运行都会带上）；新增 `default_gene_dict()`、`read_gene_dict_file()`。Python API 现在可以 `MatchConfig(gene_dict=load_path_dict("my.txt"))`。

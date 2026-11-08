@@ -114,17 +114,16 @@ Re-running skips records already downloaded. Exit status 1 if records failed.
 ## g2t-extract
 
 ```text
-usage: make_cli_reference.py [-h] -i INPUT [INPUT ...] [-o OUTPUT]
-                             [-m METADATA_OUTPUT] [-a ASSEMBLY_OUTPUT]
-                             [-f FINAL_OUTPUT] [--stream | --no-stream]
-                             [--batch] [--max_tasks MAX_TASKS]
-                             [--log_interval LOG_INTERVAL]
-                             [--metadata_delimiter METADATA_DELIMITER]
-                             [--assembly_delimiter ASSEMBLY_DELIMITER]
-                             [--final_delimiter FINAL_DELIMITER]
-                             [--only_assembly_meta | --only_except_assembly_meta]
-                             [--update_taxonomy] [--no_report] [--no_tracking]
-                             [--no_recursive] [--if_use_chunksize]
+usage: g2t-extract [-h] -i INPUT [INPUT ...] [-o OUTPUT] [-m METADATA_OUTPUT]
+                   [-a ASSEMBLY_OUTPUT] [-f FINAL_OUTPUT]
+                   [--stream | --no-stream] [--batch] [--max_tasks MAX_TASKS]
+                   [--log_interval LOG_INTERVAL]
+                   [--metadata_delimiter METADATA_DELIMITER]
+                   [--assembly_delimiter ASSEMBLY_DELIMITER]
+                   [--final_delimiter FINAL_DELIMITER]
+                   [--only_assembly_meta | --only_except_assembly_meta]
+                   [--update_taxonomy] [--no_report] [--no_tracking]
+                   [--no_recursive] [--if_use_chunksize]
 
 GenBank Metadata Extractor (refactored): 3-strategy Assembly + record tracking
 
@@ -177,40 +176,37 @@ options:
 ## g2t-classify
 
 ```text
-usage: make_cli_reference.py [-h] -i INPUT [-o OUTPUT]
-                             [--prematch_output_file_name PREMATCH_OUTPUT_FILE_NAME]
-                             [--multip_matched_genestype MULTIP_MATCHED_GENESTYPE]
-                             [--unmatched_sequences UNMATCHED_SEQUENCES]
-                             [--conflicted_sequences CONFLICTED_SEQUENCES]
-                             [--if_remove_matched_sequences IF_REMOVE_MATCHED_SEQUENCES]
-                             [--length_range2_mtgenome LENGTH_RANGE2_MTGENOME]
-                             [--length_range2_plastome LENGTH_RANGE2_PLASTOME]
-                             [--length_range2_18_28s LENGTH_RANGE2_18_28S]
-                             [--length_range2_coi LENGTH_RANGE2_COI]
-                             [--length_range2_its LENGTH_RANGE2_ITS]
-                             [--length_range2_cob LENGTH_RANGE2_COB]
-                             [--length_range2_12s LENGTH_RANGE2_12S]
-                             [--length_range2_16s LENGTH_RANGE2_16S]
-                             [--length_range2_18s LENGTH_RANGE2_18S]
-                             [--length_range2_28s LENGTH_RANGE2_28S]
-                             [--length_range2_h3 LENGTH_RANGE2_H3]
-                             [--gene_length_range [GENE_LENGTH_RANGE ...]]
-                             [--length2_mtgenes LENGTH2_MTGENES]
-                             [--length2_ntgenes LENGTH2_NTGENES]
-                             [--length2_cpgenes LENGTH2_CPGENES]
-                             [--length_range2_all LENGTH_RANGE2_ALL]
-                             [--length LENGTH] [--organelle ORGANELLE]
-                             [--moleculetype MOLECULETYPE]
-                             [--mol_type MOL_TYPE]
-                             [--mtgenes_list MTGENES_LIST]
-                             [--ntgenes_list NTGENES_LIST]
-                             [--cpgenes_list CPGENES_LIST]
-                             [--path_dict PATH_DICT]
-                             [--which_gene_types_extract WHICH_GENE_TYPES_EXTRACT]
-                             [--if_recheck_unmatched IF_RECHECK_UNMATCHED]
-                             [--if_length_range_work2_recheck IF_LENGTH_RANGE_WORK2_RECHECK]
-                             [--if_add_assigned_gene_types_reasons IF_ADD_ASSIGNED_GENE_TYPES_REASONS]
-                             [--if_recorded_conflict_reasons IF_RECORDED_CONFLICT_REASONS]
+usage: g2t-classify [-h] -i INPUT [-o OUTPUT]
+                    [--prematch_output_file_name PREMATCH_OUTPUT_FILE_NAME]
+                    [--multip_matched_genestype MULTIP_MATCHED_GENESTYPE]
+                    [--unmatched_sequences UNMATCHED_SEQUENCES]
+                    [--conflicted_sequences CONFLICTED_SEQUENCES]
+                    [--if_remove_matched_sequences IF_REMOVE_MATCHED_SEQUENCES]
+                    [--length_range2_mtgenome LENGTH_RANGE2_MTGENOME]
+                    [--length_range2_plastome LENGTH_RANGE2_PLASTOME]
+                    [--length_range2_18_28s LENGTH_RANGE2_18_28S]
+                    [--length_range2_coi LENGTH_RANGE2_COI]
+                    [--length_range2_its LENGTH_RANGE2_ITS]
+                    [--length_range2_cob LENGTH_RANGE2_COB]
+                    [--length_range2_12s LENGTH_RANGE2_12S]
+                    [--length_range2_16s LENGTH_RANGE2_16S]
+                    [--length_range2_18s LENGTH_RANGE2_18S]
+                    [--length_range2_28s LENGTH_RANGE2_28S]
+                    [--length_range2_h3 LENGTH_RANGE2_H3]
+                    [--gene_length_range [GENE_LENGTH_RANGE ...]]
+                    [--length2_mtgenes LENGTH2_MTGENES]
+                    [--length2_ntgenes LENGTH2_NTGENES]
+                    [--length2_cpgenes LENGTH2_CPGENES]
+                    [--length_range2_all LENGTH_RANGE2_ALL] [--length LENGTH]
+                    [--organelle ORGANELLE] [--moleculetype MOLECULETYPE]
+                    [--mol_type MOL_TYPE] [--mtgenes_list MTGENES_LIST]
+                    [--ntgenes_list NTGENES_LIST]
+                    [--cpgenes_list CPGENES_LIST] [--path_dict PATH_DICT]
+                    [--which_gene_types_extract WHICH_GENE_TYPES_EXTRACT]
+                    [--if_recheck_unmatched IF_RECHECK_UNMATCHED]
+                    [--if_length_range_work2_recheck IF_LENGTH_RANGE_WORK2_RECHECK]
+                    [--if_add_assigned_gene_types_reasons IF_ADD_ASSIGNED_GENE_TYPES_REASONS]
+                    [--if_recorded_conflict_reasons IF_RECORDED_CONFLICT_REASONS]
 
 Gene Type Classifier: GenBank metadata -> gene_type labels
 
@@ -295,12 +291,12 @@ options:
   --mol_type MOL_TYPE   Keep only these /mol_type values (comma-separated)
                         (default: all)
   --mtgenes_list MTGENES_LIST
-                        Mitochondrial gene types searched (default: coi,cox3,c
-                        ox2,16s,12s,cob,mtgenome,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,
+                        Mitochondrial gene types searched (default: mtgenome,c
+                        oi,16s,12s,cob,cox2,cox3,nd1,nd2,nd3,nd4,nd4l,nd5,nd6,
                         atp6,atp8)
   --ntgenes_list NTGENES_LIST
                         Nuclear gene types searched (default:
-                        18-28s,its1-its2,ef-1,28s,18s,h3)
+                        18s,28s,its1-its2,18-28s,ef-1,h3)
   --cpgenes_list CPGENES_LIST
                         Plastid gene types searched (default:
                         plastome,rbcl,matk,trnl-trnf,psba-
@@ -327,20 +323,19 @@ options:
 ## g2t-voucher
 
 ```text
-usage: make_cli_reference.py [-h] -i INPUT -o OUT [--quiet]
-                             [--log_file LOG_FILE]
-                             [--normalize_column_names NORMALIZE_COLUMN_NAMES]
-                             [--fill_haplotype FILL_HAPLOTYPE]
-                             [--columns_to_combine COLUMNS_TO_COMBINE]
-                             [--fallback_column FALLBACK_COLUMN]
-                             [--combine_species_name COMBINE_SPECIES_NAME]
-                             [--primary_voucher_column_name PRIMARY_VOUCHER_COLUMN_NAME]
-                             [--updated_voucher_column_name UPDATED_VOUCHER_COLUMN_NAME]
-                             [--species_name_column SPECIES_NAME_COLUMN]
-                             [--simple_csv_columns SIMPLE_CSV_COLUMNS]
-                             [--generate_simple_csv GENERATE_SIMPLE_CSV]
-                             [--generate_frequency_groups GENERATE_FREQUENCY_GROUPS]
-                             [--combine_order {species_name+pse,pse+species_name}]
+usage: g2t-voucher [-h] -i INPUT -o OUT [--quiet] [--log_file LOG_FILE]
+                   [--normalize_column_names NORMALIZE_COLUMN_NAMES]
+                   [--fill_haplotype FILL_HAPLOTYPE]
+                   [--columns_to_combine COLUMNS_TO_COMBINE]
+                   [--fallback_column FALLBACK_COLUMN]
+                   [--combine_species_name COMBINE_SPECIES_NAME]
+                   [--primary_voucher_column_name PRIMARY_VOUCHER_COLUMN_NAME]
+                   [--updated_voucher_column_name UPDATED_VOUCHER_COLUMN_NAME]
+                   [--species_name_column SPECIES_NAME_COLUMN]
+                   [--simple_csv_columns SIMPLE_CSV_COLUMNS]
+                   [--generate_simple_csv GENERATE_SIMPLE_CSV]
+                   [--generate_frequency_groups GENERATE_FREQUENCY_GROUPS]
+                   [--combine_order {species_name+pse,pse+species_name}]
 
 Species Voucher Builder: generate primary_voucher and updated voucher
 identifiers.
@@ -384,8 +379,8 @@ options:
 ## g2t-reconcile
 
 ```text
-usage: make_cli_reference.py [-h] -i INPUT -o OUTPUT_DIR
-                             [--min_confidence {high,medium}]
+usage: g2t-reconcile [-h] -i INPUT -o OUTPUT_DIR
+                     [--min_confidence {high,medium}]
 
 Evidence-based merging of voucher variants (Step 3b)
 
@@ -403,19 +398,18 @@ options:
 ## g2t-organize
 
 ```text
-usage: make_cli_reference.py [-h] -i INPUT [-o OUTPUT]
-                             [--group_column GROUP_COLUMN]
-                             [--first_column_name FIRST_COLUMN_NAME]
-                             [--second_column_name SECOND_COLUMN_NAME]
-                             [--gene_order GENE_ORDER [GENE_ORDER ...]]
-                             [--metadata_mode {first_nonempty,casual,advanced,per_gene,all}]
-                             [--metadata_columns METADATA_COLUMNS [METADATA_COLUMNS ...]]
-                             [--extra_columns [EXTRA_COLUMNS ...]]
-                             [--mtgenome_prefer_nc {yes,no}]
-                             [--drop_empty_gene_columns] [--split_by COLUMN]
-                             [--organize_18_28s_separately {yes,no}]
-                             [--organize_mtgenome_separately {yes,no}]
-                             [--mtgenome_includes [MTGENOME_INCLUDES ...]]
+usage: g2t-organize [-h] -i INPUT [-o OUTPUT] [--group_column GROUP_COLUMN]
+                    [--first_column_name FIRST_COLUMN_NAME]
+                    [--second_column_name SECOND_COLUMN_NAME]
+                    [--gene_order GENE_ORDER [GENE_ORDER ...]]
+                    [--metadata_mode {first_nonempty,casual,advanced,per_gene,all}]
+                    [--metadata_columns METADATA_COLUMNS [METADATA_COLUMNS ...]]
+                    [--extra_columns [EXTRA_COLUMNS ...]]
+                    [--mtgenome_prefer_nc {yes,no}]
+                    [--drop_empty_gene_columns] [--split_by COLUMN]
+                    [--organize_18_28s_separately {yes,no}]
+                    [--organize_mtgenome_separately {yes,no}]
+                    [--mtgenome_includes [MTGENOME_INCLUDES ...]]
 
 Species-Gene Organizer: group gene assignments by species
 
@@ -458,9 +452,8 @@ options:
 ## g2t-curate
 
 ```text
-usage: make_cli_reference.py [-h] -m MATRIX [-u UPDATES] [-o OUTPUT]
-                             [--sheet SHEET] [--map COLUMN=FIELD] [--key KEY]
-                             [--template TEMPLATE]
+usage: g2t-curate [-h] -m MATRIX [-u UPDATES] [-o OUTPUT] [--sheet SHEET]
+                  [--map COLUMN=FIELD] [--key KEY] [--template TEMPLATE]
 
 Update the NCBI matrix (A) from your own table (B) -> a corrected matrix (C)
 

@@ -154,3 +154,49 @@ def test_gene_dict_yaml_has_no_duplicate_types():
     keys = re.findall(r"^  ([^\s:#][^:]*):\s*$", text, re.M)
     assert len(keys) == len(set(keys))
     assert set(yaml.safe_load(text)["gene_types"]) == set(default_gene_dict())
+
+
+def test_compartment_lists_cover_the_dictionary_exactly():
+    from g2t.genes import GENE_ORDER, MITO_TYPES, NUCLEAR_TYPES, PLASTID_TYPES
+
+    groups = [set(MITO_TYPES), set(NUCLEAR_TYPES), set(PLASTID_TYPES)]
+    assert sum(len(g) for g in groups) == len(GENE_ORDER) == len(set(GENE_ORDER)), "a type in two compartments"
+    assert set(GENE_ORDER) == set(default_gene_dict())
+
+
+def test_steps_use_the_shared_gene_lists():
+    from g2t import classify, curate, genes, organize, reconcile
+
+    cfg = MatchConfig()
+    assert cfg.mito_genes == set(genes.MITO_TYPES) and cfg.plastid_genes == set(genes.PLASTID_TYPES)
+    assert organize.OrganizeConfig().gene_order == list(genes.GENE_ORDER)
+    mito_cols = organize.OrganizeConfig().get_mito_genes()
+    assert set(mito_cols) == set(genes.MITO_TYPES) - {"mtgenome"}
+    assert curate.GENE_TOKENS == reconcile.GENE_TOKENS == genes.VOUCHER_GENE_TOKENS
+    assert set(genes.NUCLEAR_TYPES) == classify._DEFAULT_NUCLEAR_GENES
+
+
+def test_classify_cli_defaults_are_the_shared_lists():
+    from g2t import classify, genes
+
+    seen = {}
+
+    def fake_run(args):
+        seen.update(vars(args))
+
+    orig = classify._run_cli
+    classify._run_cli = fake_run
+    try:
+        classify.main(["-i", "x.csv"])
+    finally:
+        classify._run_cli = orig
+    assert seen["mtgenes_list"].split(",") == list(genes.MITO_TYPES)
+    assert seen["ntgenes_list"].split(",") == list(genes.NUCLEAR_TYPES)
+    assert seen["cpgenes_list"].split(",") == list(genes.PLASTID_TYPES)
+
+
+def test_curate_strips_the_same_gene_names_as_reconcile():
+    from g2t.curate import normalize_voucher
+
+    assert normalize_voucher("ND4L_ZMMU_WS399") == "ZMMU_WS399"
+    assert normalize_voucher("matK KUN 12345") == "KUN_12345"

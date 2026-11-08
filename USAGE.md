@@ -13,9 +13,9 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 - pandas ≥ 1.5
 - biopython ≥ 1.80
 - openpyxl ≥ 3.0: Step 5（`g2t-curate`）读写 Excel 文件
+- pyyaml ≥ 6.0: 读取自带的 `gene_dict.yaml`，这是同义词的唯一来源
 
 **可选依赖**:
-- pyyaml（必需）: 读取自带的 `gene_dict.yaml`，这是同义词的唯一来源
 - ete3: NCBI 分类学查询（用于 Class/Order/Family/Genus；不可用时——如 Python 3.13——改为按 TaxonID 从 NCBI Taxonomy 在线获取一次并缓存到 `gb_metadata/taxonomy_cache.json`；无网络时这几列为空并给出警告）
 - pytest: 开发测试
 
@@ -52,7 +52,7 @@ pip install -e /path/to/gb2taxonomy
 ### 方法 3: 仅安装依赖
 
 ```bash
-pip install pandas biopython openpyxl
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ### 验证安装
@@ -374,7 +374,7 @@ Missing: pandas, biopython
 请按照提示安装：
 
 ```bash
-pip install pandas biopython
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ---
@@ -398,7 +398,7 @@ pip install pandas biopython
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
 9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
-10. **代码状态。** v0.04 为早期版本，545 项单元测试在 Python 3.9、3.12、3.13 上全部通过（本地测试）；`ruff` 与 `mypy` 无警告。
+10. **代码状态。** v0.04 为早期版本，589 项单元测试在 Python 3.12 和 3.9 上通过（本地测试；其中 3 项 Excel 测试需要 openpyxl）；`ruff` 与 `mypy` 无警告。
 
 ---
 

@@ -3,7 +3,7 @@
 Each gene searches both the [Gene] field and common title spellings (many older records
 lack a /gene qualifier and name the gene only in DEFINITION).
 To add a gene, add an entry to GENES; keys are case-insensitive. Every gene type of the classify
-dictionary (data/gene_dict.yaml) needs an entry here; tests/test_gene_lists.py checks both lists agree.
+dictionary (data/gene_dict.yaml) needs an entry here; tests/test_gene_dictionary.py checks both lists agree.
 """
 
 GENES = {

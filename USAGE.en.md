@@ -15,9 +15,9 @@ In taxonomy and phylogenetics, several gene markers (e.g. COI, 16S, 18S) are oft
 - pandas ≥ 1.5
 - biopython ≥ 1.80
 - openpyxl ≥ 3.0: reading and writing Excel files in Step 5 (`g2t-curate`)
+- pyyaml ≥ 6.0: reads the bundled `gene_dict.yaml`, the only copy of the gene synonyms
 
 **Optional dependencies**:
-- pyyaml (required): reads the bundled `gene_dict.yaml`, the only copy of the gene synonyms
 - ete3: NCBI taxonomy lookup (for Class/Order/Family/Genus). If ete3 is not available (e.g. on Python 3.13), these columns are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access the columns stay empty and a warning is printed.
 - pytest: development tests
 
@@ -54,7 +54,7 @@ pip install -e /path/to/gb2taxonomy
 ### Option 3: install the dependencies only
 
 ```bash
-pip install pandas biopython openpyxl
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ### Check the installation
@@ -392,7 +392,7 @@ Missing: pandas, biopython
 install them as suggested:
 
 ```bash
-pip install pandas biopython
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ### Q: How do I record how a matrix was made?
@@ -420,7 +420,7 @@ The pipeline (`g2t`) writes `OUT/g2t_run.json` with the date, the command, the v
 7. **Download.** Only NCBI nuccore is searched (no BOLD, ENA-only data, or SRA). `--gene` searches gene fields and title keywords, so records with unusual wording can be missed; a gene query also returns mitochondrial genomes that contain the gene.
 8. **Malformed files.** If Biopython cannot parse a record in a GenBank file, the records after it in that file are not read; the file is marked as partial in `extraction_report.json`, and a warning gives the expected and the parsed number of records.
 9. **Curation (Step 5).** B only corrects specimens that are already in A. Specimens without a GenBank record are listed as "no match" and are not added to C. An empty cell means "no change", so B cannot empty a value in A. Column detection is a heuristic based on column names and on values that look like accessions; check the *Column mapping* sheet and use `--map` when detection is wrong. Values in B are taken as correct: the program does not check B against the literature or WoRMS.
-10. **Code status.** v0.04 is an early release. 545 unit tests pass on Python 3.9, 3.12 and 3.13 (tested locally); `ruff` and `mypy` report no warnings.
+10. **Code status.** v0.04 is an early release. 589 unit tests pass on Python 3.12 and 3.9 (tested locally; 3 Excel tests need openpyxl); `ruff` and `mypy` report no warnings.
 
 ---
 

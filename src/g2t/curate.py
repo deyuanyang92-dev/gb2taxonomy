@@ -37,10 +37,9 @@ from pathlib import Path
 
 import pandas as pd
 
-GENE_TOKENS = (
-    r"COI|CO1|COX1|COII|COX2|COIII|COX3|CYTB|COB|ND\d|NAD\d|ATP\d|12S|16S|18S|28S|5\.8S|"
-    r"H3|ITS1?|ITS2|EF1A?|EF1ALPHA|RRNL|RRNS|LSU|SSU|MTDNA|MITO"
-)
+from g2t.genes import VOUCHER_GENE_TOKENS
+
+GENE_TOKENS = VOUCHER_GENE_TOKENS  # defined in g2t.genes, shared with reconcile
 _PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
 _SUFFIX = re.compile(rf"[\s_\-:]+(?:{GENE_TOKENS})$", re.I)
 KEY_COLUMNS = ["row_id", "voucher", "accession", "organism_match", "user_row"]

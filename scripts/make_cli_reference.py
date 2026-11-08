@@ -3,6 +3,7 @@
 
 import contextlib
 import io
+import sys
 from pathlib import Path
 
 from g2t import __version__, _cli
@@ -27,8 +28,12 @@ out = [
 ]
 for prog, fn in COMMANDS:
     buf = io.StringIO()
-    with contextlib.redirect_stdout(buf), contextlib.suppress(SystemExit):
-        getattr(_cli, fn)(["--help"])
+    argv0, sys.argv[0] = sys.argv[0], prog  # argparse names the program after sys.argv[0]
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.suppress(SystemExit):
+            getattr(_cli, fn)(["--help"])
+    finally:
+        sys.argv[0] = argv0
     out += [f"## {prog}", "", "```text", buf.getvalue().rstrip(), "```", ""]
 path = Path(__file__).resolve().parents[1] / "docs" / "CLI_REFERENCE.md"
 path.write_text("\n".join(out), encoding="utf-8")

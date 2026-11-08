@@ -41,7 +41,7 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 | `--all` | everything, including WGS/mRNA/RefSeq (can be very large) |
 | `--mito` | mitochondrial records |
 | `--mitogenome` | complete mitochondrial genomes (≥ 10 kb, no upper limit; includes "genome assembly, organelle: mitochondrion" records) |
-| `--gene COI,18S,28S` | given genes (COI COII COIII CYTB ND1 ND2 ND4 ND5 ATP6 12S 16S 18S 28S 5.8S ITS H3 EF1A RPB2 RBCL MATK TRNL-TRNF PSBA-TRNH RPL16 RPS16 NDHF RPOC1 YCF1 RPL32-TRNL TRNS-TRNG ATPF-ATPH PETB-PETD PSBE-PETL RBCL-ATPB TRNK RPS4 ATPB; see `src/g2t/ncbi_genes.py`) |
+| `--gene COI,18S,28S` | given genes (COI COII COIII CYTB ND1 ND2 ND3 ND4 ND4L ND5 ND6 ATP6 ATP8 12S 16S 18S 28S 5.8S ITS H3 EF1A RPB2 RBCL MATK TRNL-TRNF PSBA-TRNH RPL16 RPS16 NDHF RPOC1 YCF1 RPL32-TRNL TRNS-TRNG ATPF-ATPH PETB-PETD PSBE-PETL RBCL-ATPB TRNK RPS4 ATPB; see `src/g2t/ncbi_genes.py`) |
 | `--minlen N --maxlen N` | length range (bp) |
 | `--query '…'` | any extra Entrez clause, e.g. `'Russia[Country]'` |
 | `--include-wgs` / `--include-mrna` / `--include-tsa` / `--include-refseq` | add back an excluded class (TSA is excluded with `NOT "tsa"[Keyword]`) |
@@ -205,7 +205,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-10. **Code status.** v0.04 is an early release. 545 unit tests pass on Python 3.9, 3.12 and 3.13 (tested locally); `ruff` and `mypy` are clean.
+10. **Code status.** v0.04 is an early release. 589 unit tests pass on Python 3.12 and 3.9 (tested locally; 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 

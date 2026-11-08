@@ -21,6 +21,7 @@ from typing import Any
 
 import pandas as pd
 
+from g2t.genes import GENE_ORDER, MITO_TYPES
 from g2t.utils import StepResult, read_table
 
 logger = logging.getLogger(__name__)
@@ -62,51 +63,7 @@ class OrganizeConfig:
     first_col_name: str = "species_voucher_new"
     second_col_name: str = "organism"
 
-    gene_order: list[str] = field(
-        default_factory=lambda: [
-            "mtgenome",
-            "coi",
-            "16s",
-            "12s",
-            "cob",
-            "cox2",
-            "cox3",
-            "nd1",
-            "nd2",
-            "nd3",
-            "nd4",
-            "nd4l",
-            "nd5",
-            "nd6",
-            "atp6",
-            "atp8",
-            "18s",
-            "28s",
-            "its1-its2",
-            "18-28s",
-            "ef-1",
-            "h3",
-            "plastome",
-            "rbcl",
-            "matk",
-            "trnl-trnf",
-            "psba-trnh",
-            "rpl16",
-            "rps16",
-            "ndhf",
-            "rpoc1",
-            "ycf1",
-            "rpl32-trnl",
-            "trns-trng",
-            "atpf-atph",
-            "petb-petd",
-            "psbe-petl",
-            "rbcl-atpb",
-            "trnk",
-            "rps4",
-            "atpb",
-        ]
-    )
+    gene_order: list[str] = field(default_factory=lambda: list(GENE_ORDER))
 
     metadata_mode: str = "first_nonempty"
 
@@ -175,24 +132,7 @@ class OrganizeConfig:
     )
 
     def get_mito_genes(self) -> list[str]:
-        known_mito = {
-            "coi",
-            "16s",
-            "12s",
-            "cob",
-            "cox2",
-            "cox3",
-            "nd1",
-            "nd2",
-            "nd3",
-            "nd4",
-            "nd4l",
-            "nd5",
-            "nd6",
-            "atp6",
-            "atp8",
-            "cytb",
-        }
+        known_mito = set(MITO_TYPES) - {"mtgenome"}
         return [g for g in self.gene_order if g in known_mito]
 
 
