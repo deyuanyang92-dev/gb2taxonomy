@@ -2,6 +2,12 @@
 
 ## 未发布
 
+- **`g2t-extract` / `g2t-classify` 改为调用 `extract()` / `classify()`**（第四轮结构审查核对后）：原来命令行和函数各写一遍流程，修一个行为要改两处。现在命令行只解析参数，流程只在函数里。函数增加对应命令行选项的关键字参数（extract：表名、分隔符、`only_assembly`/`only_metadata`、`recursive`、`log_interval`、`update_taxonomy`、`report`/`details`/`tracking`；classify：`multiple_output`、`conflicted_output`、`moleculetype`、`mol_type`、`length`、`organelle`），默认值等于流水线原来的行为。输出不变：示例数据上两个命令和整条流水线的 CSV 与改动前逐字节相同。行为变化：
+  - 失败时退出码为 1（原来 `g2t-extract` 所有文件都失败也返回 0；`g2t-classify` 报 Python 异常栈退出）。
+  - 失败原因连同异常栈写进日志（原来流水线只剩 `Step N failed`）。
+  - `extract(only_assembly=True)` / `only_metadata=True` 以各自的表为产物，判为成功（原来函数里没有这两种模式）。
+  - `g2t-classify` 也写 `unmatched_report.txt`（原来只有函数写），每次运行先清掉旧的 `multiple_matched.csv`、`conflicted_genes.csv`（流水线同）。
+
 - **版本名统一为 v0.04**：`g2t --version`（各子命令同）、`docs/CLI_REFERENCE.md` 标题输出 `v0.04`，`g2t_run.json` 新增 `"release": "v0.04"`；包版本仍为 `0.0.4`（pip/bioconda 用，PEP 440 会把 0.04 规范成 0.4），`g2t.RELEASE` 由它推出，两者不会再分开。
 - **`--mtgenome_includes` 按给定的列执行**：原来正好给出旧默认的 6 列（coi 16s 12s cob cox2 cox3）时，会被当作“没给”，悄悄扩成全部 15 个线粒体列。默认行为不变：线粒体基因组复制到全部线粒体基因列，叶绿体基因组复制到全部叶绿体基因列（两份默认名单改为从 `g2t/genes.py` 生成）。README/USAGE 原来写成只复制到 6 列，已改正。
 - **curate 在全部基因列里找登录号**：`DEFAULT_GENES` 改为 `GENE_ORDER`（原来只有 13 列，nd、atp 和叶绿体列中的登录号在校正表按登录号匹配时找不到）。

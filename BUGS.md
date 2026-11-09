@@ -65,6 +65,15 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
+## 2026-11-09: 第四轮结构审查核对
+
+审查所述现状属实（`extract.py` 2137 行、`classify.py` 1667 行；基因名单已收成一份并有测试）。按其建议只做一件事：`g2t-extract`、`g2t-classify` 的 `main` 改为调用 `extract()`、`classify()`。两条路径原来的差别（核对时发现）：
+- extract 命令行有分隔符、单半模式、`--no_recursive`、`--update_taxonomy`、错误表、跟踪表、失败文件归档，函数里都没有；命令行全部失败仍退出 0。
+- classify 函数不接受 `--organelle` 等过滤，固定 `multiple_matched.csv`/`conflicted_genes.csv` 文件名，会写 `unmatched_report.txt`；命令行不写，异常直接抛出。
+
+现在两者合一（见 CHANGELOG）。验证：示例 haplotaxidae 上 `g2t-extract`+`g2t-classify` 的 11 个输出文件与改动前逐字节相同，文件集合相同，日志除时间外相同；整条流水线 20 个 CSV 逐字节相同；604 个测试在 3.12、3.13 全过（3.9 仍只差 3 个 openpyxl 测试）；ruff、mypy 无问题。
+未做（按审查建议放在这之后）：拆分 `extract.py`、统一参数名、三套凭证清洗函数合并、三份手册合并。`_CallableModule` 仍保留（理由见 2026-11-08）。
+
 ## 2026-11-08: 结构审查核对（基因词典三份、分类器全局状态）
 
 两份外部结构审查逐条对照代码核对。已修（分支 `refactor/gene-catalog`，见 CHANGELOG）：内置词典与 yaml 重复（逐条相同）；`GENE_DICT` / `_COMPILED_PATTERNS` 全局被 `init_gene_groups`、`load_path_dict` 修改；`--path_dict` 读失败只记日志；`g2t-classify` 每行日志打印两遍、日志写到当前目录 `extract_methods.log`；下载缺 ND3/ND4L/ND6/ATP8；reconcile 缺叶绿体基因 token；reconcile 依赖 `voucher._is_blank_value`。

@@ -205,7 +205,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-10. **Code status.** v0.04 is an early release. 589 unit tests pass on Python 3.12 and 3.9 (tested locally; 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+10. **Code status.** v0.04 is an early release. 604 unit tests pass on Python 3.12, 3.13 and 3.9 (tested locally; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 

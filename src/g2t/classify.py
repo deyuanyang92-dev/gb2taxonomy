@@ -1287,16 +1287,6 @@ def _run_cli_steps(args: argparse.Namespace) -> None:
     logger.info("=" * 60)
 
     output_dir = args.output
-    os.makedirs(output_dir, exist_ok=True)
-    _clean_outputs(
-        output_dir,
-        [
-            args.prematch_output_file_name,
-            args.unmatched_sequences,
-            args.multip_matched_genestype,
-            args.conflicted_sequences,
-        ],
-    )
 
     mtgenes = [s.strip() for s in args.mtgenes_list.split(",") if s.strip()]
     ntgenes = [s.strip() for s in args.ntgenes_list.split(",") if s.strip()]
@@ -1338,57 +1328,25 @@ def _run_cli_steps(args: argparse.Namespace) -> None:
         gene_dict=gene_dict,
     )
 
-    # Round 1
-    logger.info("-" * 40)
-    logger.info("Round 1: Gene type matching")
-    logger.info("-" * 40)
-    prematch_df = process_prematch(
-        args.input,
-        output_dir,
-        config,
-        args.prematch_output_file_name,
-        args.multip_matched_genestype,
-        args.unmatched_sequences,
-        args.conflicted_sequences,
-        args.moleculetype,
-        args.mol_type,
-        args.length,
-        args.organelle,
-    )
-
-    # Gene extraction
     gene_types_arg = args.which_gene_types_extract
-    if gene_types_arg:
-        extract_genes(prematch_df, [s.strip().lower() for s in gene_types_arg.split(",")], output_dir)
-
-    # Round 2
-    if args.if_recheck_unmatched.lower() == "yes":
-        unmatched_file = os.path.join(output_dir, args.unmatched_sequences)
-        if os.path.exists(unmatched_file) and os.path.getsize(unmatched_file) > 50:
-            logger.info("-" * 40)
-            logger.info("Round 2: Unmatched record recheck")
-            logger.info("-" * 40)
-
-            process_recheck(
-                unmatched_file,
-                output_dir,
-                config,
-                apply_length_filter=(args.if_length_range_work2_recheck.lower() == "yes"),
-            )
-
-        else:
-            logger.warning(f"Unmatched file not found or empty: {unmatched_file}, skipping round 2")
-    all_file = _write_all(output_dir, args.prematch_output_file_name)
-    logger.info(f"Merged results: {all_file}")
-    build_record_status(
+    result = classify(
         args.input,
         output_dir,
-        args.if_recheck_unmatched.lower() == "yes",
         config,
-        args.unmatched_sequences,
-        args.prematch_output_file_name,
+        prematch_output=args.prematch_output_file_name,
+        unmatched_output=args.unmatched_sequences,
+        if_recheck=args.if_recheck_unmatched.lower() == "yes",
+        apply_length_filter_recheck=args.if_length_range_work2_recheck.lower() == "yes",
+        extract_gene_types=[s.strip().lower() for s in gene_types_arg.split(",")] if gene_types_arg else None,
+        multiple_output=args.multip_matched_genestype,
+        conflicted_output=args.conflicted_sequences,
+        moleculetype=args.moleculetype,
+        mol_type=args.mol_type,
+        length=args.length,
+        organelle=args.organelle,
     )
-
+    if not result.success:
+        sys.exit(1)
     logger.info("=" * 60)
     logger.info("Processing complete")
     logger.info("=" * 60)
@@ -1482,8 +1440,18 @@ def classify(
     if_recheck: bool = True,
     apply_length_filter_recheck: bool = True,
     extract_gene_types: list | None = None,
+    *,
+    multiple_output: str = "multiple_matched.csv",
+    conflicted_output: str = "conflicted_genes.csv",
+    moleculetype: str = "all",
+    mol_type: str = "all",
+    length: str = "all",
+    organelle: str = "all",
 ) -> StepResult:
-    """Classify gene types from metadata CSV. Returns StepResult."""
+    """Classify gene types from metadata CSV. Returns StepResult. ``g2t-classify`` calls this too.
+
+    The keyword-only arguments are the file names and record filters of ``g2t-classify``.
+    """
     import time
 
     start_time = time.time()
@@ -1491,44 +1459,50 @@ def classify(
 
     if config is None:
         config = MatchConfig()
-    _clean_outputs(output_dir, [prematch_output, unmatched_output])
+    _clean_outputs(output_dir, [prematch_output, unmatched_output, multiple_output, conflicted_output])
 
     try:
+        logger.info("-" * 40)
+        logger.info("Round 1: Gene type matching")
+        logger.info("-" * 40)
         prematch_df = process_prematch(
             input_file,
             output_dir,
             config,
             prematch_output,
-            "multiple_matched.csv",
+            multiple_output,
             unmatched_output,
-            "conflicted_genes.csv",
-            "all",
-            "all",
-            "all",
-            "all",
+            conflicted_output,
+            moleculetype,
+            mol_type,
+            length,
+            organelle,
         )
+        if extract_gene_types:
+            extract_genes(prematch_df, extract_gene_types, output_dir)
 
+        unmatched_file = os.path.join(output_dir, unmatched_output)
         if if_recheck:
-            unmatched_file = os.path.join(output_dir, unmatched_output)
             if os.path.exists(unmatched_file) and os.path.getsize(unmatched_file) > 50:
+                logger.info("-" * 40)
+                logger.info("Round 2: Unmatched record recheck")
+                logger.info("-" * 40)
                 process_recheck(
                     unmatched_file,
                     output_dir,
                     config,
                     apply_length_filter=apply_length_filter_recheck,
                 )
-        _write_all(output_dir, prematch_output)
-
-        if extract_gene_types:
-            extract_genes(prematch_df, extract_gene_types, output_dir)
+            else:
+                logger.warning(f"Unmatched file not found or empty: {unmatched_file}, skipping round 2")
+        all_file = _write_all(output_dir, prematch_output)
+        logger.info(f"Merged results: {all_file}")
 
         try:
             build_record_status(input_file, output_dir, if_recheck, config, unmatched_output, prematch_output)
         except Exception as e:  # noqa: BLE001 - accounting must not break classification
             logger.warning(f"Failed to write {STATUS_FILE}: {e}")
 
-        # Generate unmatched report
-        unmatched_file = os.path.join(output_dir, unmatched_output)
         if os.path.exists(unmatched_file):
             try:
                 unmatched_df = pd.read_csv(unmatched_file, dtype=str)
@@ -1537,9 +1511,7 @@ def classify(
             except (OSError, pd.errors.EmptyDataError) as e:
                 logger.warning(f"Failed to generate unmatched report: {e}")
 
-        all_file = os.path.join(output_dir, "assigned_genes_types_all.csv")
         rows = len(pd.read_csv(all_file, dtype=str))
-
         return StepResult(
             success=True,
             output_file=all_file,
@@ -1547,7 +1519,7 @@ def classify(
             elapsed=time.time() - start_time,
         )
     except Exception as e:
-        logger.error(f"Classify failed: {e}")
+        logger.exception(f"Classify failed: {e}")
         return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
 
 
