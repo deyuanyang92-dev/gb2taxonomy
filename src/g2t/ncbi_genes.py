@@ -109,9 +109,10 @@ ALIASES = {
     "TRNHPSBA": "PSBA-TRNH",
 }
 
+# The dry-run report (g2t-download --dry-run) counts these genes only: each gene is one more search,
+# so these are the common markers, not all gene types (all of GENES can be downloaded with --gene).
 MITO_GENES = ["COI", "COII", "COIII", "CYTB", "ND1", "ND2", "ND4", "ND5", "ATP6", "12S", "16S"]
 NUCLEAR_GENES = ["18S", "28S", "5.8S", "ITS", "H3", "EF1A", "RPB2"]
-# the dry-run report counts the main plant barcodes only (each gene is one more search)
 PLASTID_GENES = ["RBCL", "MATK", "TRNL-TRNF", "PSBA-TRNH"]
 
 

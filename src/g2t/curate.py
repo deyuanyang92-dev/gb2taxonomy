@@ -37,7 +37,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from g2t.genes import VOUCHER_GENE_TOKENS
+from g2t.genes import GENE_ORDER, VOUCHER_GENE_TOKENS
 
 GENE_TOKENS = VOUCHER_GENE_TOKENS  # defined in g2t.genes, shared with reconcile
 _PREFIX = re.compile(rf"^(?:{GENE_TOKENS})[\s_\-:]+", re.I)
@@ -57,21 +57,7 @@ TEMPLATE_FIELDS = [
     "Ref1Journal",
     "curation_source",
 ]
-DEFAULT_GENES = [
-    "mtgenome",
-    "coi",
-    "16s",
-    "12s",
-    "cob",
-    "cox2",
-    "cox3",
-    "18s",
-    "28s",
-    "its1-its2",
-    "18-28s",
-    "ef-1",
-    "h3",
-]
+DEFAULT_GENES = list(GENE_ORDER)  # matrix gene columns searched for accessions
 
 
 # --------------------------------------------------------------------------- vouchers

@@ -142,28 +142,12 @@ class MatchConfig:
     length2_cpgenes: str = "150:300000"  # plastomes are ~120-220 kb; plastid records bypass the global filter
     global_length_range: str = "150:50000"
 
+    # per-type length range; a type not listed has none ("none")
     gene_length_ranges: dict[str, str] = field(
         default_factory=lambda: {
             "mtgenome": "3000:500000",
             "plastome": "20000:300000",
             "18-28s": "5000:15000",
-            "coi": "none",
-            "its1-its2": "none",
-            "cob": "none",
-            "12s": "none",
-            "16s": "none",
-            "18s": "none",
-            "28s": "none",
-            "h3": "none",
-            "nd1": "none",
-            "nd2": "none",
-            "nd3": "none",
-            "nd4": "none",
-            "nd4l": "none",
-            "nd5": "none",
-            "nd6": "none",
-            "atp6": "none",
-            "atp8": "none",
         }
     )
 

@@ -446,7 +446,8 @@ options:
   --organize_mtgenome_separately {yes,no}, --if_organize_mtgenomes_into_sep {yes,no}
                         Propagate mtgenome LocusIDs to sub-gene columns
   --mtgenome_includes [MTGENOME_INCLUDES ...]
-                        Override which genes mtgenome includes
+                        Gene columns that receive the accession of a
+                        mitogenome (default: every mitochondrial gene column)
 ```
 
 ## g2t-curate

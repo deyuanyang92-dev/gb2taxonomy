@@ -78,6 +78,12 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 - `curate` 不在 `run()` 里：有意如此，它需要用户的更正表，不是自动步骤。
 - 拆分 `classify.py` / `extract.py`、测试文件按行为改名、`scripts/` 移走已被取代的脚本：都是下一步，本次没动，避免一次改动过大。
 
+## 2026-11-09: 第三轮结构审查核对
+
+审查认为 organize 的 mtgenome 默认只复制到 6 列。核对后不对：那 6 列只是一个暗号，等于它时 `_mtgenome_children` 改用全部线粒体列。真正的问题是 ① 用户显式传这 6 列也被扩成 15 列（已修，有测试）；② README/USAGE 照着那 6 列写，文档错（已改）。
+已修：curate `DEFAULT_GENES` 缺 nd/atp/叶绿体列；`gene_length_ranges` 里重复的基因名；下载预检名单未说明是抽样；USAGE 安装句漏 pyyaml。
+未改：版本写法（作者决定）；三份手册合并与 README 拆分（单独做）；extract/classify 拆分和参数名统一（下一步）。
+
 ## 2026-11-09: 第二轮结构审查核对
 
 属实并已修：基因名单仍有多份手写副本（classify 默认集合与命令行默认串、organize `gene_order`/`known_mito`、curate `GENE_TOKENS`）→ 收进 `g2t/genes.py`；`known_mito` 有 yaml 中不存在的 `cytb`；curate 的 token 少 ND4L 和叶绿体基因；`ncbi_genes.py`/reconcile 注释指向不存在的 `tests/test_gene_lists.py`；USAGE 把 pyyaml 放在可选依赖下；README `--gene` 名单缺 4 个线粒体基因。

@@ -21,7 +21,7 @@ from typing import Any
 
 import pandas as pd
 
-from g2t.genes import GENE_ORDER, MITO_TYPES
+from g2t.genes import GENE_ORDER, GENOME_TYPES, MITO_TYPES, PLASTID_TYPES
 from g2t.utils import StepResult, read_table
 
 logger = logging.getLogger(__name__)
@@ -29,27 +29,9 @@ logger = logging.getLogger(__name__)
 # Default parent -> children propagation map (single source of truth for API and CLI).
 _DEFAULT_GENE_INCLUDES: dict[str, list[str]] = {
     "18-28s": ["18s", "28s", "its1-its2"],
-    "mtgenome": ["coi", "16s", "12s", "cob", "cox2", "cox3"],
-    "plastome": [
-        "rbcl",
-        "matk",
-        "trnl-trnf",
-        "psba-trnh",
-        "rpl16",
-        "rps16",
-        "ndhf",
-        "rpoc1",
-        "ycf1",
-        "rpl32-trnl",
-        "trns-trng",
-        "atpf-atph",
-        "petb-petd",
-        "psbe-petl",
-        "rbcl-atpb",
-        "trnk",
-        "rps4",
-        "atpb",
-    ],
+    # a genome record fills every gene column of its compartment (columns missing from gene_order are skipped)
+    "mtgenome": [g for g in MITO_TYPES if g not in GENOME_TYPES],
+    "plastome": [g for g in PLASTID_TYPES if g not in GENOME_TYPES],
 }
 
 
@@ -195,16 +177,10 @@ def collect_locusids_per_gene(group: pd.DataFrame, config: OrganizeConfig) -> di
 
 
 def _mtgenome_children(config: OrganizeConfig) -> list[str]:
-    """Columns that receive mtgenome LocusIDs.
-
-    A user-supplied ``gene_includes["mtgenome"]`` (e.g. ``--mtgenome_includes coi``) is honoured.
-    When it is absent or still the stock default, the historical behaviour is kept: every
-    mitochondrial gene present in ``gene_order`` (``config.get_mito_genes()``).
-    """
+    """Columns that receive mtgenome LocusIDs: ``gene_includes["mtgenome"]`` (``--mtgenome_includes``),
+    by default every mitochondrial gene type."""
     given = config.gene_includes.get("mtgenome")
-    if given is None or list(given) == _DEFAULT_GENE_INCLUDES["mtgenome"]:
-        return config.get_mito_genes()
-    return list(given)
+    return config.get_mito_genes() if given is None else list(given)
 
 
 def _propagate_locusids(gene_ids: dict[str, list[str]], parent: str, children: list[str]) -> None:
@@ -705,7 +681,12 @@ def main(argv: list[str] | None = None) -> None:
         default="yes",
         help="Propagate mtgenome LocusIDs to sub-gene columns",
     )
-    parser.add_argument("--mtgenome_includes", nargs="*", default=None, help="Override which genes mtgenome includes")
+    parser.add_argument(
+        "--mtgenome_includes",
+        nargs="*",
+        default=None,
+        help="Gene columns that receive the accession of a mitogenome (default: every mitochondrial gene column)",
+    )
 
     args = parser.parse_args(argv)
 

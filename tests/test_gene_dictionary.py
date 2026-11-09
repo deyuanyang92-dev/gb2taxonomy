@@ -200,3 +200,39 @@ def test_curate_strips_the_same_gene_names_as_reconcile():
 
     assert normalize_voucher("ND4L_ZMMU_WS399") == "ZMMU_WS399"
     assert normalize_voucher("matK KUN 12345") == "KUN_12345"
+
+
+def test_genome_records_fill_every_gene_column_of_their_compartment():
+    from g2t import genes, organize
+
+    inc = organize.OrganizeConfig().gene_includes
+    assert inc["mtgenome"] == [g for g in genes.MITO_TYPES if g != "mtgenome"]
+    assert inc["plastome"] == [g for g in genes.PLASTID_TYPES if g != "plastome"]
+    assert set(inc["18-28s"]) <= set(genes.NUCLEAR_TYPES)
+
+
+def test_explicit_mtgenome_includes_are_honoured_exactly():
+    """Passing the six genes that used to be the stock list was silently widened to all 15."""
+    from g2t.organize import OrganizeConfig, _mtgenome_children
+
+    six = ["coi", "16s", "12s", "cob", "cox2", "cox3"]
+    cfg = OrganizeConfig()
+    cfg.gene_includes["mtgenome"] = list(six)
+    assert _mtgenome_children(cfg) == six
+
+
+def test_curate_searches_every_gene_column():
+    from g2t import curate, genes
+
+    assert list(genes.GENE_ORDER) == curate.DEFAULT_GENES
+
+
+def test_download_dry_run_genes_are_downloadable_gene_types():
+    for g in ncbi_genes.MITO_GENES + ncbi_genes.NUCLEAR_GENES + ncbi_genes.PLASTID_GENES:
+        assert ncbi_genes.canon(g) == g
+
+
+def test_length_ranges_name_only_known_gene_types():
+    from g2t import genes
+
+    assert set(MatchConfig().gene_length_ranges) <= set(genes.GENE_ORDER)

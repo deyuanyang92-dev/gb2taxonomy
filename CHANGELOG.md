@@ -2,6 +2,10 @@
 
 ## 未发布
 
+- **`--mtgenome_includes` 按给定的列执行**：原来正好给出旧默认的 6 列（coi 16s 12s cob cox2 cox3）时，会被当作“没给”，悄悄扩成全部 15 个线粒体列。默认行为不变：线粒体基因组复制到全部线粒体基因列，叶绿体基因组复制到全部叶绿体基因列（两份默认名单改为从 `g2t/genes.py` 生成）。README/USAGE 原来写成只复制到 6 列，已改正。
+- **curate 在全部基因列里找登录号**：`DEFAULT_GENES` 改为 `GENE_ORDER`（原来只有 13 列，nd、atp 和叶绿体列中的登录号在校正表按登录号匹配时找不到）。
+- `MatchConfig.gene_length_ranges` 删掉 17 个 `"none"` 条目（未列出的类型本来就是 none）；`ncbi_genes.MITO_GENES` 等写明只是预检计数用的常用标记。USAGE“使用现有环境”一句补上 pyyaml。
+
 - **基因类型名单收成一份 `g2t/genes.py`**（第二轮结构审查核对后）：线粒体 / 核 / 叶绿体三组类型和矩阵列顺序（`MITO_TYPES`、`NUCLEAR_TYPES`、`PLASTID_TYPES`、`GENE_ORDER`）、凭证里的基因名（`VOUCHER_GENE_TOKENS`）。以下各处原来各写一份，现在都从这里导入：classify 的默认基因集合和 `--mtgenes_list/--ntgenes_list/--cpgenes_list` 默认串、organize 的 `gene_order` 和 `known_mito`（去掉了 yaml 里不存在的 `cytb`）、reconcile 和 curate 的 `GENE_TOKENS`。curate 原来那份缺 ND4L、EF-1 和叶绿体基因（`matK KUN 12345` 原来不剥掉 matK）。测试检查三组类型正好等于 `gene_dict.yaml` 的键，并且各步确实使用这份共享名单。
 - **文档**：pyyaml 列入必需依赖（原来放在“可选依赖”下面却标着“必需”），“仅安装依赖”的 pip 命令补上 pyyaml；README 的 `--gene` 名单补 ND3、ND4L、ND6、ATP8；测试数量改为本次实测（589；3.12 与 3.9）。`docs/CLI_REFERENCE.md` 中 6 个命令的用法行写成了 `usage: make_cli_reference.py`，生成脚本已修好并重新生成；classify 默认基因串的顺序随 `GENE_ORDER` 变化（集合不变）。
 
