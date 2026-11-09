@@ -65,6 +65,20 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
+## 2026-11-09: 拆分 classify.py
+
+做法同 extract：按原分节把代码块原样搬进 `g2t/_classify/` 九个模块，import 由脚本按语法树生成，并检查模块之间只向前引用（没有循环导入）；`g2t/classify.py` 重新导出全部原有名字（含测试用到的 `_DEFAULT_*_GENES`）。与原文件逐行比对，唯一的代码改动是 `_yaml_path()` 的后备路径：文件深了一层，改为上两级目录找 `data/gene_dict.yaml`（已验证能找到）。classify 没有可被替换的模块全局状态，测试无需改。
+验证：605 个测试（3.12、3.13 全过；3.9 仍只差 3 个 openpyxl 测试）；ruff、mypy 无问题；示例数据整条流水线 21 个输出文件、`g2t-classify -wgte coi,16s --organelle mitochondrion`（从 wheel 安装运行，及 `python -m g2t.classify`）的全部输出与 main 逐字节相同。
+比对日志时发现的旧问题：`python -m g2t.classify` 运行时 `classify.log` 为 0 行（模块名为 `__main__`，`getLogger(__name__)` 不在 `g2t` 之下，文件 handler 收不到）。修法：`classify.py`、`extract.py` 日志名写死为 `g2t.classify`、`g2t.extract`。新测试 `test_python_m_classify_writes_classify_log` 在 main 上失败、修复后通过；修复后 `python -m` 与 `g2t-classify` 的 classify.log 除输出路径外相同。
+外部评审（同日）同意此顺序：公开名字留在 `g2t.classify`，同一笔里不改参数名、不合并三套凭证清洗。
+
+## 2026-11-09: 拆分 extract.py
+
+做法：按原有的分节注释把代码块原样搬进 `g2t/_extract/` 六个模块（脚本按语法树生成模块间的 import，不手改函数体）；`g2t/extract.py` 重新导出全部原有名字。与原文件逐行比对，函数体只变了 batch 里 3 处 `_taxonomy.` → `taxonomy._taxonomy.`（让替换后的分类服务在 batch 模式也生效），以及 `prescan_fieldnames` 里一行多余的局部 `from Bio import SeqIO`（模块顶部已导入）。
+坑：测试原来用 `monkeypatch.setattr(ex, "_taxonomy", ...)` 替换分类服务；拆分后代码在 `g2t._extract.taxonomy` 里读这个名字，替换 `g2t.extract` 上的同名属性不起作用。已改测试，并不再从 `g2t.extract` 导出 `_taxonomy`。
+验证：604 个测试（3.12、3.13 全过；3.9 仍只差 3 个 openpyxl 测试）；ruff、mypy 无问题；wheel 含 `g2t/_extract/`，从 wheel 装的 `g2t-extract --batch --max_tasks 2` 正常（多进程能找到新模块路径）；示例数据流水线 20 个 CSV、batch 模式 10 个 CSV 与 main 逐字节相同。
+下一步：`classify.py`（1667 行）同样处理。
+
 ## 2026-11-09: 第四轮结构审查核对
 
 审查所述现状属实（`extract.py` 2137 行、`classify.py` 1667 行；基因名单已收成一份并有测试）。按其建议只做一件事：`g2t-extract`、`g2t-classify` 的 `main` 改为调用 `extract()`、`classify()`。两条路径原来的差别（核对时发现）：
