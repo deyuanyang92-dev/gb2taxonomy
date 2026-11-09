@@ -65,6 +65,16 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
+## 2026-11-09: 第五轮结构审查核对（拆分后的 main，93ac833）
+
+逐条核对：
+- **私有名字仍被重新导出**：属实（classify 9 个、extract 1 个，与审查列的一致）。已删；`classify()` 里用到的 `_clean_outputs`、`_write_all` 改为经 `g2t._classify.tables` 模块调用。外部引用只有两处测试，已改为从私有模块导入。加了 `__all__` 和测试。没有删不带下划线的名字：测试和可能的用户代码在用，删了只是破坏兼容。
+- **流水线失败只剩 `Step N failed` 加路径**：属实（extract、classify 失败时路径为空，信息只有 `Step 1 failed`）。已让失败原因随 `StepResult.error` 回到调用方和命令行输出。voucher、reconcile 失败时本来就抛带信息的异常，未改。
+- **`PipelineStepError` 定义了没人抛**：属实。未删（公开名字，删除可能影响外部代码）也未启用（各步已用 `StepResult.error` 报原因，再抛异常是第二条路）。
+- **“凭证清洗三套：`utils.sanitize_string`、`reconcile._clean_id`、`curate.normalize_voucher`，共用 `VOUCHER_GENE_TOKENS`”**：不准确。`sanitize_string` 不剥基因名，也不用 `VOUCHER_GENE_TOKENS`，它把凭证变成可作文件名/主键的字符串（去引号、括号、标点）。空白判断已是一个函数 `utils.is_blank_value`（voucher、reconcile 共用）。真正剥基因名的两处目的不同：curate 把前后缀各剥 2 轮后转成 `_` 分隔，用于显示和 INSDC 格式；reconcile 剥 3 轮并穿插去掉尾注（如 `(holotype)`），再取匹配用的核心编号。合成一个函数必然改其中一方的结果（例如三个基因名前缀的凭证），审查自己也说不能悄悄改合并结果，所以不合并。两处的正则已经来自同一份 `VOUCHER_GENE_TOKENS`。
+- **organize/reconcile/curate/download 先不拆、`(inp, out, config)` 统一签名不单独做、`_CallableModule` 保留**：同意。
+验证：610 个测试（3.12、3.13 全过；3.9 仍只差 3 个 openpyxl 测试）；ruff、mypy 无问题；示例数据流水线 21 个输出文件与 main 逐字节相同；`g2t` 对没有 GenBank 文件的输入输出原因并以 1 退出。
+
 ## 2026-11-09: 拆分 classify.py
 
 做法同 extract：按原分节把代码块原样搬进 `g2t/_classify/` 九个模块，import 由脚本按语法树生成，并检查模块之间只向前引用（没有循环导入）；`g2t/classify.py` 重新导出全部原有名字（含测试用到的 `_DEFAULT_*_GENES`）。与原文件逐行比对，唯一的代码改动是 `_yaml_path()` 的后备路径：文件深了一层，改为上两级目录找 `data/gene_dict.yaml`（已验证能找到）。classify 没有可被替换的模块全局状态，测试无需改。

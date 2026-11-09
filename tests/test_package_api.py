@@ -2,6 +2,8 @@
 
 import importlib
 
+import pytest
+
 import g2t
 
 NAMES = ["run", "download", "extract", "classify", "voucher", "reconcile", "organize"]
@@ -40,3 +42,23 @@ def test_reconcile_twice(tmp_path):
     ).to_csv(f, index=False)
     assert g2t.reconcile(str(f), str(tmp_path)).success
     assert g2t.reconcile(str(f), str(tmp_path)).success
+
+
+@pytest.mark.parametrize("name", ["g2t.extract", "g2t.classify"])
+def test_step_modules_do_not_re_export_private_names(name):
+    """Internals (underscore names) stay in g2t._extract / g2t._classify; the module keeps only its own helpers."""
+    import ast
+    import types
+    from pathlib import Path
+
+    mod = importlib.import_module(name)
+    tree = ast.parse(Path(mod.__file__).read_text(encoding="utf-8"))
+    own = {n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
+    own |= {t.id for n in tree.body if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
+    leaked = [
+        n
+        for n, v in vars(mod).items()
+        if n.startswith("_") and not n.startswith("__") and n not in own and not isinstance(v, types.ModuleType)
+    ]
+    assert not leaked, f"{name} re-exports private names: {leaked}"
+    assert all(hasattr(mod, n) for n in mod.__all__)

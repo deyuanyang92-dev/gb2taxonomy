@@ -21,6 +21,7 @@ class StepResult:
     output_file: str
     rows: int = 0
     elapsed: float = 0.0
+    error: str = ""  # why the step failed (shown by the pipeline); empty on success
 
 
 class G2TError(Exception):

@@ -685,7 +685,7 @@ class TestL24AssemblyFailed:
         def boom(md, asm, src, has, track, result):
             raise RuntimeError("disk full while writing assembly row")
 
-        fr = ex._process_record_loop(fp, boom, False, True, True)
+        fr = importlib.import_module("g2t._extract.process")._process_record_loop(fp, boom, False, True, True)
         assert fr.assembly_failed == 1
         assert fr.assembly_extracted == 0
         assert fr.metadata_failed == 1

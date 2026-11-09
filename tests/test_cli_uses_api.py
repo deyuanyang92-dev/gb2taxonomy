@@ -136,3 +136,30 @@ def test_python_m_classify_writes_classify_log(tmp_path):
     )
     log = (out / "classify.log").read_text(encoding="utf-8")
     assert "Gene Type Classifier" in log and "Round 1: Gene type matching" in log
+
+
+def test_pipeline_failure_says_why(tmp_path):
+    """The pipeline result names the cause, not only 'Step 1 failed'."""
+    from g2t._pipeline import run
+
+    (tmp_path / "in").mkdir()
+    (tmp_path / "in" / "notes.txt").write_text("hello\n", encoding="utf-8")
+    r = run([str(tmp_path / "in")], str(tmp_path / "out"), quiet=True)
+    assert not r.success
+    assert "Step 1 failed: no GenBank files" in r.log[-1]
+
+
+def test_classify_failure_carries_the_error(tmp_path):
+    r = cl.classify(str(tmp_path / "missing.csv"), str(tmp_path / "out"))
+    assert not r.success and r.error
+
+
+def test_organize_failure_names_missing_columns(tmp_path):
+    import pandas as pd
+
+    from g2t.organize import organize
+
+    f = tmp_path / "in.csv"
+    pd.DataFrame({"LocusID": ["A"]}).to_csv(f, index=False)
+    r = organize(str(f), str(tmp_path / "out.csv"))
+    assert not r.success and "missing required columns" in r.error and "gene_type" in r.error
