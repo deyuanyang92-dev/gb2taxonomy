@@ -12,6 +12,7 @@ from Bio import Entrez
 from g2t.utils import StepResult
 
 ex = importlib.import_module("g2t.extract")
+_tax = importlib.import_module("g2t._extract.taxonomy")  # the taxonomy service lives here
 cl = importlib.import_module("g2t.classify")
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "haplotaxidae" / "haplotaxidae.gb"
@@ -19,7 +20,7 @@ EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "haplotaxidae" / "h
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
-    monkeypatch.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    monkeypatch.setattr(_tax, "_taxonomy", ex.TaxonomyService())
     monkeypatch.setitem(sys.modules, "ete3", None)
 
     def blocked(*_a, **_k):

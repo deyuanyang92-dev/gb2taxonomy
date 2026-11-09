@@ -23,6 +23,7 @@ from Bio import Entrez, SeqIO
 
 # import_module: ``g2t.extract`` may be shadowed by the re-exported function in ``g2t/__init__``
 ex = importlib.import_module("g2t.extract")
+_tax = importlib.import_module("g2t._extract.taxonomy")  # the taxonomy service lives here
 LOGGER_NAME = "g2t.extract"
 
 
@@ -177,7 +178,7 @@ def _blocked(*args, **kwargs):
 
 @pytest.fixture(autouse=True)
 def isolated_taxonomy(monkeypatch):
-    monkeypatch.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    monkeypatch.setattr(_tax, "_taxonomy", ex.TaxonomyService())
     # Reproduce Python 3.13: ete3 is installed (spec found) but `import ete3` fails (no `cgi`).
     monkeypatch.setitem(sys.modules, "ete3", None)  # `import ete3` -> ModuleNotFoundError
     real_find_spec = importlib.util.find_spec
@@ -447,7 +448,7 @@ class TestL05EntrezFallback:
         ex.extract([fp], str(out), stream=True)
         assert len(fake.calls) == 1
         # new process state, same output dir -> cache file is reused
-        monkeypatch.setattr(ex, "_taxonomy", ex.TaxonomyService())
+        monkeypatch.setattr(_tax, "_taxonomy", ex.TaxonomyService())
         res = ex.extract([fp], str(out), stream=True)
         assert res.success
         assert len(fake.calls) == 1, "second run must not hit Entrez again"

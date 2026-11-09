@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- **拆分 `extract.py`**（2137 行 → 383 行）：`g2t/extract.py` 只留步骤函数 `extract()` 和命令行 `main()`，其余代码原样移到 `g2t/_extract/`：`files`（找文件、打开、校验）、`parse`（一条记录 → 元数据行和 assembly 行、列顺序）、`taxonomy`（ete3 / Entrez 分类和缓存）、`status`（记录与文件状态、汇总、报告）、`process`（流式 / 内存读取、写表）、`batch`（每文件一进程、合并）。原来 `from g2t.extract import ...` 的名字都照常可用。日志名仍是 `g2t.extract`。示例数据上流水线 20 个 CSV、`--batch` 模式 10 个 CSV 与改动前逐字节相同，日志相同。
+  - 唯一需要注意的：要替换分类服务（测试里的做法），改 `g2t._extract.taxonomy._taxonomy`；`g2t.extract._taxonomy` 不再导出，免得替换了却不起作用。
+
 - **`g2t-extract` / `g2t-classify` 改为调用 `extract()` / `classify()`**（第四轮结构审查核对后）：原来命令行和函数各写一遍流程，修一个行为要改两处。现在命令行只解析参数，流程只在函数里。函数增加对应命令行选项的关键字参数（extract：表名、分隔符、`only_assembly`/`only_metadata`、`recursive`、`log_interval`、`update_taxonomy`、`report`/`details`/`tracking`；classify：`multiple_output`、`conflicted_output`、`moleculetype`、`mol_type`、`length`、`organelle`），默认值等于流水线原来的行为。输出不变：示例数据上两个命令和整条流水线的 CSV 与改动前逐字节相同。行为变化：
   - 失败时退出码为 1（原来 `g2t-extract` 所有文件都失败也返回 0；`g2t-classify` 报 Python 异常栈退出）。
   - 失败原因连同异常栈写进日志（原来流水线只剩 `Step N failed`）。

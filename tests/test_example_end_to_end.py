@@ -13,6 +13,7 @@ from Bio import Entrez
 import g2t
 from g2t import _cli
 from g2t import extract as ex
+from g2t._extract import taxonomy as _tax
 from g2t._pipeline import run
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "haplotaxidae" / "haplotaxidae.gb"
@@ -25,7 +26,7 @@ def _blocked(*args, **kwargs):
 @pytest.fixture(scope="module")
 def result(tmp_path_factory):
     mp = pytest.MonkeyPatch()
-    mp.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    mp.setattr(_tax, "_taxonomy", ex.TaxonomyService())
     mp.setitem(sys.modules, "ete3", None)
     mp.setattr(Entrez, "efetch", _blocked)
     mp.setattr(Entrez, "sleep_between_tries", 0)
@@ -100,7 +101,7 @@ def test_gzipped_input_gives_the_same_matrix(result, tmp_path):
     with open(EXAMPLE, "rb") as src, gzip.open(gz, "wb") as dst:
         shutil.copyfileobj(src, dst)
     mp = pytest.MonkeyPatch()
-    mp.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    mp.setattr(_tax, "_taxonomy", ex.TaxonomyService())
     mp.setitem(sys.modules, "ete3", None)
     mp.setattr(Entrez, "efetch", _blocked)
     mp.setattr(Entrez, "sleep_between_tries", 0)
