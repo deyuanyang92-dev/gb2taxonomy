@@ -89,7 +89,7 @@ from g2t.utils import StepResult
 # ===============================
 # Logging
 # ===============================
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("g2t.extract")  # also under `python -m g2t.extract`
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")

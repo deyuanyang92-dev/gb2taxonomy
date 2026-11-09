@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- **拆分 `classify.py`**（1639 行 → 406 行）：`g2t/classify.py` 只留步骤函数 `classify()`、命令行和日志设置，其余代码原样移到 `g2t/_classify/`：`genedict`（同义词、用户词典、关键词正则）、`config`（`MatchConfig`）、`text`（短语匹配、DEFINITION 清洗、长度）、`tables`（记录过滤、输出文件名、列顺序）、`match`（第 1 轮）、`conflict`（第 1.5 轮冲突检查）、`recheck`（第 2 轮）、`report`（分基因文件、未匹配报告、record_status.csv）、`flows`（各轮在整张表上运行）。原来 `from g2t.classify import ...` 的名字照常可用，日志名仍是 `g2t.classify`。参数名、凭证清洗都没动。
+- **修复：`python -m g2t.classify` 的 `classify.log` 是空的**（拆分时比对日志发现）。这种运行方式下模块名是 `__main__`，日志不进 `g2t` 的文件 handler。`classify.py`、`extract.py` 的日志名改为固定的 `g2t.classify`、`g2t.extract`；`g2t-classify` 命令本来就正常。
+
 - **拆分 `extract.py`**（2137 行 → 383 行）：`g2t/extract.py` 只留步骤函数 `extract()` 和命令行 `main()`，其余代码原样移到 `g2t/_extract/`：`files`（找文件、打开、校验）、`parse`（一条记录 → 元数据行和 assembly 行、列顺序）、`taxonomy`（ete3 / Entrez 分类和缓存）、`status`（记录与文件状态、汇总、报告）、`process`（流式 / 内存读取、写表）、`batch`（每文件一进程、合并）。原来 `from g2t.extract import ...` 的名字都照常可用。日志名仍是 `g2t.extract`。示例数据上流水线 20 个 CSV、`--batch` 模式 10 个 CSV 与改动前逐字节相同，日志相同。
   - 唯一需要注意的：要替换分类服务（测试里的做法），改 `g2t._extract.taxonomy._taxonomy`；`g2t.extract._taxonomy` 不再导出，免得替换了却不起作用。
 

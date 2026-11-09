@@ -110,3 +110,29 @@ def test_pipeline_call_writes_no_cli_extras(tmp_path, one_record):
     r = ex.extract([str(one_record)], str(tmp_path))
     assert r.success and r.rows == 1
     assert not (tmp_path / "record_tracking.csv").exists()
+
+
+def test_python_m_classify_writes_classify_log(tmp_path):
+    """Under ``python -m g2t.classify`` the module is ``__main__``; its log lines still reach classify.log."""
+    import subprocess
+
+    import pandas as pd
+
+    f = tmp_path / "final.csv"
+    pd.DataFrame(
+        [
+            {
+                "LocusID": "A",
+                "ACCESSION": "A",
+                "Length": 658,
+                "Definition": "Priapulus caudatus cytochrome c oxidase subunit I (COI) gene; mitochondrial",
+                "Organism": "Priapulus caudatus",
+            }
+        ]
+    ).to_csv(f, index=False)
+    out = tmp_path / "out"
+    subprocess.run(
+        [sys.executable, "-m", "g2t.classify", "-i", str(f), "-o", str(out)], check=True, capture_output=True
+    )
+    log = (out / "classify.log").read_text(encoding="utf-8")
+    assert "Gene Type Classifier" in log and "Round 1: Gene type matching" in log
