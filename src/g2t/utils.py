@@ -153,3 +153,25 @@ def resolve_col(df: pd.DataFrame, name: str, lookup: dict[str, str] | None = Non
 
 def build_col_lookup(df: pd.DataFrame) -> dict[str, str]:
     return {col_key(c): c for c in df.columns}
+
+
+# placeholders submitted instead of a voucher ('n/d', 's.n.', 'no voucher', 'FCO:n./d.'); a value with digits is kept
+_PLACEHOLDER = re.compile(
+    r"^(?:.*:)?\s*(?:n\.?\s*/?\s*d\.?|s\.?\s*n\.?|n/?a|none|nil|unknown|unvouchered|not available|"
+    r"no voucher|without voucher|not vouchered|voucher not available)\s*$",
+    re.IGNORECASE,
+)
+
+
+def is_blank_value(v, specimen_voucher: bool = False) -> bool:
+    """True for NA, empty and punctuation-only strings and placeholders without a digit (n/d, s.n., no voucher).
+    For specimen_voucher=True also any value without a digit: an institution code alone (BRLU) names no
+    specimen. Isolate, strain and haplotype labels without digits ('AA', 'C') are kept."""
+    if pd.isna(v):
+        return True
+    text = str(v).strip()
+    if not any(ch.isalnum() for ch in text):
+        return True
+    if any(ch.isdigit() for ch in text):
+        return False
+    return specimen_voucher or bool(_PLACEHOLDER.match(text))

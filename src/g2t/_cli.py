@@ -31,9 +31,9 @@ def _version_flag(argv, prog: str) -> None:
     """``--version`` for every command (the step modules parse their own options)."""
     args = sys.argv[1:] if argv is None else argv
     if "--version" in args:
-        from g2t import __version__
+        from g2t import RELEASE
 
-        print(f"{prog} {__version__}")
+        print(f"{prog} {RELEASE}")
         raise SystemExit(0)
 
 
@@ -53,7 +53,12 @@ def check_dependencies():
     except ImportError:
         missing_required.append("biopython")
 
-    # Optional dependencies (pyyaml is not listed: without it g2t uses its identical built-in gene dictionary)
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        missing_required.append("pyyaml (reads the gene dictionary data/gene_dict.yaml)")
+
+    # Optional dependencies
     try:
         import ete3  # noqa: F401
     except ImportError:

@@ -15,9 +15,9 @@ In taxonomy and phylogenetics, several gene markers (e.g. COI, 16S, 18S) are oft
 - pandas ≥ 1.5
 - biopython ≥ 1.80
 - openpyxl ≥ 3.0: reading and writing Excel files in Step 5 (`g2t-curate`)
+- pyyaml ≥ 6.0: reads the bundled `gene_dict.yaml`, the only copy of the gene synonyms
 
 **Optional dependencies**:
-- pyyaml: reads the bundled `gene_dict.yaml`; without it the identical built-in copy is used (no warning)
 - ete3: NCBI taxonomy lookup (for Class/Order/Family/Genus). If ete3 is not available (e.g. on Python 3.13), these columns are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access the columns stay empty and a warning is printed.
 - pytest: development tests
 
@@ -25,7 +25,7 @@ In taxonomy and phylogenetics, several gene markers (e.g. COI, 16S, 18S) are oft
 
 ### Option 1: use an existing environment (recommended)
 
-If your environment already has pandas, biopython and openpyxl, install directly:
+If your environment already has pandas, biopython, openpyxl and pyyaml, install directly (pip adds any that are missing):
 
 ```bash
 pip install -e /path/to/gb2taxonomy
@@ -54,7 +54,7 @@ pip install -e /path/to/gb2taxonomy
 ### Option 3: install the dependencies only
 
 ```bash
-pip install pandas biopython openpyxl
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ### Check the installation
@@ -353,7 +353,7 @@ The program tries isolate → culture_collection → clone → strain in turn, a
 
 ### Q: How do I add a custom gene type?
 
-Edit `src/g2t/data/gene_dict.yaml` (read only when pyyaml is installed; otherwise an identical built-in copy is used) and add the new gene type and its synonyms:
+Edit `src/g2t/data/gene_dict.yaml` (the only copy of the synonyms) and add the new gene type and its synonyms:
 
 ```yaml
 gene_types:
@@ -392,7 +392,7 @@ Missing: pandas, biopython
 install them as suggested:
 
 ```bash
-pip install pandas biopython
+pip install pandas biopython openpyxl pyyaml
 ```
 
 ### Q: How do I record how a matrix was made?
@@ -412,7 +412,7 @@ The pipeline (`g2t`) writes `OUT/g2t_run.json` with the date, the command, the v
 ## Limitations and known issues
 
 1. **Gene type is assigned from the whole DEFINITION line.** A multi-region rRNA record such as "18S … ITS1" or "ITS2 … 28S" is placed in every column it covers (`18s,its1-its2`, `28s,its1-its2`): the same accession appears in both columns and stands for the whole record, not for the separate region. Records that match other combinations of genes get all matched types (e.g. `16s,coi`, `28s,h3`) and `Conflict=True` (`Conflict_reason` "Multiple candidates…"); a mitochondrial record matching more than two genes and ≥3,000 bp long becomes `mtgenome` only if its title names a genome. See [BUGS.md](BUGS.md).
-2. **Sequences are not cut into genes.** The accession of a mitochondrial genome (`mtgenome`) is copied into all mitochondrial gene columns (coi, 16s, 12s, cob, cox2, cox3), and that of an 18S–ITS–28S record (`18-28s`) into 18s, 28s and its1-its2, **whether or not the record actually annotates that gene** (e.g. FN689349 has no 12S annotation but appears in the 12s column). Restrict the columns with `g2t-organize --mtgenome_includes coi 16s`. No per-gene sequence is extracted; this has to be done separately before alignment.
+2. **Sequences are not cut into genes.** The accession of a mitochondrial genome (`mtgenome`) is copied into all mitochondrial gene columns (coi, 16s, 12s, cob, cox2, cox3, nd1–nd6, nd4l, atp6, atp8), that of a plastome into all plastid gene columns, and that of an 18S–ITS–28S record (`18-28s`) into 18s, 28s and its1-its2, **whether or not the record actually annotates that gene** (e.g. FN689349 has no 12S annotation but appears in the 12s column). Restrict the columns with `g2t-organize --mtgenome_includes coi 16s`. No per-gene sequence is extracted; this has to be done separately before alignment.
 3. **Length filter.** By default, records outside 150–50,000 bp (and records without a length or with a duplicate LocusID) are removed before classification. They are not lost silently: each is listed in `filtered_records.csv` with the reason, and `record_status.csv` gives every input record exactly one status. To classify them as well, widen all three ranges: `g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`.
 4. **Only 41 gene types, matched by keywords.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, etc.) go to `unmatched_sequences.csv` unless added to the gene dictionary (see the FAQ on custom gene types). Specimen identifiers in the DEFINITION (`isolate CO2`, `voucher COI-12`) and the English word "its" are ignored, and several look-alikes are excluded (16S rRNA methyltransferase, histone H3 lysine/demethylase, elongation factor-1 beta/gamma). Keyword matching can still fail on unusual wording.
 5. **Vouchers and metadata.** Step 3 merges records of one species whose voucher strings are identical, without further checks; two different specimens that happen to share a number are merged by mistake. Step 3b also merges identical identifiers (ignoring case and punctuation, in any identifier field) of one genus deposited under different names (*Bathykurila* sp. / *Bathykurila* sp. AH-2023); if both groups contain the same gene, only with the same date or coordinates; identical vouchers in different genera stay apart and are flagged in `match_evidence`. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, different spellings of one voucher are not merged (it errs on the side of not merging). When both groups already contain the same gene, a shared publication is not enough; the pair is flagged instead. Identifiers that differ only by a lot or sub-sample ending (`CE438` / `CE438_2`) or by the institution, collector or sample code around the number (`USNM 123456` / `MCZ 123456`) are treated as different specimens. In the matrix, locality, date and other metadata are taken column by column from the first record of the specimen that has a value, so they may come from different records; `Conflict` is True if any record was flagged as a conflict.
@@ -420,7 +420,7 @@ The pipeline (`g2t`) writes `OUT/g2t_run.json` with the date, the command, the v
 7. **Download.** Only NCBI nuccore is searched (no BOLD, ENA-only data, or SRA). `--gene` searches gene fields and title keywords, so records with unusual wording can be missed; a gene query also returns mitochondrial genomes that contain the gene.
 8. **Malformed files.** If Biopython cannot parse a record in a GenBank file, the records after it in that file are not read; the file is marked as partial in `extraction_report.json`, and a warning gives the expected and the parsed number of records.
 9. **Curation (Step 5).** B only corrects specimens that are already in A. Specimens without a GenBank record are listed as "no match" and are not added to C. An empty cell means "no change", so B cannot empty a value in A. Column detection is a heuristic based on column names and on values that look like accessions; check the *Column mapping* sheet and use `--map` when detection is wrong. Values in B are taken as correct: the program does not check B against the literature or WoRMS.
-10. **Code status.** v0.04 is an early release. 545 unit tests pass on Python 3.9, 3.12 and 3.13 (tested locally); `ruff` and `mypy` report no warnings.
+10. **Code status.** v0.04 is an early release. 604 unit tests pass on Python 3.12, 3.13 and 3.9 (tested locally; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` report no warnings.
 
 ---
 

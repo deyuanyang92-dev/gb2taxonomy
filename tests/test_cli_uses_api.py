@@ -1,0 +1,111 @@
+"""g2t-extract and g2t-classify run the same functions as the pipeline (one code path each)."""
+
+from __future__ import annotations
+
+import importlib
+import sys
+from pathlib import Path
+
+import pytest
+from Bio import Entrez
+
+from g2t.utils import StepResult
+
+ex = importlib.import_module("g2t.extract")
+cl = importlib.import_module("g2t.classify")
+
+EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "haplotaxidae" / "haplotaxidae.gb"
+
+
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    monkeypatch.setattr(ex, "_taxonomy", ex.TaxonomyService())
+    monkeypatch.setitem(sys.modules, "ete3", None)
+
+    def blocked(*_a, **_k):
+        raise OSError("network access is blocked in tests")
+
+    monkeypatch.setattr(Entrez, "efetch", blocked)
+    monkeypatch.setattr(Entrez, "sleep_between_tries", 0)
+
+
+@pytest.fixture
+def one_record(tmp_path):
+    text = EXAMPLE.read_text(encoding="utf-8")
+    f = tmp_path / "one.gb"
+    f.write_text(text[: text.index("\n//") + 4], encoding="utf-8")
+    return f
+
+
+def _capture(monkeypatch, module, name):
+    seen = {}
+
+    def fake(*args, **kwargs):
+        seen["args"], seen["kwargs"] = args, kwargs
+        return StepResult(success=True, output_file="x", rows=1)
+
+    monkeypatch.setattr(module, name, fake)
+    return seen
+
+
+def test_extract_cli_calls_extract(monkeypatch, tmp_path):
+    seen = _capture(monkeypatch, ex, "extract")
+    ex.main(["-i", "a.gb", "-o", str(tmp_path), "-oam", "--no_tracking", "--final_delimiter", ";"])
+    assert seen["args"] == (["a.gb"], str(tmp_path))
+    kw = seen["kwargs"]
+    assert kw["only_assembly"] and not kw["only_metadata"] and kw["details"]
+    assert not kw["tracking"] and kw["report"] and kw["final_delimiter"] == ";" and kw["max_tasks"] == 4
+
+
+def test_classify_cli_calls_classify(monkeypatch, tmp_path):
+    seen = _capture(monkeypatch, cl, "classify")
+    cl.main(["-i", "in.csv", "-o", str(tmp_path), "--organelle", "mitochondrion", "-wgte", "COI,16s"])
+    kw = seen["kwargs"]
+    assert seen["args"][:2] == ("in.csv", str(tmp_path)) and isinstance(seen["args"][2], cl.MatchConfig)
+    assert kw["organelle"] == "mitochondrion" and kw["extract_gene_types"] == ["coi", "16s"]
+
+
+@pytest.mark.parametrize("module", [ex, cl])
+def test_cli_exits_nonzero_when_the_step_fails(monkeypatch, tmp_path, module):
+    name = "extract" if module is ex else "classify"
+    monkeypatch.setattr(module, name, lambda *_a, **_k: StepResult(success=False, output_file=""))
+    with pytest.raises(SystemExit) as e:
+        module.main(["-i", "x", "-o", str(tmp_path)])
+    assert e.value.code == 1
+
+
+def test_extract_cli_fails_when_no_genbank_file(tmp_path):
+    (tmp_path / "notes.txt").write_text("hello\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as e:
+        ex.main(["-i", str(tmp_path), "-o", str(tmp_path / "out")])
+    assert e.value.code == 1
+
+
+def test_classify_failure_is_logged_with_traceback(tmp_path, caplog):
+    r = cl.classify(str(tmp_path / "missing.csv"), str(tmp_path / "out"))
+    assert not r.success
+    assert any(rec.exc_info for rec in caplog.records if "Classify failed" in rec.getMessage())
+
+
+@pytest.mark.parametrize(
+    "mode,product,rows",
+    # this record has no assembly comment, so the assembly-only table has no row for it
+    [({"only_assembly": True}, "assembly.csv", 0), ({"only_metadata": True}, "metadata.csv", 1)],
+)
+def test_single_half_modes_succeed_with_their_own_table(tmp_path, one_record, mode, product, rows):
+    """-oam / -oeam write no merged table; their own table is the product."""
+    r = ex.extract([str(one_record)], str(tmp_path), **mode)
+    assert r.success and r.output_file.endswith(product) and r.rows == rows
+    assert not (tmp_path / "final.csv").exists()
+
+
+def test_cli_writes_its_extra_reports(tmp_path, one_record):
+    ex.main(["-i", str(one_record), "-o", str(tmp_path)])
+    assert (tmp_path / "final.csv").exists() and (tmp_path / "record_tracking.csv").exists()
+    assert (tmp_path / "extraction_report.json").exists()
+
+
+def test_pipeline_call_writes_no_cli_extras(tmp_path, one_record):
+    r = ex.extract([str(one_record)], str(tmp_path))
+    assert r.success and r.rows == 1
+    assert not (tmp_path / "record_tracking.csv").exists()

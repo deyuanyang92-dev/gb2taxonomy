@@ -3,12 +3,12 @@
 import pytest
 
 from g2t.classify import (
-    _BUILTIN_GENE_DICT,
     MatchConfig,
     any_match,
     categorize_unmatched_definition,
     clean_length,
     conflict_check_and_reassign,
+    default_gene_dict,
     first_round_match,
     match_mito_genes,
     match_nuclear_genes,
@@ -28,7 +28,7 @@ def config():
 
 class TestSmartMatch:
     def test_case_insensitive(self):
-        # smart_match looks for the phrase (from GENE_DICT) in text; "coi" is a keyword
+        # smart_match looks for the phrase (a gene-dictionary synonym) in text; "coi" is a keyword
         assert smart_match("coi", "COI gene sequence") is True
         assert smart_match("cytochrome oxidase subunit I", "CYTOCHROME OXIDASE SUBUNIT I") is True
 
@@ -44,7 +44,7 @@ class TestSmartMatch:
     @pytest.mark.parametrize("gene", ["coi", "16s", "12s", "cob", "28s", "18s", "h3"])
     def test_each_gene_type_has_matching_synonyms(self, gene):
         """Verify each gene type has at least 3 synonyms that match."""
-        keywords = _BUILTIN_GENE_DICT.get(gene, [])
+        keywords = default_gene_dict().get(gene, [])
         assert len(keywords) >= 3, f"{gene} has fewer than 3 synonyms"
         matched_count = sum(1 for kw in keywords if smart_match(kw, kw))
         assert matched_count >= 3
@@ -125,7 +125,7 @@ class TestMatchNuclearGenes:
         assert "h3" in matched
 
     def test_18_28s_priority(self, config):
-        # Use the exact synonym from _BUILTIN_GENE_DICT for 18-28s
+        # Use the exact synonym from the packaged gene dictionary for 18-28s
         matched, notes = match_nuclear_genes(
             "18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, "
             "5.8S rRNA gene, and internal transcribed spacer 2, complete sequence; "

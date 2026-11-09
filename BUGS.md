@@ -65,7 +65,42 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 ---
 
-## 2026-10-30: 金标准漏掉带不可见字符的登录号（benchmark/build_gold.py）
+## 2026-11-09: 第四轮结构审查核对
+
+审查所述现状属实（`extract.py` 2137 行、`classify.py` 1667 行；基因名单已收成一份并有测试）。按其建议只做一件事：`g2t-extract`、`g2t-classify` 的 `main` 改为调用 `extract()`、`classify()`。两条路径原来的差别（核对时发现）：
+- extract 命令行有分隔符、单半模式、`--no_recursive`、`--update_taxonomy`、错误表、跟踪表、失败文件归档，函数里都没有；命令行全部失败仍退出 0。
+- classify 函数不接受 `--organelle` 等过滤，固定 `multiple_matched.csv`/`conflicted_genes.csv` 文件名，会写 `unmatched_report.txt`；命令行不写，异常直接抛出。
+
+现在两者合一（见 CHANGELOG）。验证：示例 haplotaxidae 上 `g2t-extract`+`g2t-classify` 的 11 个输出文件与改动前逐字节相同，文件集合相同，日志除时间外相同；整条流水线 20 个 CSV 逐字节相同；604 个测试在 3.12、3.13 全过（3.9 仍只差 3 个 openpyxl 测试）；ruff、mypy 无问题。
+未做（按审查建议放在这之后）：拆分 `extract.py`、统一参数名、三套凭证清洗函数合并、三份手册合并。`_CallableModule` 仍保留（理由见 2026-11-08）。
+
+## 2026-11-08: 结构审查核对（基因词典三份、分类器全局状态）
+
+两份外部结构审查逐条对照代码核对。已修（分支 `refactor/gene-catalog`，见 CHANGELOG）：内置词典与 yaml 重复（逐条相同）；`GENE_DICT` / `_COMPILED_PATTERNS` 全局被 `init_gene_groups`、`load_path_dict` 修改；`--path_dict` 读失败只记日志；`g2t-classify` 每行日志打印两遍、日志写到当前目录 `extract_methods.log`；下载缺 ND3/ND4L/ND6/ATP8；reconcile 缺叶绿体基因 token；reconcile 依赖 `voucher._is_blank_value`。
+验证：567 → 585 个测试全过；示例 haplotaxidae（347 条）整条流水线 20 个 CSV 与 main 逐字节相同。
+
+审查漏掉的一点：内置词典存在的原因是 pyyaml 当时为可选依赖，删除它必须同时把 pyyaml 改为必装，否则未装 pyyaml 时分类器没有词典。
+
+未采纳 / 暂缓（及原因）：
+- 去掉 `__init__._CallableModule`：`g2t.extract(...)` 是 README 写明的公开用法且有测试；去掉会破坏用户代码，收益只是少一个技巧。保留。
+- 统一步骤签名 `(inp, out, config)`、流水线改成列表、只用 `PipelineStepError`：会改所有公开函数的参数名，需要兼容层；每步的回退文件名、reconcile 参数检查各不相同，列表化省不了多少代码。等 classify/extract 拆分之后再评估。
+- `curate` 不在 `run()` 里：有意如此，它需要用户的更正表，不是自动步骤。
+- 拆分 `classify.py` / `extract.py`、测试文件按行为改名、`scripts/` 移走已被取代的脚本：都是下一步，本次没动，避免一次改动过大。
+
+## 2026-11-09: 第三轮结构审查核对
+
+审查认为 organize 的 mtgenome 默认只复制到 6 列。核对后不对：那 6 列只是一个暗号，等于它时 `_mtgenome_children` 改用全部线粒体列。真正的问题是 ① 用户显式传这 6 列也被扩成 15 列（已修，有测试）；② README/USAGE 照着那 6 列写，文档错（已改）。
+已修：curate `DEFAULT_GENES` 缺 nd/atp/叶绿体列；`gene_length_ranges` 里重复的基因名；下载预检名单未说明是抽样；USAGE 安装句漏 pyyaml。
+未改：版本写法（作者决定）；三份手册合并与 README 拆分（单独做）；extract/classify 拆分和参数名统一（下一步）。
+
+## 2026-11-09: 第二轮结构审查核对
+
+属实并已修：基因名单仍有多份手写副本（classify 默认集合与命令行默认串、organize `gene_order`/`known_mito`、curate `GENE_TOKENS`）→ 收进 `g2t/genes.py`；`known_mito` 有 yaml 中不存在的 `cytb`；curate 的 token 少 ND4L 和叶绿体基因；`ncbi_genes.py`/reconcile 注释指向不存在的 `tests/test_gene_lists.py`；USAGE 把 pyyaml 放在可选依赖下；README `--gene` 名单缺 4 个线粒体基因。
+审查只说了 curate，实际 `docs/CLI_REFERENCE.md` 里 6 个命令的 usage 行都是 `make_cli_reference.py`（argparse 用 `sys.argv[0]` 作程序名），生成脚本已修。
+版本写法：作者定为 v0.04（2026-11-09）；包版本保留 0.0.4（PEP 440 会把 0.04 规范成 0.4），`g2t.RELEASE` 由它推出，`--version`、CLI 参考、`g2t_run.json` 的 `release` 字段用 v0.04。未改（原因）：README 拆分（参数表移到 CLI_REFERENCE、reconcile 规则单独成篇）和 README/USAGE/USAGE.en 三份合并，是较大的文档重组，另做；`g2t-extract`/`g2t-classify` 命令行与 `extract()`/`classify()` 函数各走一条路径、`--skip_organize` 不检查矩阵是否存在、日志多处 `basicConfig`，按上一轮顺序放到拆分 classify/extract 时一起处理。
+验证：589 个测试（Python 3.12 全过；3.9 除 3 个需 openpyxl 的 Excel 测试外全过）；ruff、mypy 无问题。
+
+（benchmark/build_gold.py）
 
 **问题描述**:
 Polynoidae 金标准（Hiley, Mongiardino Koch & Rouse 2024, *Biology* 13:979, Table S1）有 11 个登录号前面带 BOM 字符（`\ufeffON244617`），

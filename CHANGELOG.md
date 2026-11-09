@@ -2,6 +2,28 @@
 
 ## 未发布
 
+- **`g2t-extract` / `g2t-classify` 改为调用 `extract()` / `classify()`**（第四轮结构审查核对后）：原来命令行和函数各写一遍流程，修一个行为要改两处。现在命令行只解析参数，流程只在函数里。函数增加对应命令行选项的关键字参数（extract：表名、分隔符、`only_assembly`/`only_metadata`、`recursive`、`log_interval`、`update_taxonomy`、`report`/`details`/`tracking`；classify：`multiple_output`、`conflicted_output`、`moleculetype`、`mol_type`、`length`、`organelle`），默认值等于流水线原来的行为。输出不变：示例数据上两个命令和整条流水线的 CSV 与改动前逐字节相同。行为变化：
+  - 失败时退出码为 1（原来 `g2t-extract` 所有文件都失败也返回 0；`g2t-classify` 报 Python 异常栈退出）。
+  - 失败原因连同异常栈写进日志（原来流水线只剩 `Step N failed`）。
+  - `extract(only_assembly=True)` / `only_metadata=True` 以各自的表为产物，判为成功（原来函数里没有这两种模式）。
+  - `g2t-classify` 也写 `unmatched_report.txt`（原来只有函数写），每次运行先清掉旧的 `multiple_matched.csv`、`conflicted_genes.csv`（流水线同）。
+
+- **版本名统一为 v0.04**：`g2t --version`（各子命令同）、`docs/CLI_REFERENCE.md` 标题输出 `v0.04`，`g2t_run.json` 新增 `"release": "v0.04"`；包版本仍为 `0.0.4`（pip/bioconda 用，PEP 440 会把 0.04 规范成 0.4），`g2t.RELEASE` 由它推出，两者不会再分开。
+- **`--mtgenome_includes` 按给定的列执行**：原来正好给出旧默认的 6 列（coi 16s 12s cob cox2 cox3）时，会被当作“没给”，悄悄扩成全部 15 个线粒体列。默认行为不变：线粒体基因组复制到全部线粒体基因列，叶绿体基因组复制到全部叶绿体基因列（两份默认名单改为从 `g2t/genes.py` 生成）。README/USAGE 原来写成只复制到 6 列，已改正。
+- **curate 在全部基因列里找登录号**：`DEFAULT_GENES` 改为 `GENE_ORDER`（原来只有 13 列，nd、atp 和叶绿体列中的登录号在校正表按登录号匹配时找不到）。
+- `MatchConfig.gene_length_ranges` 删掉 17 个 `"none"` 条目（未列出的类型本来就是 none）；`ncbi_genes.MITO_GENES` 等写明只是预检计数用的常用标记。USAGE“使用现有环境”一句补上 pyyaml。
+
+- **基因类型名单收成一份 `g2t/genes.py`**（第二轮结构审查核对后）：线粒体 / 核 / 叶绿体三组类型和矩阵列顺序（`MITO_TYPES`、`NUCLEAR_TYPES`、`PLASTID_TYPES`、`GENE_ORDER`）、凭证里的基因名（`VOUCHER_GENE_TOKENS`）。以下各处原来各写一份，现在都从这里导入：classify 的默认基因集合和 `--mtgenes_list/--ntgenes_list/--cpgenes_list` 默认串、organize 的 `gene_order` 和 `known_mito`（去掉了 yaml 里不存在的 `cytb`）、reconcile 和 curate 的 `GENE_TOKENS`。curate 原来那份缺 ND4L、EF-1 和叶绿体基因（`matK KUN 12345` 原来不剥掉 matK）。测试检查三组类型正好等于 `gene_dict.yaml` 的键，并且各步确实使用这份共享名单。
+- **文档**：pyyaml 列入必需依赖（原来放在“可选依赖”下面却标着“必需”），“仅安装依赖”的 pip 命令补上 pyyaml；README 的 `--gene` 名单补 ND3、ND4L、ND6、ATP8；测试数量改为本次实测（589；3.12 与 3.9）。`docs/CLI_REFERENCE.md` 中 6 个命令的用法行写成了 `usage: make_cli_reference.py`，生成脚本已修好并重新生成；classify 默认基因串的顺序随 `GENE_ORDER` 变化（集合不变）。
+
+- **基因词典只剩一份，分类器不再改模块全局**（据两份结构审查核对后修改）：
+  - 删除 `classify.py` 里约 580 行的 `_BUILTIN_GENE_DICT`（与 `data/gene_dict.yaml` 逐条相同，41 类、同义词无差异）；pyyaml 改为必装依赖（这份内置副本原本就是为未装 pyyaml 准备的）；yaml 读不到时报错，不再静默换用另一份。
+  - 删除 `GENE_DICT`、`_COMPILED_PATTERNS`、`_precompile_patterns`、`_reset_patterns`：词典放进 `MatchConfig.gene_dict`（每个配置一份），正则改为纯缓存 `_phrase_pattern`。`load_path_dict(path, base=None)` 返回合并后的新词典（原来就地修改全局，同一进程里后续运行都会带上）；新增 `default_gene_dict()`、`read_gene_dict_file()`。Python API 现在可以 `MatchConfig(gene_dict=load_path_dict("my.txt"))`。
+  - `--path_dict` 文件不存在、格式不支持或没有条目时报错停止（原来只记一条 error，然后用默认词典照常分类）。`--mtgenes_list` 等列出的基因在加载 `--path_dict` 之后再检查（原来先检查，用户词典里的新基因会误报“不在词典中”）。
+  - `g2t-classify` 每行日志只打印一次（原来 `_cli` 和 `setup_logging` 各挂一个控制台 handler，每行两遍）；完整日志写到输出目录的 `classify.log`，不再在当前目录写 `extract_methods.log`，也不再改根 logger 的级别。
+- **三份基因名单对齐**：下载补上分类已有的 ND3、ND4L、ND6、ATP8（原来 `g2t-download --gene ND6` 报 Unknown gene），别名补 NAD2–NAD6、NAD4L；reconcile 的凭证基因前后缀补 ND4L、EF-1 和叶绿体基因（`KUN 12345 matK` 原来得不到凭证主体）。新测试 `tests/test_gene_dictionary.py` 检查三份名单一致，以后漏改一处测试即失败。RPB2、5.8S 只能下载、不单独分类，已在测试里列明。
+- `reconcile` 不再引用 `voucher._is_blank_value`：空白判断移到 `utils.is_blank_value`（`voucher._is_blank_value` 保留为别名）。
+
 - **读取 gzip 压缩的 GenBank 文件**：`.gb.gz`、`.gbf.gz`、`.gbff.gz` 等直接作为输入（文件发现、校验、计数、解析都支持）；示例数据压缩后得到的矩阵与未压缩时完全相同。
 - **命令行默认流式提取**：`g2t` 与 `g2t-extract` 默认 `--stream`，与 Python API 一致（示例数据上两种模式的基因表与矩阵逐字节相同）；`--no-stream` 恢复内存模式，旧写法 `--stream` 照常可用。
 - **矩阵新增 `type_material` 列**：模式标本信息（如 "holotype of …"）原本已随 source 限定词提取，但没有进入矩阵；Phyllodocida 有 570 条记录带此信息。

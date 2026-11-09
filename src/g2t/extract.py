@@ -1836,17 +1836,39 @@ def _finish_extract(
     final_path: str = "",
     rows: int = 0,
     success: bool = False,
+    report: bool = True,
+    details: bool = False,
+    tracking: bool = False,
 ) -> StepResult:
-    """Always write extraction_report.json and build the StepResult."""
+    """Write the reports and build the StepResult.
+
+    ``report``: extraction_report.json (plus the error table when ``details``).
+    ``details`` (the command line): copy failed files to failed_extract/ and log the summary.
+    ``tracking``: record_tracking.csv.
+    """
     summary.total_elapsed_time = time.time() - start_time
     try:
         os.makedirs(output_dir, exist_ok=True)
-        summary.save_report(output_dir)
+        if details:
+            copy_failed_files(summary.get_failed_files(), output_dir)
+            summary.print_summary()
+        if report:
+            summary.save_report(output_dir)
+            if details:
+                summary.save_error_csv(output_dir)
+        if tracking:
+            summary.save_tracking_csv(output_dir)
     except OSError as e:
         logger.error(f"Failed to save extraction report: {e}")
     return StepResult(
         success=success, output_file=final_path if success else "", rows=rows, elapsed=time.time() - start_time
     )
+
+
+def _banner(text: str) -> None:
+    logger.info("=" * 75)
+    logger.info(text)
+    logger.info("=" * 75)
 
 
 def extract(
@@ -1856,26 +1878,58 @@ def extract(
     batch: bool = False,
     max_tasks: int = 1,
     final_name: str = "final.csv",
+    *,
+    metadata_name: str = "metadata.csv",
+    assembly_name: str = "assembly.csv",
+    metadata_delimiter: str = ",",
+    assembly_delimiter: str = "\t",
+    final_delimiter: str = ",",
+    only_assembly: bool = False,
+    only_metadata: bool = False,
+    recursive: bool = True,
+    log_interval: int = 5000,
+    update_taxonomy: bool = False,
+    report: bool = True,
+    details: bool = False,
+    tracking: bool = False,
 ) -> StepResult:
-    """Extract metadata from GenBank files. Returns StepResult.
+    """Extract metadata from GenBank files. Returns StepResult. ``g2t-extract`` calls this too.
 
     Invalid/skipped files are logged with ``logger.warning`` and every file's status,
     record counts and errors are written to ``<output_dir>/extraction_report.json``.
     The step is successful as long as at least one file produced records; it fails
     only when every file failed (or no usable file/final table exists).
+    The keyword-only arguments are the options of ``g2t-extract``; their defaults are what the
+    pipeline uses (``details``/``tracking`` are on for the command line).
     """
     start_time = time.time()
     os.makedirs(output_dir, exist_ok=True)
     summary = ProcessingSummary()
 
+    def finish(final_path: str = "", rows: int = 0, success: bool = False) -> StepResult:
+        return _finish_extract(
+            summary,
+            output_dir,
+            start_time,
+            final_path,
+            rows,
+            success,
+            report=report,
+            details=details,
+            tracking=tracking,
+        )
+
     try:
-        gb_files, total, skipped = discover_gb_files(input_files, True)
+        if psutil:
+            logger.info(f"Available memory: {psutil.virtual_memory().available / (1024**3):.2f} GB")
+        _banner("Step 1/4: Discover GenBank files")
+        gb_files, total, skipped = discover_gb_files(input_files, recursive)
         summary.total_files_found = total
         summary.non_gb_files_skipped = skipped
         summary.gb_files_found = len(gb_files)
         if not gb_files:
-            logger.warning(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}, also .gz) found in the inputs")
-            return _finish_extract(summary, output_dir, start_time)
+            logger.error(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}, also .gz) found in the inputs")
+            return finish()
 
         valid_files = []
         for f in gb_files:
@@ -1885,52 +1939,73 @@ def extract(
             else:
                 summary.add_result(FileResult(file_path=f, status=FileStatus.INVALID, error_message=err))
                 logger.warning(f"Extract: skipping invalid file {os.path.basename(f)} ({err})")
+        logger.info(f"Valid files: {len(valid_files)}/{len(gb_files)}")
 
         if not valid_files:
-            logger.warning("Extract: none of the input files is a valid GenBank file")
-            return _finish_extract(summary, output_dir, start_time)
+            logger.error("Extract: none of the input files is a valid GenBank file")
+            return finish()
 
-        initialize_ncbi_taxa()
+        total_bytes = sum(os.path.getsize(f) for f in valid_files if os.path.exists(f))
+        if not stream and total_bytes > 500 * 1024 * 1024:
+            logger.warning(f"Large dataset ({format_size(total_bytes)}), recommend --stream")
 
+        # the assembly-only and metadata-only modes have never loaded the taxonomy database
+        if not only_assembly and not only_metadata:
+            _banner("Step 2/4: Taxonomy module")
+            initialize_ncbi_taxa()
+            if update_taxonomy:
+                update_ncbi_taxonomy_database()
+
+        _banner(f"Step 3/4: Extract metadata ({'stream' if stream else 'memory'} / {'batch' if batch else 'merged'})")
+        include_taxonomy = not only_metadata
         if batch:
             processing = process_batch_mode(
                 valid_files,
                 output_dir,
                 max_tasks,
                 stream,
-                False,
-                False,
-                True,
-                ",",
-                "\t",
-                ",",
-                5000,
+                only_assembly,
+                only_metadata,
+                include_taxonomy,
+                metadata_delimiter,
+                assembly_delimiter,
+                final_delimiter,
+                log_interval,
+                metadata_output=metadata_name,
+                assembly_output=assembly_name,
                 final_output=final_name,
             )
         else:
             processing = process_all_files(
                 valid_files,
                 output_dir,
-                "metadata.csv",
-                "assembly.csv",
+                metadata_name,
+                assembly_name,
                 final_name,
-                True,
-                False,
-                False,
-                ",",
-                "\t",
-                ",",
+                include_taxonomy,
+                only_assembly,
+                only_metadata,
+                metadata_delimiter,
+                assembly_delimiter,
+                final_delimiter,
                 stream,
-                5000,
+                log_interval,
             )
         for r in processing.file_results:
             summary.add_result(r)
 
-        final_path = os.path.join(output_dir, final_name)
+        _banner("Step 4/4: Report & archive")
+        # the merged table needs both halves; the single-half modes produce their own table
+        if only_assembly:
+            product, sep = os.path.join(output_dir, assembly_name), assembly_delimiter
+        elif only_metadata:
+            product, sep = os.path.join(output_dir, metadata_name), metadata_delimiter
+        else:
+            product, sep = os.path.join(output_dir, final_name), final_delimiter
         rows = 0
-        if os.path.exists(final_path):
+        if os.path.exists(product):
             with contextlib.suppress(Exception):
-                rows = len(pd.read_csv(final_path, dtype=str, keep_default_na=False))
+                rows = len(pd.read_csv(product, dtype=str, keep_default_na=False, sep=sep))
 
         n_ok = summary.files_succeeded + summary.files_partial
         problems = [r for r in summary.file_results if r.status != FileStatus.SUCCESS]
@@ -1946,13 +2021,15 @@ def extract(
                     f"  {os.path.basename(r.file_path)}: {r.status.value}"
                     f"{' - ' + r.error_message if r.error_message else ''}"
                 )
-        success = n_ok > 0 and os.path.exists(final_path)
+        success = n_ok > 0 and os.path.exists(product)
         if not success:
             logger.error("Extract: no file produced a usable final table")
-        return _finish_extract(summary, output_dir, start_time, final_path, rows, success)
+        elif not problems:
+            logger.info("All processing complete!")
+        return finish(product, rows, success)
     except Exception as e:
-        logger.error(f"Extract failed: {e}")
-        return _finish_extract(summary, output_dir, start_time)
+        logger.exception(f"Extract failed: {e}")
+        return finish()
 
 
 # ===============================
@@ -2008,129 +2085,29 @@ def main(argv=None):
     parser.add_argument("--if_use_chunksize", action="store_true", help="(Legacy) same as --stream")
 
     args = parser.parse_args(argv)
-    stream = args.stream or args.if_use_chunksize
-
-    if psutil:
-        mem = psutil.virtual_memory()
-        logger.info(f"Available memory: {mem.available / (1024**3):.2f} GB")
-
-    os.makedirs(args.output, exist_ok=True)
-
-    # Step 1: Discover files
-    logger.info("=" * 75)
-    logger.info("Step 1/4: Discover GenBank files")
-    logger.info("=" * 75)
-    gb_files, total, skipped = discover_gb_files(args.input, not args.no_recursive)
-
-    if not gb_files:
-        logger.error("No GenBank files found")
+    result = extract(
+        args.input,
+        args.output,
+        stream=args.stream or args.if_use_chunksize,
+        batch=args.batch,
+        max_tasks=args.max_tasks,
+        final_name=args.final_output,
+        metadata_name=args.metadata_output,
+        assembly_name=args.assembly_output,
+        metadata_delimiter=args.metadata_delimiter,
+        assembly_delimiter=args.assembly_delimiter,
+        final_delimiter=args.final_delimiter,
+        only_assembly=args.only_assembly_meta,
+        only_metadata=args.only_except_assembly_meta,
+        recursive=not args.no_recursive,
+        log_interval=args.log_interval,
+        update_taxonomy=args.update_taxonomy,
+        report=not args.no_report,
+        details=True,
+        tracking=not args.no_tracking,
+    )
+    if not result.success:
         sys.exit(1)
-
-    valid_files = []
-    summary = ProcessingSummary()
-    summary.total_files_found = total
-    summary.non_gb_files_skipped = skipped
-    summary.gb_files_found = len(gb_files)
-
-    for f in gb_files:
-        ok, err, _ = validate_and_estimate_records(f)
-        if ok:
-            valid_files.append(f)
-        else:
-            fr = FileResult(file_path=f, status=FileStatus.INVALID, error_message=err)
-            summary.add_result(fr)
-            logger.warning(f"  Invalid: {os.path.basename(f)} ({err})")
-
-    logger.info(f"Valid files: {len(valid_files)}/{len(gb_files)}")
-
-    # Pre-scan
-    total_bytes = sum(os.path.getsize(f) for f in valid_files if os.path.exists(f))
-    if not stream and total_bytes > 500 * 1024 * 1024:
-        logger.warning(f"Large dataset ({format_size(total_bytes)}), recommend --stream")
-
-    if not valid_files:
-        copy_failed_files(summary.get_failed_files(), args.output)
-        if not args.no_report:
-            summary.save_report(args.output)
-        summary.print_summary()
-        sys.exit(1)
-
-    # Step 2: Taxonomy
-    if not args.only_assembly_meta and not args.only_except_assembly_meta:
-        logger.info("=" * 75)
-        logger.info("Step 2/4: Taxonomy module")
-        logger.info("=" * 75)
-        initialize_ncbi_taxa()
-        if args.update_taxonomy:
-            update_ncbi_taxonomy_database()
-
-    # Step 3: Extract
-    logger.info("=" * 75)
-    mode_str = f"{'stream' if stream else 'memory'} / {'batch' if args.batch else 'merged'}"
-    logger.info(f"Step 3/4: Extract metadata ({mode_str})")
-    logger.info("=" * 75)
-
-    if args.batch:
-        processing_result = process_batch_mode(
-            valid_files,
-            args.output,
-            args.max_tasks,
-            stream,
-            args.only_assembly_meta,
-            args.only_except_assembly_meta,
-            not args.only_except_assembly_meta,
-            args.metadata_delimiter,
-            args.assembly_delimiter,
-            args.final_delimiter,
-            args.log_interval,
-            metadata_output=args.metadata_output,
-            assembly_output=args.assembly_output,
-            final_output=args.final_output,
-        )
-        for r in processing_result.file_results:
-            summary.add_result(r)
-        summary.total_elapsed_time = processing_result.total_elapsed_time
-    else:
-        processing_result = process_all_files(
-            valid_files,
-            args.output,
-            args.metadata_output,
-            args.assembly_output,
-            args.final_output,
-            not args.only_except_assembly_meta,
-            args.only_assembly_meta,
-            args.only_except_assembly_meta,
-            args.metadata_delimiter,
-            args.assembly_delimiter,
-            args.final_delimiter,
-            stream,
-            args.log_interval,
-        )
-        for r in processing_result.file_results:
-            summary.add_result(r)
-        summary.total_elapsed_time = processing_result.total_elapsed_time
-
-    # Step 4: Report
-    logger.info("=" * 75)
-    logger.info("Step 4/4: Report & archive")
-    logger.info("=" * 75)
-
-    failed = summary.get_failed_files()
-    if failed:
-        copy_failed_files(failed, args.output)
-
-    summary.print_summary()
-
-    if not args.no_report:
-        summary.save_report(args.output)
-        summary.save_error_csv(args.output)
-    if not args.no_tracking:
-        summary.save_tracking_csv(args.output)
-
-    if summary.files_failed > 0 or summary.files_invalid > 0:
-        logger.info("Some files failed, check failed_extract/ and extraction_report.json")
-    else:
-        logger.info("All processing complete!")
 
 
 if __name__ == "__main__":

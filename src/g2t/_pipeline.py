@@ -82,7 +82,7 @@ def _sha256(path: str) -> str:
 
 def provenance(params: dict[str, Any]) -> dict[str, Any]:
     """Versions and settings of a run, written to ``g2t_run.json`` so a matrix can be reproduced."""
-    from g2t import __version__
+    from g2t import RELEASE, __version__
 
     versions: dict[str, str | None] = {"g2t": __version__, "python": platform.python_version()}
     for mod, name in (("Bio", "biopython"), ("pandas", "pandas"), ("ete3", "ete3"), ("yaml", "pyyaml")):
@@ -91,6 +91,7 @@ def provenance(params: dict[str, Any]) -> dict[str, Any]:
         except Exception:  # not installed, or (ete3 on Python 3.13) not importable
             versions[name] = None
     return {
+        "release": RELEASE,
         "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "command": sys.argv,
         "platform": platform.platform(),

@@ -2,7 +2,8 @@
 
 Each gene searches both the [Gene] field and common title spellings (many older records
 lack a /gene qualifier and name the gene only in DEFINITION).
-To add a gene, add an entry to GENES; keys are case-insensitive.
+To add a gene, add an entry to GENES; keys are case-insensitive. Every gene type of the classify
+dictionary (data/gene_dict.yaml) needs an entry here; tests/test_gene_dictionary.py checks both lists agree.
 """
 
 GENES = {
@@ -31,9 +32,13 @@ GENES = {
     "CYTB": ["CYTB[Gene]", "COB[Gene]", '"cytochrome b"[Title]'],
     "ND1": ["ND1[Gene]", "NAD1[Gene]", '"NADH dehydrogenase subunit 1"[Title]'],
     "ND2": ["ND2[Gene]", "NAD2[Gene]", '"NADH dehydrogenase subunit 2"[Title]'],
+    "ND3": ["ND3[Gene]", "NAD3[Gene]", '"NADH dehydrogenase subunit 3"[Title]'],
     "ND4": ["ND4[Gene]", "NAD4[Gene]", '"NADH dehydrogenase subunit 4"[Title]'],
+    "ND4L": ["ND4L[Gene]", "NAD4L[Gene]", '"NADH dehydrogenase subunit 4L"[Title]'],
     "ND5": ["ND5[Gene]", "NAD5[Gene]", '"NADH dehydrogenase subunit 5"[Title]'],
+    "ND6": ["ND6[Gene]", "NAD6[Gene]", '"NADH dehydrogenase subunit 6"[Title]'],
     "ATP6": ["ATP6[Gene]", '"ATP synthase F0 subunit 6"[Title]', '"ATP synthase subunit 6"[Title]'],
+    "ATP8": ["ATP8[Gene]", '"ATP synthase F0 subunit 8"[Title]', '"ATP synthase subunit 8"[Title]'],
     # mitochondrial rRNA
     "12S": ["12S[Title]", "rrnS[Gene]", '("small subunit ribosomal RNA"[Title] AND mitochondrion[filter])'],
     "16S": ["16S[Title]", "rrnL[Gene]", '("large subunit ribosomal RNA"[Title] AND mitochondrion[filter])'],
@@ -85,6 +90,12 @@ ALIASES = {
     "COX3": "COIII",
     "COB": "CYTB",
     "NAD1": "ND1",
+    "NAD2": "ND2",
+    "NAD3": "ND3",
+    "NAD4": "ND4",
+    "NAD4L": "ND4L",
+    "NAD5": "ND5",
+    "NAD6": "ND6",
     "RRNL": "16S",
     "RRNS": "12S",
     "SSU": "18S",
@@ -98,9 +109,10 @@ ALIASES = {
     "TRNHPSBA": "PSBA-TRNH",
 }
 
+# The dry-run report (g2t-download --dry-run) counts these genes only: each gene is one more search,
+# so these are the common markers, not all gene types (all of GENES can be downloaded with --gene).
 MITO_GENES = ["COI", "COII", "COIII", "CYTB", "ND1", "ND2", "ND4", "ND5", "ATP6", "12S", "16S"]
 NUCLEAR_GENES = ["18S", "28S", "5.8S", "ITS", "H3", "EF1A", "RPB2"]
-# the dry-run report counts the main plant barcodes only (each gene is one more search)
 PLASTID_GENES = ["RBCL", "MATK", "TRNL-TRNF", "PSBA-TRNH"]
 
 
