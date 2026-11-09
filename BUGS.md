@@ -88,7 +88,7 @@ ete3 的 NCBI taxonomy 数据库可能未更新，或该 TaxonID 是新提交的
 
 属实并已修：基因名单仍有多份手写副本（classify 默认集合与命令行默认串、organize `gene_order`/`known_mito`、curate `GENE_TOKENS`）→ 收进 `g2t/genes.py`；`known_mito` 有 yaml 中不存在的 `cytb`；curate 的 token 少 ND4L 和叶绿体基因；`ncbi_genes.py`/reconcile 注释指向不存在的 `tests/test_gene_lists.py`；USAGE 把 pyyaml 放在可选依赖下；README `--gene` 名单缺 4 个线粒体基因。
 审查只说了 curate，实际 `docs/CLI_REFERENCE.md` 里 6 个命令的 usage 行都是 `make_cli_reference.py`（argparse 用 `sys.argv[0]` 作程序名），生成脚本已修。
-未改（原因）：版本写法 `v0.04`（徽章、CITATION）与 `0.0.4`（包版本）不同，属于发布命名，由作者决定；README 拆分（参数表移到 CLI_REFERENCE、reconcile 规则单独成篇）和 README/USAGE/USAGE.en 三份合并，是较大的文档重组，另做；`g2t-extract`/`g2t-classify` 命令行与 `extract()`/`classify()` 函数各走一条路径、`--skip_organize` 不检查矩阵是否存在、日志多处 `basicConfig`，按上一轮顺序放到拆分 classify/extract 时一起处理。
+版本写法：作者定为 v0.04（2026-11-09）；包版本保留 0.0.4（PEP 440 会把 0.04 规范成 0.4），`g2t.RELEASE` 由它推出，`--version`、CLI 参考、`g2t_run.json` 的 `release` 字段用 v0.04。未改（原因）：README 拆分（参数表移到 CLI_REFERENCE、reconcile 规则单独成篇）和 README/USAGE/USAGE.en 三份合并，是较大的文档重组，另做；`g2t-extract`/`g2t-classify` 命令行与 `extract()`/`classify()` 函数各走一条路径、`--skip_organize` 不检查矩阵是否存在、日志多处 `basicConfig`，按上一轮顺序放到拆分 classify/extract 时一起处理。
 验证：589 个测试（Python 3.12 全过；3.9 除 3 个需 openpyxl 的 Excel 测试外全过）；ruff、mypy 无问题。
 
 （benchmark/build_gold.py）

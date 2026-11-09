@@ -31,9 +31,9 @@ def _version_flag(argv, prog: str) -> None:
     """``--version`` for every command (the step modules parse their own options)."""
     args = sys.argv[1:] if argv is None else argv
     if "--version" in args:
-        from g2t import __version__
+        from g2t import RELEASE
 
-        print(f"{prog} {__version__}")
+        print(f"{prog} {RELEASE}")
         raise SystemExit(0)
 
 
