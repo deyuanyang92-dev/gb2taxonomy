@@ -58,8 +58,9 @@ def _run_step(
         step_func = getattr(mod, func_name)
         result = step_func(**kwargs)
         if not result.success:
+            why = getattr(result, "error", "")
             detail = getattr(result, "output_file", "")
-            return f"Step {step_num} failed" + (f": {detail}" if detail else "")
+            return f"Step {step_num} failed" + (f": {why}" if why else "") + (f" ({detail})" if detail else "")
         msg = f"Step {step_num} done: {output_path} ({result.rows} rows, {result.elapsed:.1f}s)"
         log_lines.append(msg)
         if not quiet:

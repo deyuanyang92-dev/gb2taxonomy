@@ -165,7 +165,7 @@ def test_compartment_lists_cover_the_dictionary_exactly():
 
 
 def test_steps_use_the_shared_gene_lists():
-    from g2t import classify, curate, genes, organize, reconcile
+    from g2t import curate, genes, organize, reconcile
 
     cfg = MatchConfig()
     assert cfg.mito_genes == set(genes.MITO_TYPES) and cfg.plastid_genes == set(genes.PLASTID_TYPES)
@@ -173,7 +173,9 @@ def test_steps_use_the_shared_gene_lists():
     mito_cols = organize.OrganizeConfig().get_mito_genes()
     assert set(mito_cols) == set(genes.MITO_TYPES) - {"mtgenome"}
     assert curate.GENE_TOKENS == reconcile.GENE_TOKENS == genes.VOUCHER_GENE_TOKENS
-    assert set(genes.NUCLEAR_TYPES) == classify._DEFAULT_NUCLEAR_GENES
+    from g2t._classify.genedict import _DEFAULT_NUCLEAR_GENES
+
+    assert set(genes.NUCLEAR_TYPES) == _DEFAULT_NUCLEAR_GENES
 
 
 def test_classify_cli_defaults_are_the_shared_lists():

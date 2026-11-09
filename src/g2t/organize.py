@@ -506,7 +506,13 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
     mandatory = [config.group_column, config.second_col_name, "gene_type", "LocusID"]
     optional = config.meta_columns + config.tail_columns + config.extra_columns
     if not check_columns(df, mandatory, optional):
-        return StepResult(success=False, output_file=output_file, elapsed=time.time() - start_time)
+        missing = ", ".join(c for c in mandatory if c not in df.columns)
+        return StepResult(
+            success=False,
+            output_file=output_file,
+            elapsed=time.time() - start_time,
+            error=f"missing required columns in {input_file}: {missing}",
+        )
 
     unlisted = _count_unlisted_genes(df, config.gene_order)
     if unlisted:
@@ -538,7 +544,12 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
 
     if not rows:
         logger.error("No output rows generated")
-        return StepResult(success=False, output_file=output_file, elapsed=time.time() - start_time)
+        return StepResult(
+            success=False,
+            output_file=output_file,
+            elapsed=time.time() - start_time,
+            error=f"no output rows (no records in {input_file})",
+        )
 
     header = build_header(config, rows[0])
     out_df = pd.DataFrame(rows, columns=header)

@@ -24,6 +24,7 @@ import warnings
 
 import pandas as pd
 
+from g2t._classify import tables as _tables
 from g2t._classify.config import (  # noqa: F401 - re-exported
     MatchConfig,
 )
@@ -36,13 +37,6 @@ from g2t._classify.flows import (  # noqa: F401 - re-exported
     process_row,
 )
 from g2t._classify.genedict import (  # noqa: F401 - re-exported
-    _DEFAULT_MITO_GENES,
-    _DEFAULT_NUCLEAR_GENES,
-    _DEFAULT_PLASTID_GENES,
-    _load_gene_dict_yaml,
-    _packaged_gene_dict,
-    _phrase_pattern,
-    _yaml_path,
     default_gene_dict,
     init_gene_groups,
     load_path_dict,
@@ -68,8 +62,6 @@ from g2t._classify.tables import (  # noqa: F401 - re-exported
     DIAG_COLUMNS,
     FILTERED_FILE,
     STATUS_FILE,
-    _clean_outputs,
-    _write_all,
     filter_dataframe,
     reorder_columns,
 )
@@ -107,6 +99,18 @@ def setup_logging(log_file: str = "classify.log") -> logging.Handler:
     pkg_logger.addHandler(handler)
     return handler
 
+
+# The documented interface. The other names above stay importable from here for existing code; new code
+# that needs internals imports them from g2t._classify.<module>.
+__all__ = [
+    "MatchConfig",
+    "classify",
+    "default_gene_dict",
+    "load_path_dict",
+    "main",
+    "read_gene_dict_file",
+    "setup_logging",
+]
 
 logger = logging.getLogger("g2t.classify")  # also under `python -m g2t.classify` (__name__ is "__main__" there)
 
@@ -226,7 +230,7 @@ def classify(
 
     if config is None:
         config = MatchConfig()
-    _clean_outputs(output_dir, [prematch_output, unmatched_output, multiple_output, conflicted_output])
+    _tables._clean_outputs(output_dir, [prematch_output, unmatched_output, multiple_output, conflicted_output])
 
     try:
         logger.info("-" * 40)
@@ -262,7 +266,7 @@ def classify(
                 )
             else:
                 logger.warning(f"Unmatched file not found or empty: {unmatched_file}, skipping round 2")
-        all_file = _write_all(output_dir, prematch_output)
+        all_file = _tables._write_all(output_dir, prematch_output)
         logger.info(f"Merged results: {all_file}")
 
         try:
@@ -287,7 +291,9 @@ def classify(
         )
     except Exception as e:
         logger.exception(f"Classify failed: {e}")
-        return StepResult(success=False, output_file="", elapsed=time.time() - start_time)
+        return StepResult(
+            success=False, output_file="", elapsed=time.time() - start_time, error=f"{type(e).__name__}: {e}"
+        )
 
 
 def main(argv: list[str] | None = None) -> None:

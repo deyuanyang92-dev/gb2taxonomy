@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- **流水线失败时说明原因**：`StepResult` 新增 `error` 字段，extract、classify、organize 失败时填上原因；`g2t` 的失败信息从 `Step 1 failed` 变成 `Step 1 failed: no GenBank files (...) found in the inputs`，organize 写明缺哪几列（例：`Step 4 failed: missing required columns in <文件>: gene_type (<输出>)`）。`run()` 返回的 `log` 最后一行同此。
+- **`g2t.extract`、`g2t.classify` 不再重新导出下划线开头的内部名字**（`_phrase_pattern`、`_yaml_path`、`_packaged_gene_dict`、`_load_gene_dict_yaml`、`_DEFAULT_*_GENES`、`_clean_outputs`、`_write_all`、`_process_record_loop`）；需要时从 `g2t._classify.<模块>`、`g2t._extract.<模块>` 导入。两个模块新增 `__all__`，列出文档里的接口（步骤函数、`main`、`MatchConfig`、词典函数、`TaxonomyService`、找 GenBank 文件的函数）；其余不带下划线的名字仍可导入，旧代码不受影响。测试检查两个模块不再带出内部名字。
+
 - **拆分 `classify.py`**（1639 行 → 406 行）：`g2t/classify.py` 只留步骤函数 `classify()`、命令行和日志设置，其余代码原样移到 `g2t/_classify/`：`genedict`（同义词、用户词典、关键词正则）、`config`（`MatchConfig`）、`text`（短语匹配、DEFINITION 清洗、长度）、`tables`（记录过滤、输出文件名、列顺序）、`match`（第 1 轮）、`conflict`（第 1.5 轮冲突检查）、`recheck`（第 2 轮）、`report`（分基因文件、未匹配报告、record_status.csv）、`flows`（各轮在整张表上运行）。原来 `from g2t.classify import ...` 的名字照常可用，日志名仍是 `g2t.classify`。参数名、凭证清洗都没动。
 - **修复：`python -m g2t.classify` 的 `classify.log` 是空的**（拆分时比对日志发现）。这种运行方式下模块名是 `__main__`，日志不进 `g2t` 的文件 handler。`classify.py`、`extract.py` 的日志名改为固定的 `g2t.classify`、`g2t.extract`；`g2t-classify` 命令本来就正常。
 

@@ -59,7 +59,6 @@ from g2t._extract.parse import (  # noqa: F401 - re-exported
 )
 from g2t._extract.process import (  # noqa: F401 - re-exported
     RecordCallback,
-    _process_record_loop,
     combine_and_save_final_csv,
     count_record_terminators,
     memory_process_single_file,
@@ -89,6 +88,18 @@ from g2t.utils import StepResult
 # ===============================
 # Logging
 # ===============================
+# The documented interface. The other names above stay importable from here for existing code; new code
+# that needs internals imports them from g2t._extract.<module>.
+__all__ = [
+    "GB_EXTENSIONS",
+    "TaxonomyService",
+    "discover_gb_files",
+    "extract",
+    "is_genbank_name",
+    "main",
+    "open_genbank",
+]
+
 logger = logging.getLogger("g2t.extract")  # also under `python -m g2t.extract`
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -108,6 +119,7 @@ def _finish_extract(
     report: bool = True,
     details: bool = False,
     tracking: bool = False,
+    error: str = "",
 ) -> StepResult:
     """Write the reports and build the StepResult.
 
@@ -130,7 +142,11 @@ def _finish_extract(
     except OSError as e:
         logger.error(f"Failed to save extraction report: {e}")
     return StepResult(
-        success=success, output_file=final_path if success else "", rows=rows, elapsed=time.time() - start_time
+        success=success,
+        output_file=final_path if success else "",
+        rows=rows,
+        elapsed=time.time() - start_time,
+        error="" if success else error,
     )
 
 
@@ -175,7 +191,7 @@ def extract(
     os.makedirs(output_dir, exist_ok=True)
     summary = ProcessingSummary()
 
-    def finish(final_path: str = "", rows: int = 0, success: bool = False) -> StepResult:
+    def finish(final_path: str = "", rows: int = 0, success: bool = False, error: str = "") -> StepResult:
         return _finish_extract(
             summary,
             output_dir,
@@ -186,6 +202,7 @@ def extract(
             report=report,
             details=details,
             tracking=tracking,
+            error=error,
         )
 
     try:
@@ -197,8 +214,9 @@ def extract(
         summary.non_gb_files_skipped = skipped
         summary.gb_files_found = len(gb_files)
         if not gb_files:
-            logger.error(f"Extract: no GenBank files ({', '.join(GB_EXTENSIONS)}, also .gz) found in the inputs")
-            return finish()
+            msg = f"no GenBank files ({', '.join(GB_EXTENSIONS)}, also .gz) found in the inputs"
+            logger.error(f"Extract: {msg}")
+            return finish(error=msg)
 
         valid_files = []
         for f in gb_files:
@@ -211,8 +229,9 @@ def extract(
         logger.info(f"Valid files: {len(valid_files)}/{len(gb_files)}")
 
         if not valid_files:
-            logger.error("Extract: none of the input files is a valid GenBank file")
-            return finish()
+            msg = "none of the input files is a valid GenBank file"
+            logger.error(f"Extract: {msg}")
+            return finish(error=msg)
 
         total_bytes = sum(os.path.getsize(f) for f in valid_files if os.path.exists(f))
         if not stream and total_bytes > 500 * 1024 * 1024:
@@ -291,14 +310,16 @@ def extract(
                     f"{' - ' + r.error_message if r.error_message else ''}"
                 )
         success = n_ok > 0 and os.path.exists(product)
+        msg = ""
         if not success:
-            logger.error("Extract: no file produced a usable final table")
+            msg = f"no file produced a usable table (see {os.path.join(output_dir, 'extraction_report.json')})"
+            logger.error(f"Extract: {msg}")
         elif not problems:
             logger.info("All processing complete!")
-        return finish(product, rows, success)
+        return finish(product, rows, success, msg)
     except Exception as e:
         logger.exception(f"Extract failed: {e}")
-        return finish()
+        return finish(error=f"{type(e).__name__}: {e}")
 
 
 # ===============================
