@@ -75,3 +75,45 @@ def test_matrix_gets_screen_flags(tmp_path):
     assert sc.mark_matrix(m, flags) == 1
     out = pd.read_csv(m, keep_default_na=False)
     assert out["screen_flags"].tolist() == ["OQ417162.1 coi: near_other_genus (0.4% from Armandia)", ""]
+
+
+def test_fragment_against_complete_gene_is_not_penalised():
+    rng = random.Random(5)
+    full = "".join(rng.choice("ACGT") for _ in range(1231))
+    frag = full[300:844]  # 544 bp of the same gene, identical
+    a, b = sc.kmers(full, 11), sc.kmers(frag, 11)
+    assert sc.pdist(a, b, 11) == 0.0 and sc.mash(a, b, 11) > 0.04  # Jaccard would call it 4.5% apart
+
+
+def test_species_of():
+    assert sc.species_of("Ophelia neglecta") == "Ophelia neglecta"
+    for name in ("Ophelia sp. CMC01", "Ophelia aff. limacina CMC02", "Marionina argentea complex sp. CED",
+                 "Enchytraeus environmental sample", "Opheliidae"):
+        assert sc.species_of(name) == ""
+
+
+def test_same_species_far_apart_is_flagged():
+    """HM746718 'Ophelia neglecta' 16S is 24% from the 16S of the O. neglecta mitogenome OZ260669."""
+    rng = random.Random(6)
+    ids, seqs, gen = _family(rng)
+    sp = [""] * len(ids)
+    ids += ["OZ260669.1", "HM746718.1"]
+    seqs += [_mutate(seqs[6], 0.03, rng), _mutate(seqs[6], 0.25, rng)]
+    gen += ["Polyophthalmus", "Polyophthalmus"]
+    sp += ["Polyophthalmus neglecta", "Polyophthalmus neglecta"]
+    rows = sc.screen_marker(ids, seqs, gen, fast=True, species=sp)
+    assert {r["accession"] for r in rows if r["flag"] == "same_species_far"} == {"OZ260669.1", "HM746718.1"}
+    note = {r["accession"]: r["note"] for r in rows}
+    assert "also named Polyophthalmus neglecta" in note["HM746718.1"]
+
+
+def test_ncbi_unverified_records_are_flagged():
+    staff = "GenBank staff is unable to verify {} provided by the submitter."
+    a = pd.DataFrame({"ACCESSION": ["PX640477", "MW278311", "OK1"], "gene_type": ["coi", "coi", "coi"],
+                      "Definition": ["UNVERIFIED: Hesiospina aurantiaca voucher MW_513 COI gene",
+                                     "Leocrates chinensis COI", "Hesione sp. COI"],
+                      "Comment": [staff.format("sequence and/or annotation"), staff.format("source organism"), ""]})
+    rows = sc.ncbi_unverified(a, {"PX640477": ("PX640477.1", ""), "MW278311": ("MW278311.1", "")})
+    assert [(r["accession"], r["note"]) for r in rows] == [
+        ("PX640477.1", "NCBI: unable to verify sequence and/or annotation"),
+        ("MW278311.1", "NCBI: unable to verify source organism")]

@@ -92,7 +92,7 @@ def test_version_flag(entry, prog, capsys):
     with pytest.raises(SystemExit) as e:
         getattr(_cli, entry)(["--version"])
     assert e.value.code == 0
-    assert capsys.readouterr().out.strip() == f"{prog} {g2t.RELEASE}" == f"{prog} v0.05"
+    assert capsys.readouterr().out.strip() == f"{prog} {g2t.RELEASE}" == f"{prog} v0.06"
 
 
 def test_gzipped_input_gives_the_same_matrix(result, tmp_path):

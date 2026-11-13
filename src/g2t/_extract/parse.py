@@ -110,7 +110,47 @@ def extract_metadata(record: SeqRecord, include_taxonomy: bool = True) -> dict[s
             metadata[rank] = info.get(rank, "")
 
     metadata.update(parse_references(ann.get("references") or []))
+    metadata.update(parse_header_extras(record))
+    if metadata.get("PCR_primers"):
+        metadata.update(parse_primers(metadata["PCR_primers"]))
     return metadata
+
+
+def parse_primers(raw: str) -> dict[str, str]:
+    """Primer names from /PCR_primers ("fwd_name: LCO1490, fwd_seq: ggtc..., rev_name: HCO2198, ...";
+    several sets separated by ';'): primer_fwd / primer_rev, names joined with '; '."""
+    out = {}
+    for side in ("fwd", "rev"):
+        names = re.findall(rf"{side}_name:\s*([^,;]+)", raw)
+        seen = list(dict.fromkeys(n.strip() for n in names if n.strip()))
+        if seen:
+            out[f"primer_{side}"] = "; ".join(seen)
+    return out
+
+
+def parse_header_extras(record: SeqRecord) -> dict[str, str]:
+    """Header fields beyond the source feature and references: the free-text COMMENT (where submitters
+    name the platform, e.g. "based on 91x PacBio data"), DBLINK (BioProject, BioSample, SRA runs) and
+    structured comments other than Assembly-Data ("##MIGS-Data-START##" ...)."""
+    out: dict[str, str] = {}
+    comment = " ".join(str(record.annotations.get("comment", "") or "").split())
+    if comment:
+        out["Comment"] = comment
+    links: dict[str, list[str]] = {}
+    for x in record.dbxrefs or []:
+        k, _, v = str(x).partition(":")
+        key = {"Sequence Read Archive": "SRA"}.get(k.strip(), k.strip())
+        if key in ("BioProject", "BioSample", "SRA", "Assembly"):
+            links.setdefault(key, []).extend(i.strip() for i in v.split(",") if i.strip())
+    for k, ids in links.items():
+        out[k] = "; ".join(dict.fromkeys(ids))
+    sc: Any = record.annotations.get("structured_comment") or {}
+    other = [f"{block}: " + "; ".join(f"{k}={v}" for k, v in fields.items())
+             for block, fields in (sc.items() if isinstance(sc, dict) else [])
+             if isinstance(fields, dict) and "assembly-data" not in str(block).lower()]
+    if other:
+        out["StructuredComment"] = " | ".join(other)
+    return out
 
 
 # ===============================
@@ -283,6 +323,9 @@ def prescan_fieldnames(gb_files: list[str]) -> list[str]:
                                 else:
                                     all_keys.add(q)
                             break
+                    all_keys.update(parse_header_extras(record))  # Comment, BioProject, SRA, ...
+                    if "PCR_primers" in all_keys:
+                        all_keys.update(("primer_fwd", "primer_rev"))
                     # References keys
                     refs = record.annotations.get("references", [])
                     for i in range(1, len(refs) + 1):

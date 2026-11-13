@@ -20,6 +20,7 @@ GenBank 里有些序列的物种名是错的：样品污染（混入别的动物
 | 提示 | 条件 | 适用标记 |
 |---|---|---|
 | `near_other_genus` | 最近的序列属于另一个属，且距离 ≤ 2%；同属最近的序列至少再远 2 个百分点，或同属没有别的序列 | 进化快的标记：COI、16S、12S、CYTB、ND 系列、ITS 等。18S、28S、H3 在不同属之间可能完全相同，不按属判断 |
+| `same_species_far` | 同名（已定名种）的两条记录相差 > 15%；注释同时给出各自到本属的距离，离本属远的那条更可疑 | 快速进化的标记，含线粒体基因组中的基因 |
 | `remote` | 本数据集中同一标记里，没有任何序列的 8-mer 距离在 0.35 以内（约相差 30% 以上） | 所有标记，序列数 ≥ 10 时才判断 |
 
 提示只是“值得核查”，不等于结论。可能的原因还包括：属本身不是单系、名称过时、近缘属之间共享单倍型。
@@ -76,6 +77,54 @@ GenBank 里有些序列的物种名是错的：样品污染（混入别的动物
 - 两者都在科内属间的正常范围，因此不提示。
 
 那两个约 50% 的距离，很可能是 MAFFT 处理反向或含内含子的序列时比对错位造成的。这也是不再用多序列比对来筛查的原因。
+
+## 新增：同名记录差异过大（`same_species_far`，2026-11-13）
+
+起因是 *Ophelia* 的 16S。研究中已经人工剔除了 HM746718（"*O. neglecta*"）和 PX620130（"*O. translucens*"），但原来的两类提示都没有发现它们。
+
+**规则：** 两条记录的种名相同（已定名的种，不含 sp.、cf.、aff.、complex），在快速进化的标记上相差 > 15%，就提示这两条。
+
+**配套改动：**
+
+1. **距离改为按较短序列计算共享 k-mer：** 1 − C^(1/k)，C = 共享 k-mer 数 / 较短序列的 k-mer 数。原来的 Jaccard / Mash 距离会把片段与完整基因的差异算大：544 bp 的片段与包含它的 1,231 bp 16S 完全相同，Jaccard 也会算出 4.5% 的差异。
+2. **线粒体基因组也参与比较：**
+   - 蛋白基因从注释中提取；
+   - 12S/16S 没有注释时，用 `g2t-verify` 的 HMM 定位。例如 OZ260669 完全没有注释，原来无法比较。
+
+**Opheliidae（697 条标记记录 + 13 条线粒体基因组）**
+
+| 登录号 | 名称 | 提示 |
+|---|---|---|
+| **HM746718.1** | *Ophelia neglecta* 16S | 与 *O. neglecta* 线粒体基因组 OZ260669 的 16S 相差 **24.3%**；与其他 *Ophelia* 都相差 ≥ 23%；最近的是 *Ophelina*（16.2%）。OZ260669 与 *Ophelia*/*Euzonus* 相差 7.8–8.5%，正常。**问题在 HM746718。** |
+| **DQ779637.1** | *Travisia forbesii* 16S | 与 *T. forbesii* 线粒体基因组 OZ479805 相差 23.6%；最近的是 *Ophelina*（18.3%）。OZ479805 与 *Travisia* 相差 7.5%，正常。情况同上 |
+| ON716040.1 | *Polyophthalmus pictus* COI | 与另一条 *P. pictus* 相差 18.8%（可能是隐存种，推测） |
+| MN539268.1 | *Thoracophelia dillonensis* COI | 与 KC164682 相差 18.4%；与另一条 *Thoracophelia* 只差 0.2% |
+| OQ417162.1 | *Polyophthalmus pictus* COI | 与 *Armandia* 相差 0.2%（`near_other_genus`） |
+
+HM746718 和 DQ779637 都是较早的 16S 片段，都最接近 *Ophelina*，而不是自己所在的属（推测：可能是同一批样品或同一实验室的污染，未核对）。
+
+PX620130 *O. translucens* 没有同名的其他记录，这条规则判断不了。它与所有 *Ophelia* 相差 21–23%，与 *Ophelina acuminata* 相差 14.6%，值得核查；要判断需要建树。
+
+**其他科的提示量：** Hesionidae 17 条，Enchytraeidae 34 条。多数集中在 *Fridericia*、*Marionina argentea*、*Buchholzia fallax*、*Enchytraeus buchholzi* 等，推测多为隐存种复合体，即同一个名称下有多个种。这类提示本身也有用：说明这个名称的序列不能直接当作一个种使用。
+
+## NCBI 自己存疑的记录（`ncbi_unverified`，v0.06）
+
+GenBank 对无法核实的记录有两种标注：
+
+- 标题以 "UNVERIFIED:" 开头；
+- COMMENT 写 "GenBank staff is unable to verify source organism provided by the submitter"（来源物种无法核实），或 "… unable to verify sequence and/or annotation …"（序列或注释无法核实，例如 COI 翻译不出正常蛋白）。
+
+`g2t-screen` 把这些记录单独列为 `ncbi_unverified`。
+
+**结果：**
+
+- Hesionidae 有 28 条。
+- 按距离提示的 22 条中，有 6 条同时被 NCBI 标为存疑：
+  - PX640331、PX640352、PX640417、PX640477（"UNVERIFIED:" COI，都与同名记录相差 > 18%）；
+  - MW278311（来源物种无法核实；与同名的 *Leocrates chinensis* 相差 20.6%，最近的是 *Sirsoe*）；
+  - PP652214。
+
+两种完全独立的依据（距离、NCBI 人工审核）指向同一批记录，说明距离提示是有效的。
 
 ## 测试过但没有采用：“比本属更接近另一个属”
 
