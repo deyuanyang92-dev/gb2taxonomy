@@ -240,7 +240,46 @@ specimens per gene); rows without a family go to `unassigned_Family.csv`.
 
 ### Step 5: contamination / misidentification screen (default)
 
-Since v0.05, `g2t` computes k-mer distances per marker after building the matrix and flags sequences almost identical (≤ 2%) to another genus while farther from their own (`near_other_genus`), and sequences far from all others of the marker (`remote`). Output: `organized_genes/screen.csv` and the matrix column `screen_flags`; `--no-screen` skips it; standalone: `g2t-screen -i gb/markers --g2t OUT`. A flag is a prompt to check, not a verdict. Evaluation: `docs/evaluation/screen.md`.
+After building the matrix, `g2t` runs a fast distance check (k-mers, no external programs) on every marker, genes of mitogenomes included. It flags these sequences:
+
+| Flag | Meaning | Example |
+|---|---|---|
+| `near_other_genus` | almost identical (≤ 2%) to another genus, farther from its own; fast-evolving markers only | OQ417162 "*Polyophthalmus pictus*" 0.2% from *Armandia* |
+| `same_species_far` | two records of one named species > 15% apart; the note gives each record's distance to its own genus (the one far from its genus is the suspect); may also be cryptic species | HM746718 "*Ophelia neglecta*" 16S 24.3% from the *O. neglecta* mitogenome OZ260669 |
+| `ncbi_unverified` | NCBI's own doubt: title "UNVERIFIED:" or COMMENT "unable to verify source organism / sequence" | 28 Hesionidae records |
+| `remote` | far from every other sequence of the marker | |
+
+Output: `organized_genes/screen.csv` and the matrix column `screen_flags`. `--no-screen` skips this step. To run it on its own:
+
+```bash
+g2t-screen -i gb/markers --g2t OUT
+```
+
+**Gene trees (`--tree`, optional, more accurate).** The distance check only compares sequences inside the downloaded set. It cannot place a contaminant from a group that is not in the data, for example an "*Ophelia*" sequence that belongs to Scalibregmatidae. It also cannot judge distances above ~20%. `--tree` does the following:
+
+1. Chooses related families from NCBI Taxonomy as background and downloads them (Opheliidae → six Scolecida families).
+2. Puts the sequences of each marker on one strand, aligns them (FAMSA), trims gappy columns and builds a tree (FastTree), as OrthoFinder does.
+3. Flags sequences that sit in another family or genus with support ≥ 0.9.
+4. Checks every flag against distances, to drop placement artefacts, and against the specimen's other markers.
+
+```bash
+conda install -c bioconda famsa fasttree      # FAMSA or MAFFT, and FastTree or IQ-TREE
+g2t-screen -i gb/markers --g2t OUT --tree
+g2t-screen -i gb/markers --g2t OUT --tree --background "Capitellidae,Scalibregmatidae"
+g2t-screen -i gb/markers --g2t OUT --tree --iqtree       # IQ-TREE with bootstrap, slower
+```
+
+Output is written to `OUT/organized_genes/phylo/`:
+
+| File | Content |
+|---|---|
+| `phylo_flags.csv` | Records that sit in another family or genus. The `evidence` column gives the cross-marker check: the specimen's other markers sit correctly means this sequence is wrong (contamination or mix-up); they are misplaced too means the specimen may be misidentified. |
+| `phylo_taxon_notes.csv` | Questions for the taxonomy: a whole genus placed elsewhere, intermixed genera (synonyms), or the only sequence of a genus. |
+| `<gene>.tre` | One tree per marker. |
+
+Background records go to `OUT/background/`, and reruns fetch only new records. Opheliidae took about 3 minutes, download included. It flagged exactly PX620130 (in *Hyboscolex*), HM746718 (in *Notomastus*) and OQ417162 (in *Armandia*), the three records found by hand.
+
+A flag is a prompt to check, not a verdict. Evaluation: `docs/evaluation/screen.md`, `docs/evaluation/phylo-screen.md`.
 
 ### Vouchers in the matrix
 

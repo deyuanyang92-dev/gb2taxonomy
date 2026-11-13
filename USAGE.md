@@ -232,12 +232,48 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ### Step 5: 污染和鉴定错误提示（默认）
 
-v0.05 起，`g2t` 生成矩阵后，对每个标记分别计算 k-mer 距离，提示两类序列：
+`g2t` 生成矩阵后，对每个标记（COI、16S、18S……，也包括线粒体基因组中的基因）做快速的距离检查（k-mer，不需要外部软件），提示以下几类序列：
 
-- 与另一个属几乎相同（≤ 2%）、而离本属较远的序列（`near_other_genus`）；
-- 与同一标记所有序列都相距很远的序列（`remote`）。
+| 提示 | 含义 | 例子 |
+|---|---|---|
+| `near_other_genus` | 与另一个属几乎相同（≤ 2%），而离本属较远。只用于 COI、16S 等快速进化的标记 | OQ417162 "*Polyophthalmus pictus*" 与 *Armandia* 相差 0.2% |
+| `same_species_far` | 同名的两条记录相差超过 15%。提示中写明各自离本属多远，离本属远的那条更可疑；也可能是隐存种 | HM746718 "*Ophelia neglecta*" 16S 与同种线粒体基因组 OZ260669 相差 24.3% |
+| `ncbi_unverified` | NCBI 自己标注无法核实：标题以 "UNVERIFIED:" 开头，或 COMMENT 写 "unable to verify source organism / sequence" | 海女虫科 28 条 |
+| `remote` | 与同一标记的所有序列都相距很远（不相关的基因，或混入了远缘类群） | |
 
-结果写入 `organized_genes/screen.csv`，矩阵新增 `screen_flags` 列；`--no-screen` 关闭。也可以单独运行：`g2t-screen -i gb/markers --g2t OUT`。提示只表示值得核查，请对照原文、标本和系统树判断。评估见 `docs/evaluation/screen.md`。
+结果写入 `organized_genes/screen.csv`，矩阵新增 `screen_flags` 列；`--no-screen` 关闭这一步。也可以单独运行：
+
+```bash
+g2t-screen -i gb/markers --g2t OUT
+```
+
+**建树检查（`--tree`，可选，更准）。** 距离检查只能在下载的这批序列内部比较：混入的序列若来自数据中没有的类群（例如一条名为 *Ophelia* 的序列实际来自鳞腹沙蚕科），或者序列间相差已超过 20%，就判断不了。`--tree` 做法如下：
+
+1. 自动从 NCBI 分类中选出近缘的几个科作为背景并下载，例如海蛹科 → Scolecida 下的 6 个科；
+2. 每个标记先统一序列方向，再比对（FAMSA）、修剪、建树（FastTree），做法同 OrthoFinder；
+3. 看每条序列在树上与谁聚在一起：落在别的科或别的属里、且支持率 ≥ 0.9 的序列给出提示；
+4. 再用距离复核排除假象，并检查同一标本的其他基因是否位置正常。
+
+```bash
+conda install -c bioconda famsa fasttree      # 需要 FAMSA 或 MAFFT，加上 FastTree 或 IQ-TREE
+g2t-screen -i gb/markers --g2t OUT --tree
+g2t-screen -i gb/markers --g2t OUT --tree --background "Capitellidae,Scalibregmatidae"   # 自己指定背景科
+g2t-screen -i gb/markers --g2t OUT --tree --iqtree                                       # IQ-TREE + bootstrap，更慢
+```
+
+输出在 `OUT/organized_genes/phylo/`：
+
+| 文件 | 内容 |
+|---|---|
+| `phylo_flags.csv` | 记录错误：单条序列落在别的科或属中。`evidence` 列给出跨基因印证——同一标本其他基因都正常，说明这条序列本身有问题（污染或混样）；其他基因也错位，说明可能是标本鉴定错误 |
+| `phylo_taxon_notes.csv` | 分类问题：整个属的位置有问题、两个属互相嵌套（异名）、本属只有这一条序列 |
+| `<基因>.tre` | 每个标记的树 |
+
+背景序列下载到 `OUT/background/`，再次运行时只下载新增的记录。
+
+海蛹科实测（约 3 分钟，含下载）：只提示 PX620130（落在 *Hyboscolex* 里）、HM746718（落在 *Notomastus* 里）、OQ417162（落在 *Armandia* 里），三条都与人工核查一致。
+
+提示只表示值得核查，请对照原文、标本和系统树判断。评估见 `docs/evaluation/screen.md` 和 `docs/evaluation/phylo-screen.md`。
 
 ### 矩阵中的凭证号
 

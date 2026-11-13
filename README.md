@@ -154,7 +154,7 @@ Input: GenBank flat files (`.gb`, `.gbf`, `.gbk`, `.gbff`, `.genbank`) or direct
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
 | 3b | `g2t-reconcile -i s3/updated_species_voucher.csv -o s3` | → `reconciled_species_voucher.csv`, `reconcile_report.csv` |
 | 4 | `g2t-organize -i s3/reconciled_species_voucher.csv -o matrix.csv` | → specimen × gene matrix |
-| 5 | `g2t-screen -i gb/markers --g2t OUT` | → `organized_genes/screen.csv`; matrix column `screen_flags` |
+| 5 | `g2t-screen -i gb/markers --g2t OUT [--tree]` | → `organized_genes/screen.csv`; matrix column `screen_flags`; with `--tree`, gene trees with related families → `organized_genes/phylo/phylo_flags.csv`, `phylo_taxon_notes.csv` |
 | 6 | `g2t-curate -m matrix_A.xlsx -u your_table_B.xlsx -o curated_C.xlsx` | → corrected matrix C (sheets Matrix / Changes / Problems / Column mapping / Matrix (GenBank)) (optional) |
 
 Output of the full pipeline:
