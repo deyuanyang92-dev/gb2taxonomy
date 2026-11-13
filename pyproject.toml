@@ -36,6 +36,7 @@ dependencies = [
 yaml = ["pyyaml>=6.0"]  # now a core dependency; extra kept so old install commands work
 xlsx = ["openpyxl>=3.0"]
 report = ["matplotlib>=3.5", "plotly>=5"]  # g2t-mitostats figures and HTML report
+verify = ["pyhmmer>=0.10"]  # g2t-verify (nucleotide profile HMM search)
 dev = ["pytest", "pytest-cov", "ruff", "mypy", "types-PyYAML", "openpyxl>=3.0", "pre-commit"]
 
 [project.urls]
@@ -55,12 +56,13 @@ g2t-organize = "g2t._cli:main_organize"
 g2t-curate = "g2t._cli:main_curate"
 g2t-mitostats = "g2t._cli:main_mitostats"
 g2t-cite = "g2t._cli:main_cite"
+g2t-verify = "g2t._cli:main_verify"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-g2t = ["data/*.yaml", "data/*.html"]
+g2t = ["data/*.yaml", "data/*.html", "data/*.hmm.gz"]
 
 [tool.ruff]
 line-length = 120

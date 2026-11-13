@@ -1,4 +1,4 @@
-# 评估：18S–ITS–28S 记录能否按真实区段归属（2026-11-13）
+# 评估：rRNA 记录能否按序列本身核验归属（2026-11-13）
 
 [← README](../../README.md)
 
@@ -67,9 +67,59 @@
 - **H3 拼写漏检**：28 条未匹配记录中 23 条标题写作 "histone3 (H3)"（无空格），feature 注释为 H3，g2t 词典没有这种写法。已补进 `gene_dict.yaml`，并加了测试（`tests/test_gene_dictionary.py::test_histone3_spelling_is_h3`；补之前失败，补之后通过）。
 - 在 Haplotaxidae 示例（347 条，来自一篇论文）上，g2t 归类与 feature 注释 100% 一致。
 
-## 建议的实现（`g2t-verify`，待做）
+## 6. 近全长 18S / 28S：哪种扫描方式可行
 
-1. 第 0 层，默认开启：读出 rRNA、misc_RNA、CDS、gene feature，与标题判断的类型比对，不一致的进 `record_status.csv` 并写明原因。
-2. 第 1 层，可选，需要 Infernal：只扫描 rDNA、冲突和未匹配记录，输出每条记录的区段坐标和覆盖度。
-3. 矩阵：rDNA 列只放该区段覆盖度达标的记录（阈值可调，默认例如 ≥ 50% 典型长度，或 ≥ 300 bp）；导出按坐标切好的各区段 FASTA。
-4. 线粒体蛋白基因（COI 等）的序列核验需要另建 profile，并检查终止密码子以发现 NUMT（核内线粒体假基因），作为后续工作。
+Enchytraeidae 中 60 条最长的 18S（1.75–1.83 kb）和 60 条最长的 28S（最长 3.4 kb），以 GenBank rRNA feature 坐标为对照：
+
+| 方式 | 120 条用时（8 线程） | 18S | 28S |
+|---|---|---|---|
+| `cmscan`（完整协方差模型） | 38 分钟仍未跑完，中止 | — | — |
+| `cmscan --rfam` | 40 分钟仍未跑完，中止 | — | — |
+| `cmscan --hmmonly`（只用模型内的 profile HMM） | 61 秒 | 60/60，边界差均为 0 bp | 60/60，59 条 ≤ 5 bp |
+
+完整协方差模型对近全长序列太慢；profile HMM 又快又准。代价是 < 50 bp 的引物端片段大多找不到（ITS 对照集：18S 片段 3/48，28S 片段 11/51），这些片段本来就不该算作 18S / 28S。
+
+## 7. 12S、16S 与 18S、28S 的区分（Hesionidae）
+
+模型：12S、16S 用 barrnap 0.9 的 mito.hmm；18S、5.8S、28S 用 Rfam 15.1 协方差模型内嵌的 profile HMM（RF01960、RF00002、RF02543）。用 pyhmmer（HMMER 的 Python 封装）运行，不需要另装程序。
+
+**分类准确度（Enchytraeidae，标题与 feature 一致的记录各 150 条，用 barrnap 模型）**：
+
+| 标题+注释 \ HMM 最佳命中 | 12S | 16S | 18S | 28S | 无命中 |
+|---|---|---|---|---|---|
+| 12S | 150 | 0 | 0 | 0 | 0 |
+| 16S | 0 | 150 | 0 | 0 | 0 |
+| 18S | 0 | 0 | 150 | 0 | 0 |
+| 28S | 0 | 0 | 0 | 141 | 9 |
+
+9 条无命中的都是 175–378 bp 的 28S 短片段。关掉加速过滤重扫（相当于 nhmmer `--max`）后，可以找回其中的 175 bp 片段。
+
+**Hesionidae（2,250 条，g2t 冲突检查报告 0 个冲突）**：`g2t-verify` 扫描 904 条 rRNA、未匹配记录，用时 3 分 53 秒。
+
+| 结果 | 条数 | 说明 |
+|---|---|---|
+| agree | 780 | |
+| different | 5 | MG523356–60：标题和 feature 都写 "small subunit ribosomal RNA … mitochondrial"，g2t 归为 12S；序列 481–488 bp 全段匹配 16S。本地 BLAST：MG523359 与 16S 记录 OM403178 在 448 bp 上 100% 相同，MG523358 与 PQ771112 99%，MG523357 与 DQ442582 98%。同一凭证号另有 18S、28S 记录而没有 16S。**确认是 16S 被写成了 small subunit。** |
+| partly | 14 | OQ703012、OQ703007：标题写 "small subunit rRNA and ITS"，序列几乎全是 18S（如 1,588 bp 中 18S 占 2–1576）；KP7455xx 等：只有 44–48 bp 的 18S 末端，其余是 ITS1 和 5.8S |
+| unverifiable | 104 | 多数是 "ITS2 and large subunit rRNA, partial"（237 bp），没有 5.8S，无从定位 |
+| no_hit | 1 | |
+
+这 5 条错误只能靠序列发现：标题和 feature 写法一致，原来的冲突检查看不出来。
+
+## 实现：`g2t-verify`（已实现第一部分）
+
+```bash
+pip install pyhmmer        # 或 pip install -e ".[verify]"
+g2t-verify -i gb/markers --g2t out -o verify
+```
+
+- 只扫描 rRNA、未匹配和有冲突的记录（`--all` 扫全部），没有命中的再以高灵敏度模式扫一遍。
+- 输出 `verify.csv`（每条记录：g2t 类型、序列支持的类型、结论、各区段坐标和模型覆盖度）和 `regions/*.fa`（按坐标切好的 18S、ITS1、5.8S、ITS2、28S、12S、16S）。
+- 不同模型的重叠命中互相竞争（线粒体 16S 也能对上核 28S 模型），取得分高者。
+- `--models` 可换成自己的 HMM（例如按环节动物数据自建）；是否比 Rfam/barrnap 更准，需用留出数据验证，尚未做。
+
+待做：
+
+1. 把核验结果用于矩阵：rRNA 列只放序列支持的记录，并可直接使用切好的区段。
+2. 线粒体蛋白基因（COI 等）的核验需要另建 profile，并检查终止密码子以发现 NUMT（核内线粒体假基因）。
+3. 污染或鉴定错误的筛查：见对 OrthoFinder 3 等方法的调研，单独实现。

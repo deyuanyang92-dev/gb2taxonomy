@@ -320,6 +320,19 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 - Reruns download only new records and query only new paper groups.
 - Worked example with real output (Annelida, 745 records; tutorials are in Chinese): [docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md); all Metazoa and incremental updates: [docs/tutorials/metazoa.md](docs/tutorials/metazoa.md).
 
+## Checking gene types against the sequence (g2t-verify)
+
+g2t assigns gene types from record titles, so a wrong title gives a wrong column. For example, five Hesionidae 16S records titled "small subunit ribosomal RNA; mitochondrial" end up in 12S. `g2t-verify` scans the sequences themselves with 12S, 16S, 18S, 5.8S and 28S profile HMMs, locates each region and derives ITS1/ITS2 from the 5.8S:
+
+```bash
+pip install pyhmmer
+g2t-verify -i gb/markers --g2t out -o verify
+```
+
+- **Verdicts**: agree; partly (e.g. the title names 28S, but the sequence holds only ITS); different (another rRNA); no_hit (rRNA by title, but no model matches); unverifiable (spacer only, nothing to place it by); new (unmatched by g2t, but an rRNA).
+- **Output**: `verify.csv` and `regions/*.fa` (sequences cut by region).
+- **Data and evaluation**: [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md) (in Chinese).
+
 ## Output files
 
 ```

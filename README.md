@@ -36,6 +36,7 @@
 | `g2t-curate` (step 5) | matrix + your table → corrected matrix with a change log | fix coordinates, names, references |
 | `g2t-mitostats` | mitogenome records → tables, thesis-style figures, interactive HTML report | how were the mitogenomes of a clade sequenced and assembled, and where were they published? |
 | `g2t-cite` | records marked "Unpublished" → their papers on Crossref | complete the journal information |
+| `g2t-verify` | records + g2t types → which rRNA the sequence really is (12S, 16S, 18S, 5.8S, 28S, ITS1/ITS2), with coordinates and cut regions | catch mislabelled records, e.g. 16S titled "small subunit" (Hesionidae) or "18S…ITS…28S" records holding only ITS |
 
 ## Installation
 
@@ -124,6 +125,15 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 - `g2t-mitostats` writes `mitostats.csv` (one row per record, raw text next to the normalised value), `counts_by_year.csv`, `counts_by_assembler.csv`, `counts_by_journal.csv`, `fig_seqtech_by_year.{png,pdf}` (cumulative records by sequencing technology, with a pie of the totals), `fig_alluvial.{png,pdf}` (year → sequencing technology → assembler) and `mitostats_report.html`: one offline file with filters for years, technology, taxon (class, order, family, genus), assembler and publication status, charts that follow the filters, a sortable table linked to NCBI and a CSV download of the filtered rows.
 - **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment are "Unknown", never assumed to be Sanger.** Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
 - `g2t-cite` groups records whose references are all "Unpublished" by (title, authors), searches Crossref by title and first author, and grades the best paper: **high** (title similarity ≥ 0.90 and ≥ half of the authors shared), **medium** (≥ 0.75 and ≥ half), **check** (title changed but ≥ 3/4 of the authors shared, or a near-identical template title with few shared authors), **low**. A paper whose title does not name the record's taxon (when the GenBank title does) scores 0, since mitogenome notes share template titles. Sheet *Curate* (high + medium, one row per accession) is table B for `g2t-curate` and the input of `g2t-mitostats --citations`; sheet *Candidates* shows every group with its scores, "check" rows in yellow. Crossref answers are cached (`crossref_cache.json`), so reruns query only new groups. No e-mail is sent unless you pass `--mailto` (or set `CROSSREF_MAILTO`), which puts you in Crossref's faster "polite pool".
+
+### Checking gene types against the sequence (`g2t-verify`)
+
+```bash
+pip install pyhmmer                                   # or pip install -e ".[verify]"
+g2t-verify -i gb/markers --g2t out -o verify          # rRNA, unmatched and conflicted records
+```
+
+g2t assigns gene types from record titles. `g2t-verify` scans the sequences with profile HMMs (HMMER via pyhmmer) of mitochondrial 12S and 16S and nuclear 18S, 5.8S and 28S rRNA, locates each region, derives ITS1/ITS2 from the 5.8S, and reports per record `agree`, `partly`, `different`, `no_hit`, `unverifiable` (spacer only, nothing to place it by) or `new` (unmatched by g2t, but an rRNA). Output: `verify.csv` and `regions/*.fa` (sequences cut by region). Models: Rfam 15.1 profile HMMs for 18S/5.8S/28S (CC0, bundled) and barrnap 0.9 `mito.hmm` for 12S/16S (GPL-3.0, downloaded on first use and checked by SHA-256); `--models` takes your own. Evaluation, with the numbers: [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md). Hesionidae: of 904 rRNA records, 5 titled "small subunit ribosomal RNA; mitochondrial" are 16S (confirmed by 98–100% identity to 16S records), invisible to the title-based conflict check.
 
 ### Steps 1–4 — the pipeline (`g2t`)
 
@@ -274,7 +284,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment stay "Unknown", and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
 10. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-11. **Code status.** v0.04 is an early release. 721 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+11. **Code status.** v0.04 is an early release. 744 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 

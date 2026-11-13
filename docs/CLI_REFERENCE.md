@@ -547,3 +547,32 @@ examples:
   g2t-curate -m matrix.xlsx -u cite.xlsx -o curated.xlsx   # apply sheet 'Curate'
   g2t-mitostats -i gb/mitogenome-header -o mito --citations cite.xlsx
 ```
+
+## g2t-verify
+
+```text
+usage: g2t-verify [-h] -i INPUT [INPUT ...] --g2t DIR -o DIR
+                  [--models HMM [HMM ...]] [--all] [--min-bp MIN_BP]
+                  [--min-cover MIN_COVER] [--cpu CPU]
+
+g2t-verify: check gene assignments against the sequence itself (rRNA profile HMMs).
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input INPUT [INPUT ...]
+                        GenBank files or folders (with sequences)
+  --g2t DIR             output folder of the g2t run on these records
+  -o, --output DIR
+  --models HMM [HMM ...]
+                        your own nucleotide HMM file(s) instead of barrnap 0.9
+  --all                 scan every record (default: rRNA, unmatched,
+                        conflicted)
+  --min-bp MIN_BP       region length that counts as a gene (default 150)
+  --min-cover MIN_COVER
+                        or this share of the model (default 0.5)
+  --cpu CPU             threads (default: all)
+
+examples:
+  g2t-verify -i gb/markers --g2t out -o verify
+  g2t-verify -i gb/markers --g2t out -o verify --models my_rrna.hmm
+```

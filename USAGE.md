@@ -302,6 +302,19 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 - 重跑只下载新记录、只查询新的论文组。
 - 完整实例（环节动物 745 条，含每一步的真实输出）：[docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md)；全后生动物及增量更新：[docs/tutorials/metazoa.md](docs/tutorials/metazoa.md)。
 
+## 用序列核验基因归属（g2t-verify）
+
+g2t 按记录标题判断基因类型，标题写错就会归错。例如 Hesionidae 有 5 条 16S 标题写作 "small subunit ribosomal RNA; mitochondrial"，被归到 12S。`g2t-verify` 用 12S、16S、18S、5.8S、28S 的 profile HMM 扫描序列本身，定位各区段，并由 5.8S 推出 ITS1、ITS2：
+
+```bash
+pip install pyhmmer
+g2t-verify -i gb/markers --g2t out -o verify
+```
+
+- **结论**：agree 一致；partly 部分一致（例如标题含 28S，但序列只有 ITS）；different 是别的 rRNA；no_hit 标题说是 rRNA，但没有模型命中；unverifiable 只有间隔区，无法定位；new 是 g2t 未归类的 rRNA。
+- **输出**：`verify.csv`；`regions/*.fa`，即按坐标切好的各区段序列。
+- **数据和评估**：见 [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md)。
+
 ## 输出文件说明
 
 ```

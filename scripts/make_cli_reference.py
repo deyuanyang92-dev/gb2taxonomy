@@ -19,6 +19,7 @@ COMMANDS = [
     ("g2t-curate", "main_curate"),
     ("g2t-mitostats", "main_mitostats"),
     ("g2t-cite", "main_cite"),
+    ("g2t-verify", "main_verify"),
 ]
 
 out = [

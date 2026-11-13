@@ -259,6 +259,15 @@ def main_cite(argv=None):
     return main(argv)
 
 
+def main_verify(argv=None):
+    """g2t-verify — Check gene assignments against the sequence (rRNA profile HMMs)."""
+    _version_flag(argv, "g2t-verify")
+    check_dependencies()
+    from g2t.verify import main
+
+    return main(argv)
+
+
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
     _version_flag(argv, "g2t-organize")
