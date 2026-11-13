@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__G2T_TITLE__ · g2t mitostats</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f1; --surface: #fcfcfb; --border: #e5e4df; --grid: #ecebe6;
+  --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #8a8983; --accent: #2a78d6;
+  --chip: #efeee9; --chip-on: #0b0b0b; --chip-on-ink: #fcfcfb;
+  --s-sanger: #2a78d6; --s-ngs: #eb6834; --s-long: #1baf7a; --s-unknown: #a3a29b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
+    --chip: #262624; --chip-on: #f0efec; --chip-on-ink: #111110;
+    --s-sanger: #3987e5; --s-ngs: #d95926; --s-long: #199e70; --s-unknown: #6f6e68;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
+  --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #8f8e86; --accent: #3987e5;
+  --chip: #262624; --chip-on: #f0efec; --chip-on-ink: #111110;
+  --s-sanger: #3987e5; --s-ngs: #d95926; --s-long: #199e70; --s-unknown: #6f6e68;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); font-size: 13px; }
+.muted { color: var(--ink-3); font-size: 12px; }
+.spacer { flex: 1; }
+button, select, input { font: inherit; color: var(--ink); }
+.btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--ink-3); }
+.filters { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 16px; }
+.f { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.f > label { color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.f select, .f input[type=number] { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+.f input[type=number] { width: 76px; }
+.chip { border: 0; background: var(--chip); border-radius: 999px; padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+.chip[aria-pressed="false"] { opacity: 0.45; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi .k { color: var(--ink-2); font-size: 12px; }
+.grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 6px; min-width: 0; }
+.card h2 { font-size: 14px; margin: 0 0 2px; }
+.card .note { color: var(--ink-3); font-size: 12px; margin: 0 0 6px; }
+.card .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card .head .spacer { flex: 1; }
+.full { grid-column: 1 / -1; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 3px 10px; cursor: pointer; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+.plot { width: 100%; height: 340px; }
+.plot.tall { height: 620px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); cursor: pointer; user-select: none; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.tablebox { max-height: 520px; overflow: auto; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.pill { display: inline-flex; align-items: center; gap: 5px; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+footer { color: var(--ink-3); font-size: 12px; margin-top: 20px; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .plot.tall { height: 760px; } }
+</style>
+__G2T_PLOTLY__
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title"></h1>
+    <span class="sub" id="subtitle"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="theme" title="Toggle light/dark">◐</button>
+    <button class="btn" id="dl">Download filtered CSV</button>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <div class="f"><label for="y0">Years</label>
+      <input type="number" id="y0"> – <input type="number" id="y1">
+    </div>
+    <div class="f" id="cats"><label>Sequencing</label></div>
+    <div class="f"><label for="rank">Taxon</label>
+      <select id="rank"><option value="phylum">Phylum</option><option value="class" selected>Class</option><option value="order">Order</option><option value="family">Family</option></select>
+      <select id="taxon"><option value="">All</option></select>
+    </div>
+    <div class="f"><label for="asm">Assembly</label>
+      <select id="asm"><option value="">All programs</option></select>
+    </div>
+    <div class="f"><label for="pub">Status</label>
+      <select id="pub"><option value="">All</option><option value="published">Published</option><option value="unpublished">Unpublished</option></select>
+    </div>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="head"><h2>Mitochondrial genomes by sequencing technology</h2><span class="spacer"></span>
+        <div class="seg" id="mode"><button aria-pressed="true" data-v="cum">Cumulative</button><button aria-pressed="false" data-v="year">Per year</button></div></div>
+      <p class="note">Year of publication, else of submission. "Unknown" = no Assembly-Data comment in GenBank.</p>
+      <div class="plot" id="p-area"></div>
+    </section>
+    <section class="card">
+      <h2>Share by sequencing technology</h2>
+      <p class="note">Records in the current filter.</p>
+      <div class="plot" id="p-pie"></div>
+    </section>
+    <section class="card full">
+      <h2>Year → sequencing → assembly</h2>
+      <p class="note">Bands coloured by sequencing technology. Programs outside the top 15 are grouped as "Other"; several programs on one record = "Multi-assembly".</p>
+      <div class="plot tall" id="p-sankey"></div>
+    </section>
+    <section class="card">
+      <h2>Assembly programs</h2>
+      <p class="note">Records per program (a record with several programs counts for each).</p>
+      <div class="plot" id="p-asm"></div>
+    </section>
+    <section class="card">
+      <h2>Journals</h2>
+      <p class="note">Published records, top 15. Names as written in GenBank.</p>
+      <div class="plot" id="p-jour"></div>
+    </section>
+    <section class="card full">
+      <div class="head"><h2>Records</h2><span class="sub" id="rowcount"></span></div>
+      <div class="tablebox"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    </section>
+  </div>
+  <footer>Generated by <a href="https://github.com/deyuanyang92-dev/gb2taxonomy">g2t</a> <span id="gen"></span> from NCBI GenBank records. Classification rules: g2t/data/mito_methods.yaml.</footer>
+</div>
+
+<script id="g2t-data" type="application/json">__G2T_DATA__</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById('g2t-data').textContent);
+  const R = D.records;
+  const CATS = D.categories;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const catVar = { 'Sanger': '--s-sanger', 'NGS': '--s-ngs', 'Long-read': '--s-long', 'Unknown': '--s-unknown' };
+  const color = c => css(catVar[c]);
+  const fmt = n => n.toLocaleString('en-US');
+
+  document.getElementById('title').textContent = D.title;
+  document.getElementById('gen').textContent = D.generated;
+  const years = R.map(r => r.year).filter(y => y != null);
+  // min/max by reduce: spreading 150k values into Math.min overflows the call stack (all Metazoa)
+  const yMin = years.reduce((a, b) => (b < a ? b : a), Infinity), yMax = years.reduce((a, b) => (b > a ? b : a), -Infinity);
+  document.getElementById('subtitle').textContent = `${fmt(R.length)} GenBank records · ${yMin}–${yMax}`;
+
+  // ---------------- state & controls
+  const S = { y0: yMin, y1: yMax, cats: new Set(CATS), rank: 'class', taxon: '', asm: '', pub: '', mode: 'cum', sort: ['year', -1] };
+  const $ = id => document.getElementById(id);
+  $('y0').value = yMin; $('y1').value = yMax;
+  [$('y0'), $('y1')].forEach(el => { el.min = yMin; el.max = yMax; el.addEventListener('change', () => { S.y0 = +$('y0').value || yMin; S.y1 = +$('y1').value || yMax; draw(); }); });
+  const catBox = $('cats');
+  CATS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-pressed', 'true'); b.dataset.c = c;
+    b.innerHTML = `<span class="dot" style="background:var(${catVar[c]})"></span>${c}`;
+    b.onclick = () => { S.cats.has(c) ? S.cats.delete(c) : S.cats.add(c); b.setAttribute('aria-pressed', S.cats.has(c)); draw(); };
+    catBox.appendChild(b);
+  });
+  function fillTaxa() {
+    const counts = {};
+    R.forEach(r => { const v = r[S.rank]; if (v) counts[v] = (counts[v] || 0) + 1; });
+    const sel = $('taxon');
+    sel.innerHTML = '<option value="">All</option>' + Object.entries(counts).sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `<option value="${esc(k)}">${esc(k)} (${v})</option>`).join('');
+    S.taxon = '';
+  }
+  $('rank').onchange = e => { S.rank = e.target.value; fillTaxa(); draw(); };
+  $('taxon').onchange = e => { S.taxon = e.target.value; draw(); };
+  const asmCounts = {};
+  R.forEach(r => (r.assemblers ? r.assemblers.split('; ') : []).forEach(a => asmCounts[a] = (asmCounts[a] || 0) + 1));
+  $('asm').innerHTML += Object.entries(asmCounts).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `<option value="${esc(k)}">${esc(k)} (${v})</option>`).join('')
+    + '<option value="__none">Not stated</option>';
+  $('asm').onchange = e => { S.asm = e.target.value; draw(); };
+  $('pub').onchange = e => { S.pub = e.target.value; draw(); };
+  $('mode').querySelectorAll('button').forEach(b => b.onclick = () => {
+    S.mode = b.dataset.v; $('mode').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); drawArea(filtered());
+  });
+  $('reset').onclick = () => {
+    Object.assign(S, { y0: yMin, y1: yMax, cats: new Set(CATS), taxon: '', asm: '', pub: '' });
+    $('y0').value = yMin; $('y1').value = yMax; $('asm').value = ''; $('pub').value = ''; $('taxon').value = '';
+    catBox.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', 'true')); draw();
+  };
+  $('theme').onclick = () => {
+    const root = document.documentElement;
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark'; draw();
+  };
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  function filtered() {
+    return R.filter(r => r.year != null && r.year >= S.y0 && r.year <= S.y1 && S.cats.has(r.seq_category)
+      && (!S.taxon || r[S.rank] === S.taxon)
+      && (!S.asm || (S.asm === '__none' ? !r.assemblers : (r.assemblers || '').split('; ').includes(S.asm)))
+      && (!S.pub || (S.pub === 'unpublished' ? r.pub_status !== 'published' : r.pub_status === 'published')));
+  }
+
+  // ---------------- plot helpers
+  function layout(extra) {
+    return Object.assign({
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { family: getComputedStyle(document.body).fontFamily, size: 12, color: css('--ink-2') },
+      margin: { l: 48, r: 12, t: 8, b: 36 }, hoverlabel: { bgcolor: css('--surface'), bordercolor: css('--border'), font: { color: css('--ink') } },
+      xaxis: { gridcolor: css('--grid'), linecolor: css('--border'), zeroline: false },
+      yaxis: { gridcolor: css('--grid'), linecolor: css('--border'), zeroline: false },
+      legend: { orientation: 'h', y: 1.08, x: 0, traceorder: 'normal' }, showlegend: true,
+    }, extra || {});
+  }
+  const CFG = { displaylogo: false, responsive: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    toImageButtonOptions: { format: 'svg', filename: 'g2t_mitostats' } };
+
+  function drawArea(F) {
+    const ys = []; for (let y = S.y0; y <= S.y1; y++) ys.push(y);
+    const traces = CATS.filter(c => S.cats.has(c)).map(c => {
+      const per = ys.map(y => F.filter(r => r.year === y && r.seq_category === c).length);
+      let acc = 0; const cum = per.map(v => acc += v);
+      const v = S.mode === 'cum' ? cum : per;
+      return S.mode === 'cum'
+        ? { x: ys, y: v, name: c, type: 'scatter', mode: 'lines', stackgroup: 'one', line: { width: 2, color: color(c) }, fillcolor: color(c) + 'cc', hovertemplate: `${c}: %{y}<extra></extra>` }
+        : { x: ys, y: v, name: c, type: 'bar', marker: { color: color(c), line: { color: css('--surface'), width: 1 } }, hovertemplate: `${c}: %{y}<extra></extra>` };
+    });
+    Plotly.react('p-area', traces, layout({ barmode: 'stack', hovermode: 'x unified', bargap: 0.15,
+      yaxis: { gridcolor: css('--grid'), zeroline: false, title: { text: S.mode === 'cum' ? 'Cumulative records' : 'Records per year' } },
+      xaxis: { gridcolor: 'rgba(0,0,0,0)', linecolor: css('--border'), dtick: ys.length > 20 ? 5 : 1 } }), CFG);
+  }
+  function drawPie(F) {
+    const cs = CATS.filter(c => S.cats.has(c));
+    Plotly.react('p-pie', [{ type: 'pie', hole: 0.55, sort: false, direction: 'clockwise', labels: cs,
+      values: cs.map(c => F.filter(r => r.seq_category === c).length),
+      marker: { colors: cs.map(color), line: { color: css('--surface'), width: 2 } },
+      textinfo: 'label+percent', textposition: 'outside', automargin: true, hovertemplate: '%{label}: %{value} (%{percent})<extra></extra>' }],
+      layout({ showlegend: false, margin: { l: 20, r: 20, t: 20, b: 20 },
+        annotations: [{ text: `<b>${fmt(F.length)}</b><br>records`, showarrow: false, font: { size: 14, color: css('--ink') } }] }), CFG);
+  }
+  function drawSankey(F) {
+    const asmCount = {}; F.forEach(r => asmCount[r.assembler_group] = (asmCount[r.assembler_group] || 0) + 1);
+    const top = Object.entries(asmCount).filter(([k]) => k !== 'Other' && k !== 'Not stated').sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
+    const grp = r => top.includes(r.assembler_group) ? r.assembler_group : (r.assembler_group === 'Not stated' ? 'Not stated' : 'Other');
+    // early years with few records are merged ("≤2013") so their labels stay legible
+    const allY = [...new Set(F.map(r => r.year))].sort((a, b) => a - b);
+    let cut = null, run = 0;
+    for (const y of allY) { run += F.filter(r => r.year === y).length; if (run / F.length < 0.03) cut = y; else break; }
+    const yl = y => (cut !== null && y <= cut) ? '≤' + cut : String(y);
+    const ys = [...new Set(allY.map(yl))];
+    const cs = CATS.filter(c => F.some(r => r.seq_category === c));
+    const as = [...top.filter(a => F.some(r => grp(r) === a)), ...['Other', 'Not stated'].filter(a => F.some(r => grp(r) === a))];
+    const nodes = [...ys, ...cs, ...as.map(a => a + ' ')];
+    const idx = {}; nodes.forEach((n, i) => idx[n] = i);
+    const L = {};
+    F.forEach(r => {
+      const k1 = `${idx[yl(r.year)]}|${idx[r.seq_category]}|${r.seq_category}`;
+      const k2 = `${idx[r.seq_category]}|${idx[grp(r) + ' ']}|${r.seq_category}`;
+      L[k1] = (L[k1] || 0) + 1; L[k2] = (L[k2] || 0) + 1;
+    });
+    const src = [], tgt = [], val = [], col = [];
+    Object.entries(L).forEach(([k, v]) => { const [s, t, c] = k.split('|'); src.push(+s); tgt.push(+t); val.push(v); col.push(color(c) + '80'); });
+    const nodeCol = nodes.map(n => CATS.includes(n) ? color(n) : css('--ink-3'));
+    // fixed layout: years in order top -> bottom, categories and programs in their list order
+    const size = {}; F.forEach(r => { [yl(r.year), r.seq_category, grp(r) + ' '].forEach(k => size[k] = (size[k] || 0) + 1); });
+    const nx = [], ny = [];
+    [[ys, 0.001], [cs, 0.45], [as.map(a => a + ' '), 0.999]].forEach(([col, x]) => {
+      const tot = col.reduce((a, k) => a + size[k], 0); let acc = 0;
+      col.forEach(k => { nx[idx[k]] = x; ny[idx[k]] = Math.min(0.999, Math.max(0.001, (acc + size[k] / 2) / tot)); acc += size[k]; });
+    });
+    Plotly.react('p-sankey', [{ type: 'sankey', arrangement: 'fixed',
+      node: { label: nodes.map(n => n.trim()), color: nodeCol, pad: 4, thickness: 14, line: { width: 0 }, x: nx, y: ny,
+        hovertemplate: '%{label}: %{value} records<extra></extra>' },
+      link: { source: src, target: tgt, value: val, color: col, hovertemplate: '%{source.label} → %{target.label}: %{value}<extra></extra>' } }],
+      layout({ margin: { l: 8, r: 8, t: 8, b: 8 }, font: { size: 11, color: css('--ink') } }), CFG);
+  }
+  function drawAsm(F) {
+    const cnt = {}; F.forEach(r => (r.assemblers ? r.assemblers.split('; ') : []).forEach(a => {
+      cnt[a] = cnt[a] || {}; cnt[a][r.seq_category] = (cnt[a][r.seq_category] || 0) + 1; }));
+    const names = Object.keys(cnt).sort((a, b) => sum(cnt[a]) - sum(cnt[b])).slice(-20);
+    const traces = CATS.filter(c => S.cats.has(c) && names.some(n => cnt[n][c])).map(c => ({ type: 'bar', orientation: 'h', name: c,
+      y: names, x: names.map(n => cnt[n][c] || 0), marker: { color: color(c), line: { color: css('--surface'), width: 1 } },
+      hovertemplate: `%{y} · ${c}: %{x}<extra></extra>` }));
+    Plotly.react('p-asm', traces, layout({ barmode: 'stack', margin: { l: 110, r: 12, t: 8, b: 30 }, bargap: 0.25,
+      yaxis: { automargin: true, gridcolor: 'rgba(0,0,0,0)' }, xaxis: { gridcolor: css('--grid'), zeroline: false } }), CFG);
+  }
+  function drawJournal(F) {
+    const cnt = {}; F.filter(r => r.pub_status === 'published').forEach(r => cnt[r.journal] = (cnt[r.journal] || 0) + 1);
+    const top = Object.entries(cnt).sort((a, b) => a[1] - b[1]).slice(-15);
+    Plotly.react('p-jour', [{ type: 'bar', orientation: 'h', y: top.map(e => e[0]), x: top.map(e => e[1]),
+      marker: { color: css('--accent') }, hovertemplate: '%{y}: %{x}<extra></extra>' }],
+      layout({ showlegend: false, margin: { l: 150, r: 12, t: 8, b: 30 }, bargap: 0.25,
+        yaxis: { automargin: true, gridcolor: 'rgba(0,0,0,0)' }, xaxis: { gridcolor: css('--grid'), zeroline: false } }), CFG);
+  }
+  const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+
+  function drawKpis(F) {
+    const n = F.length, withA = F.filter(r => r.seq_category !== 'Unknown').length;
+    const pub = F.filter(r => r.pub_status === 'published').length;
+    const viaCr = F.filter(r => r.journal_source === 'Crossref').length;
+    const pubLabel = viaCr ? `with a publication (GenBank, or Crossref for ${fmt(viaCr)})` : 'linked to a publication in GenBank';
+    const ac = {}; F.forEach(r => (r.assemblers ? r.assemblers.split('; ') : []).forEach(a => ac[a] = (ac[a] || 0) + 1));
+    const topA = Object.entries(ac).sort((a, b) => b[1] - a[1])[0];
+    const spp = new Set(F.map(r => r.organism)).size;
+    const pct = v => n ? Math.round(100 * v / n) + '%' : '–';
+    $('kpis').innerHTML = [
+      [fmt(n), 'records'], [fmt(spp), 'organisms'], [pct(withA), 'state their sequencing technology'],
+      [pct(pub), pubLabel], [topA ? esc(topA[0]) : '–', topA ? `most used assembler (${topA[1]})` : 'most used assembler'],
+    ].map(([v, k]) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  }
+
+  const COLS = [['accession', 'Accession'], ['organism', 'Organism'], ['family', 'Family'], ['year', 'Year'], ['seq_category', 'Sequencing'],
+    ['seq_technology_raw', 'Platform (GenBank)'], ['assemblers', 'Assembly'], ['journal', 'Journal'], ['length', 'Length']];
+  function drawTable(F) {
+    const [k, dir] = S.sort;
+    const rows = F.slice().sort((a, b) => (a[k] ?? '') > (b[k] ?? '') ? dir : (a[k] ?? '') < (b[k] ?? '') ? -dir : 0);
+    $('tbl').tHead.innerHTML = '<tr>' + COLS.map(([c, h]) => `<th data-c="${c}">${h}${c === k ? (dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr>';
+    $('tbl').tHead.querySelectorAll('th').forEach(th => th.onclick = () => { S.sort = [th.dataset.c, S.sort[0] === th.dataset.c ? -S.sort[1] : 1]; drawTable(filtered()); });
+    $('tbl').tBodies[0].innerHTML = rows.slice(0, 1000).map(r => '<tr>' + COLS.map(([c]) => {
+      const v = r[c] ?? '';
+      if (c === 'accession') return `<td><a href="https://www.ncbi.nlm.nih.gov/nuccore/${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a></td>`;
+      if (c === 'organism') return `<td><i>${esc(v)}</i></td>`;
+      if (c === 'seq_category') return `<td><span class="pill"><i style="background:${color(v)}"></i>${esc(v)}</span></td>`;
+      if (c === 'length' || c === 'year') return `<td class="num">${v === '' ? '' : (c === 'length' ? fmt(v) : v)}</td>`;
+      if (c === 'journal') return `<td>${esc(v || (r.pub_status === 'unpublished' ? 'Unpublished' : ''))}${r.journal_source === 'Crossref' ? ' <span class="muted" title="found by g2t-cite on Crossref; GenBank still says Unpublished">· Crossref</span>' : ''}</td>`;
+      return `<td>${esc(v)}</td>`;
+    }).join('') + '</tr>').join('');
+    $('rowcount').textContent = rows.length > 1000 ? `first 1,000 of ${fmt(rows.length)}` : `${fmt(rows.length)} rows`;
+  }
+
+  $('dl').onclick = () => {
+    const F = filtered(), keys = Object.keys(R[0] || {});
+    const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const csv = [keys.join(','), ...F.map(r => keys.map(k => q(r[k])).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+    a.download = 'mitostats_filtered.csv'; a.click();
+  };
+
+  function draw() {
+    const F = filtered();
+    drawKpis(F); drawArea(F); drawPie(F); drawSankey(F); drawAsm(F); drawJournal(F); drawTable(F);
+  }
+  fillTaxa();
+  draw();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+})();
+</script>
+</body>
+</html>

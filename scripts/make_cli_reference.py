@@ -17,6 +17,8 @@ COMMANDS = [
     ("g2t-reconcile", "main_reconcile"),
     ("g2t-organize", "main_organize"),
     ("g2t-curate", "main_curate"),
+    ("g2t-mitostats", "main_mitostats"),
+    ("g2t-cite", "main_cite"),
 ]
 
 out = [

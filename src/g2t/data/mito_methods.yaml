@@ -1,0 +1,109 @@
+# Sequencing platforms and assembly programs as written in GenBank "##Assembly-Data##" comments.
+# Used by g2t-mitostats. Patterns are case-insensitive Python regular expressions (re.search).
+# Add a program: a new entry with name + patterns. Spellings seen in GenBank (incl. typos) belong
+# in the patterns, e.g. "getorangelle" for GetOrganelle.
+
+platforms:
+  # category: Sanger | NGS | Long-read. A record with a long-read platform is "Long-read" (incl. hybrid
+  # short+long assemblies); else any NGS platform -> "NGS" (Sanger then only closed gaps); else "Sanger".
+  - {name: Sanger, category: Sanger, patterns: ['sanger', 'dideoxy', 'capillary', '\babi\b', '\babi\s*prism', '\b3730', '\b3500\b', '\b3130\b']}
+  - {name: Illumina, category: NGS, patterns: ['illumina', 'hiseq', 'miseq', 'novaseq', 'nextseq', 'iseq', 'genome analyzer', '\bgaii']}
+  - {name: BGI/MGI, category: NGS, patterns: ['\bbgi', '\bmgi', 'dnbseq', '\bdnb']}
+  - {name: '454', category: NGS, patterns: ['\b454\b', 'roche', 'gs\s*flx', 'gs\s*junior', 'pyrosequenc']}
+  - {name: Ion Torrent, category: NGS, patterns: ['ion\s*torrent', 'ion\s*proton', 'ion\s*s5', '\bpgm\b']}
+  - {name: SOLiD, category: NGS, patterns: ['\bsolid\b']}
+  - {name: PacBio, category: Long-read, patterns: ['pacbio', 'pacific\s*bio', '\bsequel', '\bhifi\b', '\bccs\b', '\brs\s*ii\b', '\brevio\b']}
+  - {name: Nanopore, category: Long-read, patterns: ['nanopore', '\bont\b', 'minion', 'gridion', 'promethion', 'flongle']}
+
+assemblers:
+  - {name: NOVOPlasty, patterns: ['nov[oa]\s*plasty']}
+  - {name: NOVOWrap, patterns: ['novo\s*wrap']}
+  - {name: MitoZ, patterns: ['\bmito[\s-]*z\b']}
+  - {name: GetOrganelle, patterns: ['get\s*or\w{0,3}n\w{0,2}elle', '\bgetorg']}
+  - {name: MitoFinder, patterns: ['mito\s*finder']}
+  - {name: MITObim, patterns: ['mito\s*bim']}
+  - {name: MitoHiFi, patterns: ['mito\s*hifi']}
+  - {name: MitoFlex, patterns: ['mito\s*flex']}
+  - {name: mtGrasp, patterns: ['mt\s*grasp']}
+  - {name: SPAdes, patterns: ['spades']}
+  - {name: MEGAHIT, patterns: ['megahit']}
+  - {name: IDBA-UD, patterns: ['\bidba']}
+  - {name: Ray, patterns: ['^\s*ray\b']}
+  - {name: MIRA, patterns: ['\bmira\b']}
+  - {name: Trinity, patterns: ['\btrinity\b']}
+  - {name: SOAPdenovo, patterns: ['soap\s*-?\s*de\s*novo']}
+  - {name: ABySS, patterns: ['\babyss\b']}
+  - {name: Velvet, patterns: ['\bvelvet\b']}
+  - {name: A5-miseq, patterns: ['\ba5\b', 'a5-miseq']}
+  - {name: Newbler, patterns: ['newbler', 'gs\s*de\s*novo', 'gs\s*data\s*analysis', 'gs\s*assembler']}
+  - {name: CLC, patterns: ['\bclc\b']}
+  - {name: Geneious, patterns: ['\bg[a-z]{1,4}ious\b']}  # geneious, genious, gnenious
+  - {name: SeqMan, patterns: ['seq\s*man', 'dna\s*star', 'lasergene']}
+  - {name: Sequencher, patterns: ['sequencher']}
+  - {name: Canu, patterns: ['\bcanu\b']}
+  - {name: Flye, patterns: ['\bflye\b']}
+  - {name: Unicycler, patterns: ['unicycler']}
+  - {name: wtdbg2, patterns: ['wtdbg']}
+  - {name: hifiasm, patterns: ['hifiasm']}
+  - {name: Oatk, patterns: ['\boatk\b']}
+  - {name: Minia, patterns: ['\bminia']}
+  - {name: MitoMaker, patterns: ['mito\s*maker']}
+  - {name: Supernova, patterns: ['supernova']}
+  - {name: AutoAssembler, patterns: ['auto\s*assembler']}
+  - {name: IVA, patterns: ['^\s*iva\b']}
+  - {name: SMRT Analysis, patterns: ['\bsmrt\b', '\bhgap']}
+  # Sanger trace editors that also assemble contigs
+  - {name: CodonCode, patterns: ['codon\s*code']}
+  - {name: SeqScape, patterns: ['seq\s*scape']}
+  - {name: BioEdit, patterns: ['bio\s*edit']}
+  - {name: UGENE, patterns: ['ugene']}
+  - {name: ContigExpress, patterns: ['contig\s*express', 'vector\s*nti']}
+  - {name: Phrap, patterns: ['phrap', '\bconsed\b']}
+  - {name: DNAMAN, patterns: ['dnaman', 'danman']}
+  - {name: ChromasPro, patterns: ['chromas']}
+
+# Reference mapping / consensus calling (no de novo assembly): a record naming only these is
+# "Reference mapping" (typical of human and ancient-DNA mitogenomes).
+mapping:
+  - 'burrows-wheeler|\bbwa\b'
+  - 'bowtie'
+  - 'minimap'
+  - '\bmia\b'
+  - 'bcftools'
+  - 'samtools'
+  - '\bivar\b'
+  - 'freebayes'
+  - '\bgatk\b|haplotype\s*caller'
+  - 'snippy'
+  - 'variant\s*caller|torrent\s*(software\s*)?suite|torrent\s*suite'
+  - 'miseq\s*reporter'
+  - 'reference\s*mapper|re-?mapping|\bmapping\b'
+  - 'mtdna-server'
+  - 'eager'
+  - '\bpicard\b'
+  - '\bbbmap\b'
+  - 'nextgene'
+  - 'isaac'
+  - 'converge'
+
+# Programs that do not assemble (quality control, trimming, mapping, annotation, workflow platforms):
+# dropped silently instead of being reported as "Other".
+not_assembly:
+  - 'trimmomatic'
+  - 'fastqc'
+  - '\bfastp\b'
+  - 'cutadapt'
+  - 'prinseq'
+  - '\bmitos\b'
+  - 'mito\s*annotator'
+  - 'mfannot'
+  - 'trnascan'
+  - '\barwen\b'
+  - 'galaxy'
+  - 'gap\s*closer'
+  - '\bpilon\b'
+  - 'mafft|\bmuscle\b|clustal'
+  - '^\s*mega\b'
+  - 'leehom|bbmerge|trim\s*galore|adapter\s*removal'
+  - 'haplogrep|schmutzi|\bigv\b|integrative genomics viewer'
+  - 'snakemake|pipeline pilot'

@@ -238,3 +238,17 @@ def test_length_ranges_name_only_known_gene_types():
     from g2t import genes
 
     assert set(MatchConfig().gene_length_ranges) <= set(genes.GENE_ORDER)
+
+
+def test_histone3_spelling_is_h3(tmp_path):
+    """'histone3 (H3)' (no space; 23 Enchytraeidae records, e.g. ON491619) was unmatched."""
+    from g2t.classify import classify
+
+    f = tmp_path / "final.csv"
+    pd.DataFrame([{"LocusID": "ON491619", "ACCESSION": "ON491619", "Length": 328, "MoleculeType": "DNA",
+                   "mol_type": "genomic DNA", "organelle": "", "Topology": "linear",
+                   "Definition": "Hemienchytraeus wuhanensis voucher NH5 histone3 (H3) gene, partial cds",
+                   "Organism": "Hemienchytraeus wuhanensis"}]).to_csv(f, index=False)
+    classify(str(f), str(tmp_path / "out"))
+    st = pd.read_csv(tmp_path / "out" / "record_status.csv")
+    assert st.loc[0, "status"] == "assigned" and st.loc[0, "gene_type"] == "h3"

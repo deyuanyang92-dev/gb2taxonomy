@@ -284,6 +284,9 @@ gene_types:
       - H3 histone
       - histone (H3) gene
       - histone 3 gene
+      - histone3
+      - histone3 (H3)
+      - histone-3
 
   plastome:
     synonyms:

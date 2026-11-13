@@ -2,6 +2,26 @@
 
 ## 未发布
 
+- **线粒体基因组统计 `g2t-mitostats`（新命令）**：汇总一个类群线粒体基因组的测序技术（Sanger / NGS / Long-read / Unknown）、组装软件、发表期刊和年份。输出逐条记录表 `mitostats.csv`（原文与归类并排）、按年 / 软件 / 期刊的计数表、论文式累计面积图和年份 → 测序 → 组装冲积图（PNG/PDF），以及单文件离线交互报告 `mitostats_report.html`（年份、测序类别、分类阶元、组装软件、发表状态筛选，图表联动，表格可排序并链接 NCBI，可下载筛选后的 CSV，深色模式，手机可用）。归类规则在 `g2t/data/mito_methods.yaml`，收录 GenBank 中实际出现的拼写（含 getorangelle、GetOrgnelle 等错误写法）；没有 Assembly-Data 注释的记录记为 Unknown，不当作 Sanger。依赖 `pip install -e ".[report]"`（matplotlib、plotly）。
+- **`g2t-download --header-only`（新选项）**：只下载记录头（efetch `seq_start=1&seq_stop=1`），不含序列；真实长度、日期和 taxid 由 esummary 写入 `summary.tsv`。50 条环节动物线粒体基因组实测：0.10 MB vs 完整记录 1.24 MB。记录头存于单独的 `_records_header.sqlite`，之后的完整下载不会误用。重跑只下载、只汇总新的 accession.version；esummary 并行（`-w`），失败的部分留待下次补上。
+- **`g2t-cite`（新命令）**：为 GenBank 中仍为 "Unpublished" 的记录到 Crossref 按标题和第一作者查找已发表论文，按标题相似度、作者重合度和物种名是否一致分为 high / medium / check / low。输出 `cite.xlsx`：*Curate* 页（high + medium，一行一个登录号）可直接作为 `g2t-curate -u` 的表 B 和 `g2t-mitostats --citations` 的输入；*Candidates* 页列出全部候选，check 行标黄。Crossref 原始结果缓存于 `crossref_cache.json`，重跑只查新出现的论文组。默认不发送邮箱（`--mailto` / `CROSSREF_MAILTO` 可选）。环节动物实测：224 条未发表记录、81 组 → high 16 组（124 条）、medium 9 组（11 条），人工逐条核对标题、作者和物种名均正确。
+- **`g2t-mitostats --citations cite.xlsx`**：用 g2t-cite 结果补全期刊和发表年（只改 GenBank 仍为 Unpublished 的记录，`journal_source` 列标明来源）；Crossref 期刊全名自动对应到 GenBank 已有缩写（如 Mitochondrial DNA Part B → Mitochondrial DNA B Resour），单词期刊名须完全相同（Gene ≠ Genes）。环节动物发表比例 39% → 57%。
+- **`g2t-download` 借鉴 kingfisher 的做法**（对照其文档：`--run-identifiers-list`、`annotate`、进度条、`NCBI_API_KEY`）：
+  - `-a/--accessions FILE`：按登录号清单下载（一行一个，或 .csv/.tsv 第一列），代替 `-t`；没写版本号的取当前版本；记录库、`--header-only`、重跑增量照常。
+  - `--summary-only`：不下载记录，只写 esummary 表 `summary.tsv`（登录号、长度、建档/更新日期、taxid、标题），最快的计数方式。
+  - 进度行显示已下载记录数、每分钟记录数和预计剩余时间。
+  - 设置了 API key 时默认并行数为 8（NCBI 允许 10 次/秒），否则仍为 3；`-w` 可覆盖。
+  - 未采纳：多数据源自动切换。GenBank 记录只能经 NCBI E-utilities 获取；ENA 检索接口实测对线粒体基因组全文检索 2 分 12 秒后返回 HTTP 500，不能作为替代来源。
+- **全后生动物实测后的修正**（150,025 条线粒体基因组记录，2026-11-13）：
+  - 交互报告在 15 万条记录时打不开：`Math.min(...years)` 把 15 万个值作为参数展开，超出调用栈（`Maximum call stack size exceeded`）。改为逐个比较后 5.6 秒打开，并加测试防止模板再出现这种写法。
+  - 组装软件新增 **Reference mapping** 组：只写了比对或一致序列软件（BWA、MIA、bcftools、iVar、GATK、Ion Torrent variant caller 等）的记录，多为人类和古 DNA 线粒体基因组（37,394 条中 35,226 条属哺乳纲）。补充 Sanger 编辑拼接软件（SeqScape、CodonCode、BioEdit、UGENE、ContigExpress、Phrap、DNAMAN、ChromasPro）、Minia、IVA、SMRT Analysis、MitoMaker、Supernova 和常见拼写错误（gnenious → Geneious、novaplasty → NOVOPlasty、mito-z → MitoZ）；MAFFT、MEGA、leeHom、HaploGrep 等不算组装。"Other" 从 18,353 条降到 1,699 条。不含字母的条目（"x"、"5.0"、"build 2025-03-24"）不再计为 Other。
+  - `g2t-mitostats --exclude TAXON`（可重复）：去掉某个种（含亚种）或属、科、目、纲、门。*Homo sapiens* 占全部后生动物记录的 46%（68,433 条）。
+  - 分类阶元缓存改放在数据目录（`gb/mitogenome-header/taxonomy_lineage.json`），换输出目录（例如加 `--exclude`）时不再重新联网查询。
+  - 实测：首次下载 68 分钟、0 条失败；同日重跑 1 分 15 秒（150,025 条全部复用）。
+- **分类核验评估**（`docs/evaluation/rdna-regions.md`）：在 Enchytraeidae（10,773 条）上检验按 feature 注释和按序列（Infernal cmscan + Rfam 5.8S/SSU/LSU 模型）核验基因归属。1,886 条 ITS 记录中 86% 的注释没有区段坐标；被同时归入 18s/28s 列的 1,485 条记录只含 18S/28S 引物端片段（最长 67 bp）。5.8S 在 1,883/1,886 条中定位成功。据此计划实现 `g2t-verify`。
+- **修复：标题写作 "histone3 (H3)" 的记录未匹配**（Enchytraeidae 23 条）：补进 `gene_dict.yaml` 的 h3 同义词，并加测试。
+- **文档**：README 改版（首页截图、功能表、快速开始、教程索引）；新增实例教程 `docs/tutorials/`（线粒体基因组统计、全后生动物、标本 × 基因矩阵），所有数字为实跑结果；`docs/CLI_REFERENCE.md` 加入两个新命令。
+
 - **流水线失败时说明原因**：`StepResult` 新增 `error` 字段，extract、classify、organize 失败时填上原因；`g2t` 的失败信息从 `Step 1 failed` 变成 `Step 1 failed: no GenBank files (...) found in the inputs`，organize 写明缺哪几列（例：`Step 4 failed: missing required columns in <文件>: gene_type (<输出>)`）。`run()` 返回的 `log` 最后一行同此。
 - **`g2t.extract`、`g2t.classify` 不再重新导出下划线开头的内部名字**（`_phrase_pattern`、`_yaml_path`、`_packaged_gene_dict`、`_load_gene_dict_yaml`、`_DEFAULT_*_GENES`、`_clean_outputs`、`_write_all`、`_process_record_loop`）；需要时从 `g2t._classify.<模块>`、`g2t._extract.<模块>` 导入。两个模块新增 `__all__`，列出文档里的接口（步骤函数、`main`、`MatchConfig`、词典函数、`TaxonomyService`、找 GenBank 文件的函数）；其余不带下划线的名字仍可导入，旧代码不受影响。测试检查两个模块不再带出内部名字。
 

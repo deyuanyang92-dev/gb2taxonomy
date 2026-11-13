@@ -23,10 +23,10 @@ import urllib.parse
 import urllib.request
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, PLASTID_GENES, canon, clause
 from g2t.recstore import DirStore, RecordStore, iter_records
@@ -66,6 +66,12 @@ class DownloadOptions:
     include_large: bool = False
     since: str = ""  # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
     no_store: bool = False  # keep records only in the selection's batch files (no SQLite store)
+    # record headers only (efetch seq_start=1&seq_stop=1: COMMENT, REFERENCE, source; LOCUS says 1 bp);
+    # true lengths and dates go to summary.tsv (esummary). ~1/12 of the full size for mitogenomes
+    # (50 Annelida records: 0.10 vs 1.24 MB).
+    header_only: bool = False
+    # esummary table only (accession, length, dates, taxid, title): no records at all, fastest
+    summary_only: bool = False
     batch: int = 500
     workers: int = 3
     tag: str = ""
@@ -186,6 +192,10 @@ def build_query(taxid: str, o: DownloadOptions) -> tuple[str, str]:
     if o.query:
         q.append(f"AND ({o.query})")
         tag.append("custom-" + hashlib.sha1(o.query.encode("utf-8")).hexdigest()[:6])
+    if o.header_only:
+        tag.append("header")
+    if o.summary_only:
+        tag.append("summary")
     if o.all:
         tag.insert(0, "all")
     t = o.tag or "-".join(tag) or "markers"
@@ -215,11 +225,16 @@ def _batch_complete(text: str, ids: list[str]) -> bool:
     return {f.split(".")[0] for f in found} == {i.split(".")[0] for i in want} and ends == len(ids)
 
 
-def _efetch_text(ids: list[str]) -> str:
-    """One efetch POST with gzip transfer and a timeout (Bio.Entrez does neither)."""
+def _efetch_text(ids: list[str], header_only: bool = False) -> str:
+    """One efetch POST with gzip transfer and a timeout (Bio.Entrez does neither).
+
+    header_only: the record without its sequence (first base only), for metadata-only analyses.
+    """
     from Bio import Entrez
 
     params = {"db": "nuccore", "id": ",".join(ids), "rettype": "gbwithparts", "retmode": "text", "tool": "g2t"}
+    if header_only:
+        params.update(rettype="gb", seq_start="1", seq_stop="1")
     if Entrez.email:
         params["email"] = Entrez.email
     if Entrez.api_key:
@@ -234,11 +249,11 @@ def _efetch_text(ids: list[str]) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-def _fetch_batch(ids: list[str]) -> tuple[list[str], str | None]:
+def _fetch_batch(ids: list[str], header_only: bool = False) -> tuple[list[str], str | None]:
     """Fetch one batch; returns (ids, text or None after all attempts failed)."""
     for attempt in range(4):
         try:
-            txt = _efetch_text(ids)
+            txt = _efetch_text(ids, header_only=True) if header_only else _efetch_text(ids)
             if _batch_complete(txt, ids):
                 return ids, txt
             print(f"   batch of {len(ids)}: got {_n_records(txt)} records, retrying", file=sys.stderr)
@@ -246,6 +261,98 @@ def _fetch_batch(ids: list[str]) -> tuple[list[str], str | None]:
             print(f"   batch of {len(ids)}: {type(e).__name__}, retrying", file=sys.stderr)
         time.sleep(2**attempt)
     return ids, None
+
+
+SUMMARY_COLUMNS = ["accession", "length", "create_date", "update_date", "taxid", "title"]
+
+
+def _esummary(ids: list[str], batch: int, delay: float, workers: int = 1) -> tuple[list[Any], int]:
+    """esummary documents of nuccore ids (accessions with or without version), ``workers`` requests in
+    parallel. Returns (documents, number of ids in parts that failed after the retries)."""
+    from Bio import Entrez
+
+    parts = [ids[i : i + batch] for i in range(0, len(ids), batch)]
+
+    def fetch(part: list[str]) -> list[Any]:
+        return list(_call(Entrez.esummary, True, db="nuccore", id=",".join(part)))
+
+    docs: list[Any] = []
+    missing = 0
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(parts) or 1))) as ex:
+        futs = {}
+        for part in parts:
+            futs[ex.submit(fetch, part)] = part
+            time.sleep(delay)
+        for fu in as_completed(futs):
+            try:
+                docs += fu.result()
+            except Exception as e:  # noqa: BLE001  (reported; the caller decides)
+                missing += len(futs[fu])
+                print(f"   esummary of {len(futs[fu])} ids: {type(e).__name__}", file=sys.stderr)
+    return docs, missing
+
+
+def resolve_accessions(ids: list[str], batch: int, delay: float, workers: int = 1) -> tuple[list[str], list[str]]:
+    """User accessions -> current accession.versions (given versions are kept as they are).
+
+    Returns (accession.versions in input order, accessions NCBI did not return)."""
+    ids = list(dict.fromkeys(i.strip() for i in ids if i.strip()))
+    bare = [i for i in ids if "." not in i]
+    docs, _ = _esummary(bare, batch, delay, workers)
+    cur = {str(d.get("AccessionVersion", "")).split(".")[0]: str(d.get("AccessionVersion", "")) for d in docs}
+    out, unknown = [], []
+    for i in ids:
+        v = i if "." in i else cur.get(i)
+        if v:
+            out.append(v)
+        else:
+            unknown.append(i)
+    return list(dict.fromkeys(out)), unknown
+
+
+def read_accession_file(path: str) -> list[str]:
+    """One accession per line (first column of a .csv/.tsv; a header line and # comments are skipped)."""
+    out = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        x = re.split(r"[,\t ]", line.strip(), maxsplit=1)[0].strip().strip('"')
+        if x and not x.startswith("#") and re.fullmatch(r"[A-Za-z]{1,6}_?\d{5,}(\.\d+)?", x):
+            out.append(x)
+    return out
+
+
+def _write_summary(path: Path, accs: list[str], batch: int, delay: float, workers: int = 1) -> None:
+    """summary.tsv of a --header-only download: true length and dates from esummary (LOCUS says 1 bp).
+
+    Rows already in an earlier summary.tsv are kept; only new accession.versions are queried, by
+    ``workers`` parallel requests. A part that still fails after the retries is left out with a
+    warning; the next run queries it again."""
+    def day(v: object) -> str:
+        return str(v or "").replace("/", "-")
+
+    rows: dict[str, list[str]] = {}
+    if path.exists():  # rerun: keep the rows of accession.versions already summarised
+        with open(path, encoding="utf-8") as fh:
+            next(fh, None)
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) == len(SUMMARY_COLUMNS):
+                    rows[f[0]] = f
+    todo = [a for a in accs if a not in rows]
+    docs, missing = _esummary(todo, batch, delay, workers)
+    for d in docs:
+        a = str(d.get("AccessionVersion", ""))
+        rows[a] = [a, str(int(d.get("Length", 0))), day(d.get("CreateDate")), day(d.get("UpdateDate")),
+                   str(int(d.get("TaxId", 0))), str(d.get("Title", "")).replace("\t", " ")]
+    if missing:
+        print(f"   summary.tsv: {missing} records without length/dates; run the download again to add them",
+              file=sys.stderr)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write("\t".join(SUMMARY_COLUMNS) + "\n")
+        for a in accs:
+            if a in rows:
+                fh.write("\t".join(rows[a]) + "\n")
+    tmp.replace(path)
 
 
 def _previous_list(out: Path) -> list[str]:
@@ -309,6 +416,17 @@ def _acc_list(term: str, total: int, delay: float, workers: int) -> list[str]:
 SINCE_MARGIN_DAYS = 3  # NCBI may index records a few days after their modification date
 
 
+def _is_header_dir(d: Path) -> bool:
+    """A selection directory written by --header-only (its records have no sequence)."""
+    m = d / "manifest.json"
+    if m.exists():
+        try:
+            return bool(json.loads(m.read_text(encoding="utf-8")).get("options", {}).get("header_only"))
+        except (ValueError, OSError):
+            pass
+    return d.name.endswith("header")
+
+
 def _since_date(since: str, prev: dict, prev_list: list[str], query_changed: bool) -> str:
     """'' (full list) or an Entrez date YYYY/MM/DD for an incremental --since run."""
     if not since:
@@ -332,8 +450,12 @@ def download(
     progress: bool = True,
     store: str | None = None,
     report: bool = False,
+    accessions: list[str] | None = None,
 ) -> DownloadResult:
     """Resolve taxon, report composition, and download the selection into <out_root>/<tag>/.
+
+    With ``accessions`` (instead of a taxon query) exactly these records are downloaded; accessions
+    without a version get the current one. Store, --header-only, --summary-only and reruns work the same.
 
     Records are kept in an accession-level store (``store``, default ``<out_root>/_records.sqlite``);
     only accession.versions missing from it are fetched. ``<out_root>/<tag>/batch_NNNN.gb`` is then
@@ -341,9 +463,19 @@ def download(
     """
     o = options or DownloadOptions()
     delay = setup_entrez(email, api_key)
-    tid, name, rank, lineage = resolve_taxon(taxon)
-    term, tag = build_query(tid, o)
-    total = count(term)
+    if accessions is not None:
+        ids = list(dict.fromkeys(a.strip() for a in accessions if a.strip()))
+        digest = hashlib.sha1("\n".join(ids).encode()).hexdigest()
+        tid, name, rank, lineage = "", f"accession list ({len(ids)})", "", ""
+        term = f"accession list of {len(ids)} (sha1 {digest[:12]})"
+        tag = o.tag or "-".join(["list", digest[:6]] + (["header"] if o.header_only else [])
+                                + (["summary"] if o.summary_only else []))
+        total = len(ids)
+        o = replace(o, since="")  # the list is the selection: nothing to search for
+    else:
+        tid, name, rank, lineage = resolve_taxon(taxon)
+        term, tag = build_query(tid, o)
+        total = count(term)
     base = f"txid{tid}[Organism:exp]"
     comp_q = [
         ("all", ""),
@@ -356,7 +488,7 @@ def download(
     ]
     gene_q = [(g, f"({term}) AND {clause(g)}") for g in MITO_GENES + NUCLEAR_GENES + PLASTID_GENES]
     # composition and per-gene counts are ~23 slow searches: only for dry runs or report=True
-    jobs = ([(k, base + q) for k, q in comp_q] + gene_q) if (dry_run or report) else []
+    jobs = ([(k, base + q) for k, q in comp_q] + gene_q) if (dry_run or report) and accessions is None else []
     counts: dict[str, int] = {}
     with ThreadPoolExecutor(max_workers=max(1, o.workers)) as ex:
         cfuts = {}
@@ -400,11 +532,30 @@ def download(
         accs = [base_new.pop(a.split(".")[0], a) for a in prev_list] + list(base_new.values())
         res.since = since
         res.candidates = len(cand)
+    elif accessions is not None:
+        accs, unknown = resolve_accessions(ids, o.batch, delay, o.workers)
+        if unknown:
+            print(f"   {len(unknown)} accessions not found in NCBI nuccore: {', '.join(unknown[:10])}"
+                  + (" ..." if len(unknown) > 10 else ""), file=sys.stderr)
     else:
         # the accession list is always refreshed: NCBI adds and removes records between runs
         accs = _acc_list(term, total, delay, o.workers)
     res.count = len(accs)
-    spath = Path(store) if store else Path(out_root) / "_records.sqlite"
+    if o.summary_only:  # like kingfisher annotate: the esummary table, no records
+        if not dry_run:
+            out.mkdir(parents=True, exist_ok=True)
+            _write_summary(out / "summary.tsv", accs, o.batch, delay, o.workers)
+            (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
+            mfile.write_text(json.dumps(dict(
+                taxon=taxon, ncbi_taxid=tid, ncbi_name=name, ncbi_rank=rank, ncbi_lineage=lineage, query=term,
+                tag=tag, date=date.today().isoformat(), count=len(accs),
+                accessions_sha1=hashlib.sha1("\n".join(accs).encode()).hexdigest(), complete=True,
+                options=asdict(o)), ensure_ascii=False, indent=2), encoding="utf-8")
+        res.to_fetch = len(accs)
+        return res
+    # headers never share a store with full records: a full download must not reuse them
+    default_store = "_records_header.sqlite" if o.header_only else "_records.sqlite"
+    spath = Path(store) if store else Path(out_root) / default_store
     if o.no_store:
         st: RecordStore | DirStore = DirStore(out)
     elif dry_run and not spath.exists():
@@ -413,9 +564,9 @@ def download(
     else:
         st = RecordStore(spath)
     missing = st.missing(accs)
-    if missing and not dry_run and isinstance(st, RecordStore):
+    if missing and not dry_run and isinstance(st, RecordStore) and not o.header_only:
         # records fetched by older g2t versions (plain batch files, any selection) are imported, not re-fetched
-        legacy = sorted(Path(out_root).glob("*/batch_*.gb"))
+        legacy = sorted(f for f in Path(out_root).glob("*/batch_*.gb") if not _is_header_dir(f.parent))
         if legacy:
             st.import_files(legacy, set(missing))
             missing = st.missing(accs)
@@ -440,7 +591,7 @@ def download(
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = []
         for ids in batches:
-            futs.append(ex.submit(_fetch_batch, ids))
+            futs.append(ex.submit(_fetch_batch, ids, o.header_only))
             time.sleep(delay)
         retry: list[list[str]] = []
         for i, fu in enumerate(as_completed(futs), 1):
@@ -450,16 +601,13 @@ def download(
             else:
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             if progress:
-                print(
-                    f"   [{i}/{len(batches)}] {'OK' if txt else 'FAILED, will split'}  {time.time() - t0:.0f}s",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                print(f"   {_progress(i, len(batches), len(ids), res.fetched, time.time() - t0)}"
+                      + ("" if txt else "  (batch FAILED, will split)"), file=sys.stderr, flush=True)
     # split failing batches until the failing records are isolated
     while retry:
         ids = retry.pop()
         if len(ids) == 1:
-            ids, txt = _fetch_batch(ids)
+            ids, txt = _fetch_batch(ids, o.header_only)
             if txt is None:
                 failed_ids += ids
                 res.failed += 1
@@ -468,7 +616,7 @@ def download(
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             continue
         for half in (ids[: len(ids) // 2], ids[len(ids) // 2 :]):
-            half, txt = _fetch_batch(half)
+            half, txt = _fetch_batch(half, o.header_only)
             if txt is None:
                 retry.append(half)
             else:
@@ -519,6 +667,8 @@ def download(
             fh.writelines(f"{date.today().isoformat()}\t{s}\t{a}\t{p}\n" for s, a, p in ch)
     elif (out / "changes.tsv").exists():
         (out / "changes.tsv").unlink()
+    if o.header_only:
+        _write_summary(out / "summary.tsv", [a for a in accs if a not in failed_set], o.batch, delay, o.workers)
     (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
     # date of the last check against the full NCBI list (a --since run cannot see withdrawn records)
     full_check = prev.get("last_full_check") if since else date.today().isoformat()
@@ -554,8 +704,17 @@ def download(
     return res
 
 
+def _progress(done: int, total: int, batch_n: int, records: int, elapsed: float) -> str:
+    """'[12/301] 6,000 records  1,950/min  ETA 15 min' (rate over the run so far)."""
+    rate = records / elapsed * 60 if elapsed > 0 else 0.0
+    left = (total - done) * batch_n / rate if rate else 0.0  # minutes, at the current rate
+    eta = f"ETA {left:.0f} min" if left >= 1 else ("ETA <1 min" if done < total else "done")
+    return f"[{done}/{total}] {records:,} records  {rate:,.0f}/min  {eta}  ({elapsed:.0f}s)"
+
+
 def describe(res: DownloadResult, dry_run: bool = False) -> list[str]:
-    head = f"{res.name} (txid{res.taxid}, {res.rank}) selection '{res.tag}': {res.count} records"
+    who = f"{res.name} (txid{res.taxid}, {res.rank})" if res.taxid else res.name
+    head = f"{who} selection '{res.tag}': {res.count} records"
     if dry_run:
         head += f" (dry run: stored {res.reused}, to fetch {res.to_fetch})"
     else:
@@ -613,6 +772,17 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
         action="store_true",
         help=f"keep nuclear records > {LARGE_BP // 1000} kb (organelle records are always kept)",
     )
+    g.add_argument(
+        "--header-only",
+        action="store_true",
+        help="record headers only, no sequence (assembly/sequencing notes, references, source); "
+        "lengths and dates in summary.tsv. For metadata analyses such as g2t-mitostats",
+    )
+    g.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="no records: only summary.tsv (accession, length, dates, taxid, title) from esummary; fastest",
+    )
     g.add_argument("--tag", default="", metavar="NAME", help="output sub-directory (default: from the selection)")
 
     u = p.add_argument_group("update")
@@ -639,9 +809,15 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
         help="records per request and batch file (default: %(default)s)",
     )
     r.add_argument(
-        "-w", "--workers", type=_positive, default=3, metavar="N", help="parallel NCBI requests (default: %(default)s)"
+        "-w", "--workers", type=_positive, default=None, metavar="N",
+        help="parallel NCBI requests (default: 3; 8 with an API key, which allows 10 requests/s)",
     )
     r.add_argument("-q", "--quiet", action="store_true", help="no progress output")
+
+
+def default_workers(api_key: str | None = None) -> int:
+    """3 parallel requests (NCBI: 3/s without a key); 8 with an API key (10/s)."""
+    return 8 if (api_key or os.environ.get("NCBI_API_KEY")) else 3
 
 
 def options_from_args(a: argparse.Namespace) -> DownloadOptions:
@@ -660,8 +836,10 @@ def options_from_args(a: argparse.Namespace) -> DownloadOptions:
         include_large=a.include_large,
         since=a.since,
         no_store=a.no_store,
+        header_only=a.header_only,
+        summary_only=getattr(a, "summary_only", False),
         batch=a.batch_size,
-        workers=a.workers,
+        workers=a.workers or default_workers(getattr(a, "api_key", None)),
         tag=a.tag,
     )
 
@@ -671,6 +849,9 @@ EPILOG = """examples:
   g2t-download -t Polynoidae -o gb --since auto    later: only new or modified records
   g2t-download -t Polynoidae -o gb -n              counts only
   g2t-download -t 46593 -o gb --mitogenome
+  g2t-download -t Annelida -o gb --mitogenome --header-only   metadata only (~1/12 of the size)
+  g2t-download -t Metazoa -o gb --mitogenome --summary-only    lengths/dates/taxa only, no records
+  g2t-download -a my_accessions.txt -o gb                      exactly these records
 
 Re-running skips records already downloaded. Exit status 1 if records failed."""
 
@@ -682,7 +863,10 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=EPILOG,
     )
-    p.add_argument("-t", "--taxon", required=True, metavar="NAME|TAXID", help="taxon name or NCBI taxid")
+    src = p.add_mutually_exclusive_group(required=True)
+    src.add_argument("-t", "--taxon", metavar="NAME|TAXID", help="taxon name or NCBI taxid")
+    src.add_argument("-a", "--accessions", metavar="FILE",
+                     help="file with one accession per line (or first column of a .csv/.tsv), instead of -t")
     p.add_argument("-o", "--output", metavar="DIR", help="output root; records go to DIR/TAG/ (default: <taxon>_gb)")
     p.add_argument("-e", "--email", metavar="ADDR", help="e-mail for NCBI (default: $NCBI_EMAIL)")
     p.add_argument("-k", "--api-key", metavar="KEY", help="NCBI API key (default: $NCBI_API_KEY)")
@@ -690,9 +874,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)  # resuming is automatic
     add_selection_args(p)
     a = p.parse_args(argv)
-    out = a.output or f"{str(a.taxon).replace(' ', '_')}_gb"
+    accs = read_accession_file(a.accessions) if a.accessions else None
+    if a.accessions and not accs:
+        p.error(f"no accessions found in {a.accessions}")
+    name = a.taxon or Path(a.accessions).stem
+    out = a.output or f"{str(name).replace(' ', '_')}_gb"
     res = download(
-        a.taxon,
+        a.taxon or "",
         out,
         options_from_args(a),
         dry_run=a.dry_run,
@@ -701,6 +889,7 @@ def main(argv: list[str] | None = None) -> int:
         progress=not a.quiet,
         store=a.store,
         report=a.report,
+        accessions=accs,
     )
     for line in describe(res, a.dry_run):
         print(line)

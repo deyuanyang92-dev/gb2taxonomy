@@ -1,35 +1,85 @@
+<div align="center">
+
+<img src="docs/images/logo.svg" width="96" alt="g2t logo">
+
 # g2t — GenBank to Taxonomy
 
-[![version](https://img.shields.io/badge/version-v0.04-blue)](CHANGELOG.md) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+**From an NCBI taxon name to a specimen × gene matrix, and to a report on how its mitogenomes were sequenced, assembled and published.**
 
-g2t downloads the GenBank records of a taxon from NCBI and turns them into a **specimen × gene matrix** for multi-locus phylogenetics and taxonomy: it reads the metadata of every record, assigns each record to a marker gene (COI, 16S, 18S, 28S, ITS, …), links the sequences of one specimen through its voucher, and writes one row per specimen with the accession of each gene.
+[![version](https://img.shields.io/badge/version-v0.04-2a78d6)](CHANGELOG.md)
+[![python](https://img.shields.io/badge/python-%E2%89%A53.9-2a78d6)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-1baf7a)](LICENSE)
+[![demo](https://img.shields.io/badge/live%20demo-Annelida%20mitogenomes-eb6834)](https://deyuanyang92-dev.github.io/gb2taxonomy/demo/annelida_mitostats.html)
 
-English manual: [USAGE.en.md](USAGE.en.md). 中文使用说明见 [USAGE.md](USAGE.md)。Changes: [CHANGELOG.md](CHANGELOG.md). Known issues: [BUGS.md](BUGS.md).
+[Quick start](#quick-start) · [Tutorials](#tutorials) · [Live demo](https://deyuanyang92-dev.github.io/gb2taxonomy/demo/annelida_mitostats.html) · [中文说明](USAGE.md) · [English manual](USAGE.en.md) · [CLI reference](docs/CLI_REFERENCE.md) · [Changelog](CHANGELOG.md)
+
+<a href="https://deyuanyang92-dev.github.io/gb2taxonomy/demo/annelida_mitostats.html"><img src="docs/images/mitostats_report.png" width="900" alt="g2t-mitostats interactive report: Annelida mitogenomes by year, sequencing technology and assembler"></a>
+
+<sub>Interactive report written by <code>g2t-mitostats</code> for all 745 annelid mitogenomes in GenBank (November 2026) — filter by year, sequencing technology, taxon, assembler and publication status.</sub>
+
+</div>
+
+## Why g2t
+
+- **GenBank metadata is messy.** One specimen's COI, 16S and 28S carry three spellings of its voucher; gene names hide in free-text titles; assembly programs are written "getorangelle" or "GetOrgnelle". g2t reads every record, normalises these fields with documented rules (`gene_dict.yaml`, `mito_methods.yaml`) and keeps the raw value next to each normalised one, so every decision can be checked.
+- **Downloads are incremental.** Records are stored by `accession.version`; re-running a download fetches only new or updated records. For mitogenome statistics, `--header-only` skips the sequences: 143 k metazoan mitogenomes fit in ~0.35 GB instead of ~2.5 GB.
+- **Publications are out of date.** Most submitters never tell GenBank that their paper appeared. `g2t-cite` finds it on Crossref by title and authors and writes a correction table for `g2t-curate`.
+- **Checked on real data.** All 150,025 metazoan mitogenomes in GenBank were downloaded, re-run incrementally (1 min 15 s instead of 68 min) and summarised; what broke at that scale was fixed. An [evaluation on Enchytraeidae](docs/evaluation/rdna-regions.md) tests whether records sit in the right gene column.
+- **Everything is a file you can open.** CSV and Excel for tables, PNG/PDF for figures, a single offline HTML file for the interactive report.
+
+## What it does
+
+| Command | Input → output | Typical use |
+|---|---|---|
+| `g2t-download` | taxon name / taxid → GenBank batch files (`--header-only`: record headers only) | get the data, update it later |
+| `g2t` (steps 1–4) | GenBank files → specimen × gene matrix | multi-locus phylogeny, taxonomy |
+| `g2t-curate` (step 5) | matrix + your table → corrected matrix with a change log | fix coordinates, names, references |
+| `g2t-mitostats` | mitogenome records → tables, thesis-style figures, interactive HTML report | how were the mitogenomes of a clade sequenced and assembled, and where were they published? |
+| `g2t-cite` | records marked "Unpublished" → their papers on Crossref | complete the journal information |
 
 ## Installation
 
 ```bash
 git clone https://github.com/deyuanyang92-dev/gb2taxonomy.git
 cd gb2taxonomy
-pip install -e .
+pip install -e ".[report]"      # [report] adds matplotlib + plotly for g2t-mitostats
 g2t --help
 ```
 
-Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80, openpyxl ≥ 3.0 (Excel files of Step 5, `g2t-curate`), pyyaml ≥ 6.0 (reads the bundled gene dictionary `gene_dict.yaml`, the only copy of the synonyms). The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so.
+Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80, openpyxl ≥ 3.0 (Excel files of Step 5, `g2t-curate`, `g2t-cite`), pyyaml ≥ 6.0 (reads the bundled gene dictionary `gene_dict.yaml`, the only copy of the synonyms). The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so. `g2t-mitostats` figures need matplotlib, its HTML report plotly (`pip install -e ".[report]"`).
 
 ## Quick start
 
-```bash
-# 0. See what NCBI holds for the taxon, then download marker records
-g2t-download -t Priapulidae -o gb --dry-run
-g2t-download -t Priapulidae -o gb                 # -> gb/markers/batch_0001.gb ...
+**A. Specimen × gene matrix** (Priapulidae, ~1 min):
 
-# 1–4. Metadata -> gene types -> vouchers -> reconciliation -> matrix
-g2t -i gb/markers -o out --stream
-# final matrix: out/organized_genes/organized_species_voucher.csv
+```bash
+g2t-download -t Priapulidae -o gb --dry-run       # what does NCBI hold?
+g2t-download -t Priapulidae -o gb                 # -> gb/markers/batch_0001.gb ...
+g2t -i gb/markers -o out --stream                 # -> out/organized_genes/organized_species_voucher.csv
 ```
 
 Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of which 69,704 are WGS contigs and 23,053 mRNA. The default selection keeps 548 marker records → 496 assigned to 7 gene types → 316 specimens, 128 with ≥ 2 genes (435 specimens and 46 with ≥ 2 genes when voucher variants are not reconciled, `--skip_reconcile`).
+
+**B. Mitogenome sequencing / assembly report** (Annelida, ~1 min, 1.7 MB):
+
+```bash
+g2t-download -t Annelida -o gb --mitogenome --header-only   # headers only, no sequences
+g2t-cite -i gb/mitogenome-header -o mito/cite.xlsx          # optional: papers of "Unpublished" records
+g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
+# open mito/mitostats_report.html
+```
+
+Annelida, November 2026: 745 mitogenomes; NGS 512, Sanger 55, long-read 5, no Assembly-Data comment 173 (reported as "Unknown", never guessed); NOVOPlasty is the commonest single assembler (106), 108 records name several.
+
+## Tutorials
+
+Step-by-step, with real data, the exact commands, and what the output looks like (in Chinese; commands and outputs are language-neutral):
+
+| Tutorial | Data | Commands |
+|---|---|---|
+| [Mitogenomes of a clade: sequencing, assembly, journals](docs/tutorials/mitogenome-stats.md) | Annelida, 745 records | `g2t-download --header-only`, `g2t-mitostats`, `g2t-cite` |
+| [All metazoan mitogenomes, and keeping them up to date](docs/tutorials/metazoa.md) | Metazoa, ~143 k records | `g2t-download --header-only`, reruns, `g2t-mitostats` |
+| [Specimen × gene matrix](docs/tutorials/matrix.md) | Priapulidae; offline sample [`examples/haplotaxidae`](examples/haplotaxidae) | `g2t-download`, `g2t`, `g2t-curate` |
 
 ## Usage
 
@@ -49,13 +99,31 @@ Example (Priapulidae, NCBI txid37891, October 2026): 95,726 nuccore records, of 
 | `-n`, `--dry-run` | report taxon composition (WGS, mRNA, TSA, …), records per gene, records to fetch; write nothing |
 | `--since auto` / `--since 2026-01-01` | incremental: only records created or modified in NCBI ([MDAT]) since the last download (minus 3 days) or the date; cannot see withdrawn records, so run without `--since` now and then |
 | `--no-store` | no SQLite store: the selection's batch files are the only copy (new records → new batch files, superseded versions removed) |
+| `--header-only` | record headers without the sequence (~12× smaller); true lengths and dates in `summary.tsv`. For `g2t-mitostats` / `g2t-cite`, not for the matrix |
+| `--summary-only` | no records: only `summary.tsv` (accession, length, create/update date, taxid, title) from esummary — the fastest way to count records per year or taxon |
+| `-a FILE`, `--accessions FILE` | instead of `-t`: exactly the accessions in FILE (one per line, or the first column of a .csv/.tsv; a missing version gets the current one); store, `--header-only` and reruns work the same |
 | `--report` | also count composition and records per gene while downloading (about 23 extra searches, slow on big taxa; skipped by default) |
 
 - `-t` accepts a taxon name or an NCBI taxid. Each selection is saved in its own sub-directory, named after the options (`markers`, `mito`, `mitogenome`, `gene-COI_18S`, `incl-wgs`, `all-mito`, `custom-1a2b3c` for a `--query` (hash of the query), … or `--tag NAME`), together with `accessions.tsv` and `manifest.json` (query, date, accession-list checksum, completion status).
 - Nuclear records longer than 100 kb (chromosomes and genome scaffolds; a single one can be hundreds of MB) are skipped (mitochondrial and other organelle records are never capped) unless `--include-large` (or an explicit `--minlen/--maxlen`) is given; the pre-flight report shows how many there are.
-- **Record store, incremental updates.** Every record is kept by `accession.version` in a SQLite store (`<out>/_records.sqlite`, or `--store PATH` to share one store between taxa). Each run re-reads the accession list from NCBI and fetches only the accession.versions not in the store, so re-running a download, choosing another selection of the same taxon, or downloading an overlapping taxon (a family, then its order) reuses what is already there; a new version (`.2`) is fetched. Batch files written by older g2t versions are imported instead of re-fetched. `<out>/<tag>/batch_NNNN.gb` is then rewritten from the store, so the pipeline sees the usual files. Differences from the previous run (new / updated / removed records) go to `changes.tsv` and are appended to `changes_history.tsv`; if g2t's own default query changed, they are marked "(query changed)". `-w N` sets parallel requests (default 3); records are fetched 500 per request with gzip transfer and a 60 s stall timeout. A directory created for one query is never reused for another when it was named with `--tag` (error). `--dry-run` writes nothing and reports how many records are already stored.
+- **Record store, incremental updates.** Every record is kept by `accession.version` in a SQLite store (`<out>/_records.sqlite`, or `--store PATH` to share one store between taxa). Each run re-reads the accession list from NCBI and fetches only the accession.versions not in the store, so re-running a download, choosing another selection of the same taxon, or downloading an overlapping taxon (a family, then its order) reuses what is already there; a new version (`.2`) is fetched. Batch files written by older g2t versions are imported instead of re-fetched. `<out>/<tag>/batch_NNNN.gb` is then rewritten from the store, so the pipeline sees the usual files. Differences from the previous run (new / updated / removed records) go to `changes.tsv` and are appended to `changes_history.tsv`; if g2t's own default query changed, they are marked "(query changed)". `-w N` sets parallel requests (default 3, or 8 when an API key is set); progress lines show records fetched, records per minute and the estimated time left; records are fetched 500 per request with gzip transfer and a 60 s stall timeout. A directory created for one query is never reused for another when it was named with `--tag` (error). `--dry-run` writes nothing and reports how many records are already stored.
 - NCBI asks for an e-mail address: `-e you@example.org` or the variable `NCBI_EMAIL`. With an API key (`-k` or `NCBI_API_KEY`) NCBI allows 10 instead of 3 requests per second.
 - `scripts/download_entrez.py` is a wrapper around `g2t-download`. Its options are compatible with the old script, but the default selection (markers instead of all records), the output location (`<out>/<tag>/`) and the batch size changed (500 again since the record store); use `--all` for the old default.
+
+### Mitogenome statistics (`--header-only`, `g2t-mitostats`, `g2t-cite`)
+
+How were the mitogenomes of a clade sequenced and assembled, when, and where were they published? These fields sit in the record header (`##Assembly-Data##` comment, REFERENCE), so the sequences are not needed:
+
+```bash
+g2t-download -t Annelida -o gb --mitogenome --header-only      # -> gb/mitogenome-header/, ~12x smaller
+g2t-cite -i gb/mitogenome-header -o mito/cite.xlsx             # optional, see below
+g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
+```
+
+- `--header-only` fetches each record with `seq_start=1&seq_stop=1` (the LOCUS line then says `1 bp`); true length, dates and taxid come from esummary and are written to `summary.tsv`. Headers are stored in their own `_records_header.sqlite`, so a later full download never mistakes them for full records. Reruns fetch and summarise only new accession.versions.
+- `g2t-mitostats` writes `mitostats.csv` (one row per record, raw text next to the normalised value), `counts_by_year.csv`, `counts_by_assembler.csv`, `counts_by_journal.csv`, `fig_seqtech_by_year.{png,pdf}` (cumulative records by sequencing technology, with a pie of the totals), `fig_alluvial.{png,pdf}` (year → sequencing technology → assembler) and `mitostats_report.html`: one offline file with filters for years, technology, taxon (class, order, family, genus), assembler and publication status, charts that follow the filters, a sortable table linked to NCBI and a CSV download of the filtered rows.
+- **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment are "Unknown", never assumed to be Sanger.** Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
+- `g2t-cite` groups records whose references are all "Unpublished" by (title, authors), searches Crossref by title and first author, and grades the best paper: **high** (title similarity ≥ 0.90 and ≥ half of the authors shared), **medium** (≥ 0.75 and ≥ half), **check** (title changed but ≥ 3/4 of the authors shared, or a near-identical template title with few shared authors), **low**. A paper whose title does not name the record's taxon (when the GenBank title does) scores 0, since mitogenome notes share template titles. Sheet *Curate* (high + medium, one row per accession) is table B for `g2t-curate` and the input of `g2t-mitostats --citations`; sheet *Candidates* shows every group with its scores, "check" rows in yellow. Crossref answers are cached (`crossref_cache.json`), so reruns query only new groups. No e-mail is sent unless you pass `--mailto` (or set `CROSSREF_MAILTO`), which puts you in Crossref's faster "polite pool".
 
 ### Steps 1–4 — the pipeline (`g2t`)
 
@@ -202,10 +270,11 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 4. **Only 41 gene types, matched by keywords.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, …) end up in `unmatched_sequences.csv` unless added to the gene dictionary (see *Gene types* above). Specimen identifiers in the DEFINITION (`isolate CO2`, `voucher COI-12`) and the English word "its" are ignored, and a few look-alikes are excluded (16S rRNA methyltransferase, histone H3 lysine/demethylase, elongation factor-1 beta/gamma), but keyword matching can still misfire on unusual wording.
 5. **Vouchers and metadata.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b also joins identical identifiers (ignoring case and punctuation, in any identifier field) of one genus deposited under different names (*Bathykurila* sp. / *Bathykurila* sp. AH-2023); if both groups hold the same gene, only with the same date or coordinates; identical vouchers in different genera stay apart and are flagged in `match_evidence`. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging); when both groups already hold the same gene, a shared publication is not enough, and the pair is flagged instead. Identifiers that differ only by a lot or sub-sample ending (`CE438` / `CE438_2`) or by the institution, collector or sample code around the number (`USNM 123456` / `MCZ 123456`) are treated as different specimens. In the matrix, locality, date and other metadata are taken from the first record of the specimen that has a value, column by column, so they can come from different records; `Conflict` is true if any record was flagged.
 6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are unless you correct them in Step 5.
-7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
+7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). Speed is set by NCBI E-utilities (3 requests/s without an API key, 10 with one); measured: ~12,000 mitogenome headers per minute without a key. `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
-9. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-10. **Code status.** v0.04 is an early release. 610 unit tests pass on Python 3.12, 3.13 and 3.9 (tested locally; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment stay "Unknown", and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
+10. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
+11. **Code status.** v0.04 is an early release. 721 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 
