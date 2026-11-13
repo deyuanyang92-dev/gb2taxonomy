@@ -241,6 +241,15 @@ def main_curate(argv=None):
     return main(argv)
 
 
+def main_mitostats(argv=None):
+    """g2t-mitostats — Sequencing technology, assembly programs and publications of mitogenomes."""
+    _version_flag(argv, "g2t-mitostats")
+    check_dependencies()
+    from g2t.mitostats import main
+
+    return main(argv)
+
+
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
     _version_flag(argv, "g2t-organize")
