@@ -192,3 +192,45 @@ def test_run_writes_table_and_report(tmp_path):
     data = json.loads(html.split('<script id="g2t-data" type="application/json">')[1].split("</script>")[0])
     assert data["records"][0]["accession"] == "MN000001.1"
     assert Path(out / "counts_by_year.csv").exists()
+
+
+def test_citations_fill_unpublished_journals(tmp_path):
+    t = pd.DataFrame({"accession": ["A1.1", "A2.1", "A3.1"], "pub_status": ["unpublished", "published", "unpublished"],
+                      "journal": ["", "Zool Stud", ""], "pub_year": [None, 2020, None], "year": [2019, 2020, 2018],
+                      "year_source": ["submission", "publication", "submission"]})
+    pd.DataFrame({"accession": ["A1.1", "A2.1"], "Ref1Journal": ["Mitochondrial DNA B Resour 5, 1-2 (2021)",
+                                                                 "Other J 1, 1 (2022)"]}).to_csv(
+        tmp_path / "cite_curate.csv", index=False)
+    r = ms.apply_citations(t, tmp_path / "cite.csv")
+    assert list(r["journal"]) == ["Mitochondrial DNA B Resour", "Zool Stud", ""]  # GenBank journal kept
+    assert list(r["journal_source"]) == ["Crossref", "GenBank", ""]
+    assert r.loc[0, "year"] == 2021 and r.loc[2, "pub_status"] == "unpublished"
+
+
+@pytest.mark.parametrize(
+    "a, b, same",
+    [
+        ("Mitochondrial DNA B Resour", "Mitochondrial DNA Part B", True),
+        ("Mitochondrial DNA B Resour", "Mitochondrial DNA Part B: Resources", True),
+        ("Mol Phylogenet Evol", "Molecular Phylogenetics and Evolution", True),
+        ("Zool Stud", "Zoological Studies", True),
+        ("Mitochondrial DNA A DNA Mapp Seq Anal", "Mitochondrial DNA Part B", False),
+        ("Gene", "Genes", False),
+        ("Diversity", "Diversity and Distributions", False),
+        ("Diversity", "Mar Pollut Bull", False),
+    ],
+)
+def test_same_journal(a, b, same):
+    assert ms.same_journal(a, b) is same
+
+
+def test_citation_journal_takes_genbank_spelling(tmp_path):
+    t = pd.DataFrame({"accession": ["A0.1", "A0.2", "A1.1", "A2.1"],
+                      "pub_status": ["published", "published", "published", "unpublished"],
+                      "journal": ["Mitochondrial DNA", "Mitochondrial DNA", "Mitochondrial DNA B Resour", ""],
+                      "pub_year": [2014, 2014, 2020, None], "year": [2014, 2014, 2020, 2019],
+                      "year_source": ["publication"] * 3 + ["submission"]})
+    pd.DataFrame({"accession": ["A2.1"], "Ref1Journal": ["Mitochondrial DNA Part B 6 (3), 1-2 (2021)"]}).to_csv(
+        tmp_path / "c_curate.csv", index=False)
+    # "Mitochondrial DNA" is commoner, but "Mitochondrial DNA B Resour" is the specific match
+    assert ms.apply_citations(t, tmp_path / "c.csv").loc[3, "journal"] == "Mitochondrial DNA B Resour"

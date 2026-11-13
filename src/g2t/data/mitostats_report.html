@@ -35,6 +35,7 @@ body { margin: 0; background: var(--bg); color: var(--ink);
 header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
 h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
 .sub { color: var(--ink-2); font-size: 13px; }
+.muted { color: var(--ink-3); font-size: 12px; }
 .spacer { flex: 1; }
 button, select, input { font: inherit; color: var(--ink); }
 .btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
@@ -308,13 +309,15 @@ __G2T_PLOTLY__
   function drawKpis(F) {
     const n = F.length, withA = F.filter(r => r.seq_category !== 'Unknown').length;
     const pub = F.filter(r => r.pub_status === 'published').length;
+    const viaCr = F.filter(r => r.journal_source === 'Crossref').length;
+    const pubLabel = viaCr ? `with a publication (GenBank, or Crossref for ${fmt(viaCr)})` : 'linked to a publication in GenBank';
     const ac = {}; F.forEach(r => (r.assemblers ? r.assemblers.split('; ') : []).forEach(a => ac[a] = (ac[a] || 0) + 1));
     const topA = Object.entries(ac).sort((a, b) => b[1] - a[1])[0];
     const spp = new Set(F.map(r => r.organism)).size;
     const pct = v => n ? Math.round(100 * v / n) + '%' : '–';
     $('kpis').innerHTML = [
       [fmt(n), 'records'], [fmt(spp), 'organisms'], [pct(withA), 'state their sequencing technology'],
-      [pct(pub), 'linked to a publication in GenBank'], [topA ? esc(topA[0]) : '–', topA ? `most used assembler (${topA[1]})` : 'most used assembler'],
+      [pct(pub), pubLabel], [topA ? esc(topA[0]) : '–', topA ? `most used assembler (${topA[1]})` : 'most used assembler'],
     ].map(([v, k]) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
   }
 
@@ -331,7 +334,7 @@ __G2T_PLOTLY__
       if (c === 'organism') return `<td><i>${esc(v)}</i></td>`;
       if (c === 'seq_category') return `<td><span class="pill"><i style="background:${color(v)}"></i>${esc(v)}</span></td>`;
       if (c === 'length' || c === 'year') return `<td class="num">${v === '' ? '' : (c === 'length' ? fmt(v) : v)}</td>`;
-      if (c === 'journal') return `<td>${esc(v || (r.pub_status === 'unpublished' ? 'Unpublished' : ''))}</td>`;
+      if (c === 'journal') return `<td>${esc(v || (r.pub_status === 'unpublished' ? 'Unpublished' : ''))}${r.journal_source === 'Crossref' ? ' <span class="muted" title="found by g2t-cite on Crossref; GenBank still says Unpublished">· Crossref</span>' : ''}</td>`;
       return `<td>${esc(v)}</td>`;
     }).join('') + '</tr>').join('');
     $('rowcount').textContent = rows.length > 1000 ? `first 1,000 of ${fmt(rows.length)}` : `${fmt(rows.length)} rows`;

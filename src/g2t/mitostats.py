@@ -448,7 +448,7 @@ def fig_alluvial(t: pd.DataFrame, out: Path, top_assemblers: int = 15) -> None:
 
 REPORT_COLUMNS = ["accession", "organism", "phylum", "class", "order", "family", "year", "year_source",
                   "seq_category", "seq_platforms", "assembler_group", "assemblers", "journal", "pub_status",
-                  "length", "seq_technology_raw", "assembly_method_raw", "title"]
+                  "journal_source", "length", "seq_technology_raw", "assembly_method_raw", "title"]
 
 
 def _plotly_js() -> str:
@@ -474,11 +474,76 @@ def write_report(t: pd.DataFrame, path: Path, title: str = "") -> None:
 # ------------------------------------------------------------------ run / CLI
 
 
+_JOURNAL_STOP = {"part", "of", "the", "and", "&", "section", "series"}
+
+
+def _jwords(name: str) -> list[str]:
+    return [w for w in re.sub(r"[^a-z0-9 ]", " ", name.lower()).split() if w not in _JOURNAL_STOP]
+
+
+def _prefix_subsequence(short: list[str], long: list[str]) -> bool:
+    i = 0
+    for w in short:
+        while i < len(long) and not long[i].startswith(w):
+            i += 1
+        if i == len(long):
+            return False
+        i += 1
+    return True
+
+
+def same_journal(a: str, b: str) -> bool:
+    """'Mitochondrial DNA B Resour' ~ 'Mitochondrial DNA Part B' ~ 'Mitochondrial DNA Part B: Resources';
+    'Mol Phylogenet Evol' ~ 'Molecular Phylogenetics and Evolution'. Word-prefix match in order, either way."""
+    wa, wb = _jwords(a), _jwords(b)
+    if not wa or not wb or not (wa[0].startswith(wb[0]) or wb[0].startswith(wa[0])):
+        return False
+    if len(wa) == 1 or len(wb) == 1:  # "Gene" is not "Genes", "Diversity" not "Diversity and Distributions"
+        return wa == wb
+    return _prefix_subsequence(wa, wb) or _prefix_subsequence(wb, wa)
+
+
+def apply_citations(t: pd.DataFrame, path: str | Path) -> pd.DataFrame:
+    """Journal and publication year of unpublished records from g2t-cite (sheet 'Curate' / *_curate.csv).
+
+    Only records still unpublished in GenBank change; journal_source says where the journal came from.
+    """
+    p = Path(path)
+    if p.suffix.lower() == ".xlsx":
+        c = pd.read_excel(p, sheet_name="Curate", dtype=str)
+    else:
+        c = pd.read_csv(p.with_name(p.stem + "_curate.csv") if not p.stem.endswith("_curate") else p, dtype=str)
+    found = {str(r["accession"]): str(r["Ref1Journal"]) for _, r in c.fillna("").iterrows()}
+    t = t.copy()
+    t["journal_source"] = t["pub_status"].map(lambda s: "GenBank" if s != "unpublished" else "")
+    # spell a Crossref journal the way GenBank records already spell it (commonest form first)
+    known = list(t.loc[t["pub_status"] == "published", "journal"].value_counts().index)
+    n = 0
+    for i, r in t.iterrows():
+        j = found.get(str(r["accession"])) or found.get(str(r["accession"]).split(".")[0])
+        if r["pub_status"] != "unpublished" or not j:
+            continue
+        name, y = journal_name_year(j)
+        if not name:
+            continue
+        match = [k for k in known if same_journal(k, name)]  # most specific GenBank spelling wins
+        name = max(match, key=lambda k: len(_jwords(k))) if match else name
+        t.at[i, "journal"], t.at[i, "pub_status"], t.at[i, "journal_source"] = name, "published", "Crossref"
+        if y:
+            t.at[i, "pub_year"], t.at[i, "year"], t.at[i, "year_source"] = y, y, "publication (Crossref)"
+        n += 1
+    logger.info("citations: %d unpublished records given a journal from %s", n, p.name)
+    return t
+
+
 def run(inputs: list[str], out_dir: str, lineage: dict[str, dict[str, str]] | None = None,
-        figures: bool = True, title: str = "", top_assemblers: int = 15) -> pd.DataFrame:
+        figures: bool = True, title: str = "", top_assemblers: int = 15,
+        citations: str | None = None) -> pd.DataFrame:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     t = build_table(inputs, lineage=lineage, cache_path=out / "taxonomy_lineage.json")
+    if citations:
+        t = apply_citations(t, citations)
     t.to_csv(out / "mitostats.csv", index=False)
     cy = counts_by_year(t)
     cy.to_csv(out / "counts_by_year.csv", index=False)
@@ -515,6 +580,8 @@ EPILOG = """examples:
   g2t-download -t Annelida -o gb --mitogenome --header-only
   g2t-mitostats -i gb/mitogenome-header -o annelida_mito
   open annelida_mito/mitostats_report.html
+  g2t-cite -i gb/mitogenome-header -o annelida_mito/cite.xlsx      # papers of "Unpublished" records
+  g2t-mitostats -i gb/mitogenome-header -o annelida_mito --citations annelida_mito/cite.xlsx
 
 Records without an Assembly-Data comment are counted as "Unknown" (not as Sanger).
 Spellings and rules: g2t/data/mito_methods.yaml."""
@@ -534,10 +601,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--top", type=int, default=15, metavar="N", help="assemblers shown in the alluvial figure")
     p.add_argument("--no-figures", action="store_true", help="skip the PNG/PDF figures")
     p.add_argument("--no-taxonomy", action="store_true", help="do not look up phylum..genus on NCBI")
+    p.add_argument("--citations", metavar="FILE",
+                   help="g2t-cite output (cite.xlsx): journals of records still 'Unpublished' in GenBank")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     t = run(a.input, a.output, lineage={} if a.no_taxonomy else None, figures=not a.no_figures,
-            title=a.title, top_assemblers=a.top)
+            title=a.title, top_assemblers=a.top, citations=a.citations)
     for line in describe(t):
         print(line)
     print(f"output: {a.output}/mitostats.csv, mitostats_report.html")

@@ -285,6 +285,23 @@ g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 
 ---
 
+## 线粒体基因组统计（--header-only、g2t-mitostats、g2t-cite）
+
+只想知道一个类群的线粒体基因组用什么测序、什么软件组装、发表在哪里，不需要下载序列：
+
+```bash
+g2t-download -t Annelida -o gb --mitogenome --header-only   # 只下记录头，约为完整记录的 1/12
+g2t-cite -i gb/mitogenome-header -o mito/cite.xlsx          # 可选：到 Crossref 找 "Unpublished" 记录的论文
+g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
+# 打开 mito/mitostats_report.html
+```
+
+- 输出：`mitostats.csv`（每条记录一行，原文与归类并排）、按年 / 组装软件 / 期刊的计数表、累计面积图和冲积图（PNG/PDF）、单文件离线交互报告。
+- 规则（`src/g2t/data/mito_methods.yaml`）：有三代平台记为 Long-read（含混合组装），否则有二代平台记为 NGS，否则 Sanger；**没有 Assembly-Data 注释的记为 Unknown，不当作 Sanger**。年份 = 发表年，否则提交年，否则建档年（`year_source` 列）。
+- `g2t-cite` 分级：high / medium 进入 `cite.xlsx` 的 *Curate* 页（可直接给 `g2t-curate -u` 和 `g2t-mitostats --citations`），check 行在 *Candidates* 页标黄，需人工确认。
+- 重跑只下载新记录、只查询新的论文组。
+- 完整实例（环节动物 745 条，含每一步的真实输出）：[docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md)；全后生动物及增量更新：[docs/tutorials/metazoa.md](docs/tutorials/metazoa.md)。
+
 ## 输出文件说明
 
 ```

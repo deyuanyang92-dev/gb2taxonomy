@@ -54,6 +54,7 @@ g2t-reconcile = "g2t._cli:main_reconcile"
 g2t-organize = "g2t._cli:main_organize"
 g2t-curate = "g2t._cli:main_curate"
 g2t-mitostats = "g2t._cli:main_mitostats"
+g2t-cite = "g2t._cli:main_cite"
 
 [tool.setuptools.packages.find]
 where = ["src"]

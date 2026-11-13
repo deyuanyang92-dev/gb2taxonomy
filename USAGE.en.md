@@ -303,6 +303,23 @@ g2t-curate -m matrix.csv -u corrections.xlsx -o curated.csv
 
 ---
 
+## Mitogenome statistics (--header-only, g2t-mitostats, g2t-cite)
+
+To see how the mitogenomes of a clade were sequenced, assembled and published, the sequences are not needed:
+
+```bash
+g2t-download -t Annelida -o gb --mitogenome --header-only   # record headers only, ~1/12 of the full size
+g2t-cite -i gb/mitogenome-header -o mito/cite.xlsx          # optional: papers of "Unpublished" records (Crossref)
+g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
+# open mito/mitostats_report.html
+```
+
+- Output: `mitostats.csv` (one row per record, raw text next to the normalised value), counts by year / assembler / journal, a cumulative area chart and an alluvial figure (PNG/PDF), and a single-file offline interactive report.
+- Rules (`src/g2t/data/mito_methods.yaml`): a long-read platform → Long-read (hybrid assemblies included); else an NGS platform → NGS; else Sanger. **Records without an Assembly-Data comment are Unknown, not Sanger.** Year = publication year, else submission year, else record creation year (`year_source`).
+- `g2t-cite` tiers: high / medium go to sheet *Curate* of `cite.xlsx` (input for `g2t-curate -u` and `g2t-mitostats --citations`); "check" rows are yellow in sheet *Candidates* and need a look.
+- Reruns download only new records and query only new paper groups.
+- Worked example with real output (Annelida, 745 records; tutorials are in Chinese): [docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md); all Metazoa and incremental updates: [docs/tutorials/metazoa.md](docs/tutorials/metazoa.md).
+
 ## Output files
 
 ```

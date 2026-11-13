@@ -250,6 +250,15 @@ def main_mitostats(argv=None):
     return main(argv)
 
 
+def main_cite(argv=None):
+    """g2t-cite — Find the published paper (Crossref) of records still marked Unpublished."""
+    _version_flag(argv, "g2t-cite")
+    check_dependencies()
+    from g2t.cite import main
+
+    return main(argv)
+
+
 def main_organize(argv=None):
     """g2t-organize — Organize genes by species."""
     _version_flag(argv, "g2t-organize")

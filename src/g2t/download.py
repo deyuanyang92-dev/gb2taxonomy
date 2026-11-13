@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from g2t.ncbi_genes import MITO_GENES, NUCLEAR_GENES, PLASTID_GENES, canon, clause
 from g2t.recstore import DirStore, RecordStore, iter_records
@@ -67,7 +67,7 @@ class DownloadOptions:
     since: str = ""  # "" = full list; "auto" = last download date; or YYYY-MM-DD ([MDAT] incremental)
     no_store: bool = False  # keep records only in the selection's batch files (no SQLite store)
     # record headers only (efetch seq_start=1&seq_stop=1: COMMENT, REFERENCE, source; LOCUS says 1 bp);
-    # true lengths and dates go to summary.tsv (esummary). ~1/16 of the full size for mitogenomes.
+    # true lengths and dates go to summary.tsv (esummary). ~1/12 of the full size for mitogenomes (50 Annelida records: 0.10 vs 1.24 MB).
     header_only: bool = False
     batch: int = 500
     workers: int = 3
@@ -261,10 +261,12 @@ def _fetch_batch(ids: list[str], header_only: bool = False) -> tuple[list[str], 
 SUMMARY_COLUMNS = ["accession", "length", "create_date", "update_date", "taxid", "title"]
 
 
-def _write_summary(path: Path, accs: list[str], batch: int, delay: float) -> None:
+def _write_summary(path: Path, accs: list[str], batch: int, delay: float, workers: int = 1) -> None:
     """summary.tsv of a --header-only download: true length and dates from esummary (LOCUS says 1 bp).
 
-    Rows already in an earlier summary.tsv are kept; only new accession.versions are queried."""
+    Rows already in an earlier summary.tsv are kept; only new accession.versions are queried, by
+    ``workers`` parallel requests. A part that still fails after the retries is left out with a
+    warning; the next run queries it again."""
     from Bio import Entrez
 
     def day(v: object) -> str:
@@ -279,13 +281,31 @@ def _write_summary(path: Path, accs: list[str], batch: int, delay: float) -> Non
                 if len(f) == len(SUMMARY_COLUMNS):
                     rows[f[0]] = f
     todo = [a for a in accs if a not in rows]
-    for i in range(0, len(todo), batch):
-        part = todo[i : i + batch]
-        for d in _call(Entrez.esummary, True, db="nuccore", id=",".join(part)):
-            a = str(d.get("AccessionVersion", ""))
-            rows[a] = [a, str(int(d.get("Length", 0))), day(d.get("CreateDate")), day(d.get("UpdateDate")),
-                       str(int(d.get("TaxId", 0))), str(d.get("Title", "")).replace("\t", " ")]
-        time.sleep(delay)
+    parts = [todo[i : i + batch] for i in range(0, len(todo), batch)]
+
+    def fetch(part: list[str]) -> list[Any]:
+        return list(_call(Entrez.esummary, True, db="nuccore", id=",".join(part)))
+
+    missing = 0
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(parts) or 1))) as ex:
+        futs = {}
+        for part in parts:
+            futs[ex.submit(fetch, part)] = part
+            time.sleep(delay)
+        for fu in as_completed(futs):
+            try:
+                docs = fu.result()
+            except Exception as e:  # noqa: BLE001  (left out; the next run asks again)
+                missing += len(futs[fu])
+                print(f"   summary of {len(futs[fu])} records: {type(e).__name__}", file=sys.stderr)
+                continue
+            for d in docs:
+                a = str(d.get("AccessionVersion", ""))
+                rows[a] = [a, str(int(d.get("Length", 0))), day(d.get("CreateDate")), day(d.get("UpdateDate")),
+                           str(int(d.get("TaxId", 0))), str(d.get("Title", "")).replace("\t", " ")]
+    if missing:
+        print(f"   summary.tsv: {missing} records without length/dates; run the download again to add them",
+              file=sys.stderr)
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write("\t".join(SUMMARY_COLUMNS) + "\n")
@@ -580,7 +600,7 @@ def download(
     elif (out / "changes.tsv").exists():
         (out / "changes.tsv").unlink()
     if o.header_only:
-        _write_summary(out / "summary.tsv", [a for a in accs if a not in failed_set], o.batch, delay)
+        _write_summary(out / "summary.tsv", [a for a in accs if a not in failed_set], o.batch, delay, o.workers)
     (out / "accessions.tsv").write_text("accession\n" + "\n".join(accs) + "\n", encoding="utf-8")
     # date of the last check against the full NCBI list (a --since run cannot see withdrawn records)
     full_check = prev.get("last_full_check") if since else date.today().isoformat()
@@ -740,7 +760,7 @@ EPILOG = """examples:
   g2t-download -t Polynoidae -o gb --since auto    later: only new or modified records
   g2t-download -t Polynoidae -o gb -n              counts only
   g2t-download -t 46593 -o gb --mitogenome
-  g2t-download -t Annelida -o gb --mitogenome --header-only   metadata only (~1/16 of the size)
+  g2t-download -t Annelida -o gb --mitogenome --header-only   metadata only (~1/12 of the size)
 
 Re-running skips records already downloaded. Exit status 1 if records failed."""
 

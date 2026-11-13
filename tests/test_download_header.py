@@ -106,3 +106,26 @@ def test_rerun_queries_only_new_records(tmp_path, fake):
     assert fake["summary_ids"] == accs(7)[5:]
     with open(Path(res.out_dir) / "summary.tsv", encoding="utf-8") as fh:
         assert [r["accession"] for r in csv.DictReader(fh, delimiter="\t")] == accs(7)
+
+
+def test_failed_summary_part_is_retried_next_run(tmp_path, fake, monkeypatch):
+    fake["list"] = accs(6)
+    real = dl._call
+    calls = {"n": 0}
+
+    def flaky(fn, parse, retries=5, **kw):
+        if fn.__name__ == "esummary" and "MN000004.1" in kw["id"] and calls["n"] == 0:
+            calls["n"] += 1
+            raise RuntimeError("NCBI 500")
+        return real(fn, parse, retries, **kw)
+
+    monkeypatch.setattr(dl, "_call", flaky)
+    opts = DownloadOptions(mitogenome=True, header_only=True, batch=3, workers=2)
+    res = download("Annelida", str(tmp_path), opts, progress=False)
+    with open(Path(res.out_dir) / "summary.tsv", encoding="utf-8") as fh:
+        assert [r["accession"] for r in csv.DictReader(fh, delimiter="\t")] == accs(3)
+    fake["summary_ids"].clear()
+    download("Annelida", str(tmp_path), opts, progress=False)
+    assert fake["summary_ids"] == accs(6)[3:]  # only the part that failed
+    with open(Path(res.out_dir) / "summary.tsv", encoding="utf-8") as fh:
+        assert [r["accession"] for r in csv.DictReader(fh, delimiter="\t")] == accs(6)

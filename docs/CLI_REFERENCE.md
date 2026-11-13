@@ -18,10 +18,9 @@ organize
 options:
   -h, --help            show this help message and exit
   --version             Print the g2t version and exit
-  -i INPUT [INPUT ...], --input INPUT [INPUT ...]
+  -i, --input INPUT [INPUT ...]
                         GenBank files or directories
-  -o OUTPUT, --output OUTPUT
-                        Root output directory
+  -o, --output OUTPUT   Root output directory
   --stream, --no-stream
                         Stream the extraction step (default; same results,
                         less memory on large inputs)
@@ -55,22 +54,20 @@ usage: g2t-download [-h] -t NAME|TAXID [-o DIR] [-e ADDR] [-k KEY]
                     [--validate] [--all] [--mito] [--mitogenome] [--gene LIST]
                     [--minlen BP] [--maxlen BP] [--query CLAUSE]
                     [--include-wgs] [--include-mrna] [--include-tsa]
-                    [--include-refseq] [--include-large] [--tag NAME]
-                    [--since auto|DATE] [--store FILE | --no-store] [-n]
-                    [--report] [-b N] [-w N] [-q]
+                    [--include-refseq] [--include-large] [--header-only]
+                    [--tag NAME] [--since auto|DATE] [--store FILE |
+                    --no-store] [-n] [--report] [-b N] [-w N] [-q]
 
 Download GenBank records of a taxon from NCBI.
 
 options:
   -h, --help            show this help message and exit
-  -t NAME|TAXID, --taxon NAME|TAXID
+  -t, --taxon NAME|TAXID
                         taxon name or NCBI taxid
-  -o DIR, --output DIR  output root; records go to DIR/TAG/ (default:
+  -o, --output DIR      output root; records go to DIR/TAG/ (default:
                         <taxon>_gb)
-  -e ADDR, --email ADDR
-                        e-mail for NCBI (default: $NCBI_EMAIL)
-  -k KEY, --api-key KEY
-                        NCBI API key (default: $NCBI_API_KEY)
+  -e, --email ADDR      e-mail for NCBI (default: $NCBI_EMAIL)
+  -k, --api-key KEY     NCBI API key (default: $NCBI_API_KEY)
   --validate            parse the batch files with Biopython afterwards
 
 selection (default: marker records, see README):
@@ -87,6 +84,10 @@ selection (default: marker records, see README):
   --include-refseq      keep RefSeq records
   --include-large       keep nuclear records > 100 kb (organelle records are
                         always kept)
+  --header-only         record headers only, no sequence (assembly/sequencing
+                        notes, references, source); lengths and dates in
+                        summary.tsv. For metadata analyses such as
+                        g2t-mitostats
   --tag NAME            output sub-directory (default: from the selection)
 
 update:
@@ -98,8 +99,8 @@ update:
 run:
   -n, --dry-run         report counts and records to fetch; write nothing
   --report              also count records per gene (extra NCBI searches)
-  -b N, --batch-size N  records per request and batch file (default: 500)
-  -w N, --workers N     parallel NCBI requests (default: 3)
+  -b, --batch-size N    records per request and batch file (default: 500)
+  -w, --workers N       parallel NCBI requests (default: 3)
   -q, --quiet           no progress output
 
 examples:
@@ -107,6 +108,7 @@ examples:
   g2t-download -t Polynoidae -o gb --since auto    later: only new or modified records
   g2t-download -t Polynoidae -o gb -n              counts only
   g2t-download -t 46593 -o gb --mitogenome
+  g2t-download -t Annelida -o gb --mitogenome --header-only   metadata only (~1/12 of the size)
 
 Re-running skips records already downloaded. Exit status 1 if records failed.
 ```
@@ -120,26 +122,25 @@ usage: g2t-extract [-h] -i INPUT [INPUT ...] [-o OUTPUT] [-m METADATA_OUTPUT]
                    [--log_interval LOG_INTERVAL]
                    [--metadata_delimiter METADATA_DELIMITER]
                    [--assembly_delimiter ASSEMBLY_DELIMITER]
-                   [--final_delimiter FINAL_DELIMITER]
-                   [--only_assembly_meta | --only_except_assembly_meta]
-                   [--update_taxonomy] [--no_report] [--no_tracking]
-                   [--no_recursive] [--if_use_chunksize]
+                   [--final_delimiter FINAL_DELIMITER] [--only_assembly_meta |
+                   --only_except_assembly_meta] [--update_taxonomy]
+                   [--no_report] [--no_tracking] [--no_recursive]
+                   [--if_use_chunksize]
 
 GenBank Metadata Extractor (refactored): 3-strategy Assembly + record tracking
 
 options:
   -h, --help            show this help message and exit
-  -i INPUT [INPUT ...], --input INPUT [INPUT ...]
+  -i, --input INPUT [INPUT ...]
                         Input GenBank files or directories (default: None)
-  -o OUTPUT, --output OUTPUT
-                        Output directory (default: .)
-  -m METADATA_OUTPUT, --metadata-output METADATA_OUTPUT
+  -o, --output OUTPUT   Output directory (default: .)
+  -m, --metadata-output METADATA_OUTPUT
                         Metadata table (one row per record) (default:
                         metadata.csv)
-  -a ASSEMBLY_OUTPUT, --assembly-output ASSEMBLY_OUTPUT
+  -a, --assembly-output ASSEMBLY_OUTPUT
                         Assembly / sequencing data table (default:
                         assembly.csv)
-  -f FINAL_OUTPUT, --final-output FINAL_OUTPUT
+  -f, --final-output FINAL_OUTPUT
                         Metadata and assembly data merged (default: final.csv)
   --stream, --no-stream
                         Stream processing (default; same results, less memory
@@ -212,10 +213,8 @@ Gene Type Classifier: GenBank metadata -> gene_type labels
 
 options:
   -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Input file (CSV/TSV/Excel) (default: None)
-  -o OUTPUT, --output OUTPUT
-                        Output directory (default: assign_genes_type)
+  -i, --input INPUT     Input file (CSV/TSV/Excel) (default: None)
+  -o, --output OUTPUT   Output directory (default: assign_genes_type)
   --prematch_output_file_name PREMATCH_OUTPUT_FILE_NAME
                         Round-1 assignments (file name in -o) (default:
                         assigned_genes_type.csv)
@@ -228,7 +227,7 @@ options:
   --conflicted_sequences CONFLICTED_SEQUENCES
                         Records whose title contradicts the gene type
                         (default: conflicted_genes.csv)
-  --if_remove_matched_sequences IF_REMOVE_MATCHED_SEQUENCES, -ifrms IF_REMOVE_MATCHED_SEQUENCES
+  --if_remove_matched_sequences, -ifrms IF_REMOVE_MATCHED_SEQUENCES
                         yes: stop at the first matching gene type (one gene
                         per record) (default: no)
   --length_range2_mtgenome LENGTH_RANGE2_MTGENOME
@@ -305,7 +304,7 @@ options:
                         atpb,trnk,rps4,atpb)
   --path_dict PATH_DICT
                         External gene dictionary file (default: None)
-  --which_gene_types_extract WHICH_GENE_TYPES_EXTRACT, --which_gene_types_extact WHICH_GENE_TYPES_EXTRACT, -wgte WHICH_GENE_TYPES_EXTRACT
+  --which_gene_types_extract, --which_gene_types_extact, -wgte WHICH_GENE_TYPES_EXTRACT
                         Also write one file per gene type for these types
                         (comma-separated) (default: None)
   --if_recheck_unmatched IF_RECHECK_UNMATCHED
@@ -342,37 +341,37 @@ identifiers.
 
 options:
   -h, --help            show this help message and exit
-  -i INPUT, --input INPUT, --file INPUT
+  -i, --input, --file INPUT
                         Input file (xlsx/xls/csv/tsv/txt)
-  -o OUT, --out OUT     Output directory
+  -o, --out OUT         Output directory
   --quiet               Quiet mode (suppress console output)
   --log_file LOG_FILE   Log file path
   --normalize_column_names NORMALIZE_COLUMN_NAMES
                         Replace column name spaces with underscores; case is
                         preserved (default False)
-  --fill_haplotype FILL_HAPLOTYPE, --if_write_haplotype_into_new_species_voucher FILL_HAPLOTYPE
+  --fill_haplotype, --if_write_haplotype_into_new_species_voucher FILL_HAPLOTYPE
                         Fill empty primary_voucher with haplotype (default
                         False)
-  --columns_to_combine COLUMNS_TO_COMBINE, --which_columes_want_combine COLUMNS_TO_COMBINE
+  --columns_to_combine, --which_columes_want_combine COLUMNS_TO_COMBINE
                         Columns used to generate primary_voucher, in priority
                         order
-  --fallback_column FALLBACK_COLUMN, --which_volumn_write2_still_empty_species_voucher FALLBACK_COLUMN
+  --fallback_column, --which_volumn_write2_still_empty_species_voucher FALLBACK_COLUMN
                         Fallback column to fill empty primary_voucher
-  --combine_species_name COMBINE_SPECIES_NAME, --if_species_voucher_combine_species_name COMBINE_SPECIES_NAME
+  --combine_species_name, --if_species_voucher_combine_species_name COMBINE_SPECIES_NAME
                         Combine species name with primary_voucher
-  --primary_voucher_column_name PRIMARY_VOUCHER_COLUMN_NAME, --name_of_pse_species_voucher PRIMARY_VOUCHER_COLUMN_NAME
+  --primary_voucher_column_name, --name_of_pse_species_voucher PRIMARY_VOUCHER_COLUMN_NAME
                         Column name for the primary voucher identifier
-  --updated_voucher_column_name UPDATED_VOUCHER_COLUMN_NAME, --name_of_upated_speces_voucher UPDATED_VOUCHER_COLUMN_NAME
+  --updated_voucher_column_name, --name_of_upated_speces_voucher UPDATED_VOUCHER_COLUMN_NAME
                         Column name for the updated voucher identifier
-  --species_name_column SPECIES_NAME_COLUMN, --which_colum_is_species_name SPECIES_NAME_COLUMN
+  --species_name_column, --which_colum_is_species_name SPECIES_NAME_COLUMN
                         Column containing species names
-  --simple_csv_columns SIMPLE_CSV_COLUMNS, --which_volumns_you_want_for_simple_csv SIMPLE_CSV_COLUMNS
+  --simple_csv_columns, --which_volumns_you_want_for_simple_csv SIMPLE_CSV_COLUMNS
                         Columns to include in the simple output CSV
-  --generate_simple_csv GENERATE_SIMPLE_CSV, --if_generate_simple_csv GENERATE_SIMPLE_CSV
+  --generate_simple_csv, --if_generate_simple_csv GENERATE_SIMPLE_CSV
                         Generate simple CSV output
-  --generate_frequency_groups GENERATE_FREQUENCY_GROUPS, --if_generate_sorted_group GENERATE_FREQUENCY_GROUPS
+  --generate_frequency_groups, --if_generate_sorted_group GENERATE_FREQUENCY_GROUPS
                         Generate frequency group files (occurrences 2-8)
-  --combine_order {species_name+pse,pse+species_name}, --set_combine_order_for_species_voucher_new {species_name+pse,pse+species_name}
+  --combine_order, --set_combine_order_for_species_voucher_new {species_name+pse,pse+species_name}
                         How to combine species name with voucher
 ```
 
@@ -386,9 +385,8 @@ Evidence-based merging of voucher variants (Step 3b)
 
 options:
   -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        updated_species_voucher.csv from g2t-voucher
-  -o OUTPUT_DIR, --output_dir OUTPUT_DIR
+  -i, --input INPUT     updated_species_voucher.csv from g2t-voucher
+  -o, --output_dir OUTPUT_DIR
                         Output directory
   --min_confidence {high,medium}
                         high = merge only with strong evidence (shared
@@ -415,35 +413,33 @@ Species-Gene Organizer: group gene assignments by species
 
 options:
   -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Input file (CSV/TSV/Excel)
-  -o OUTPUT, --output OUTPUT
-                        Output filename
-  --group_column GROUP_COLUMN, --which_column_as_species_voucher GROUP_COLUMN
+  -i, --input INPUT     Input file (CSV/TSV/Excel)
+  -o, --output OUTPUT   Output filename
+  --group_column, --which_column_as_species_voucher GROUP_COLUMN
                         Column to group rows by
-  --first_column_name FIRST_COLUMN_NAME, --first_row_name FIRST_COLUMN_NAME
+  --first_column_name, --first_row_name FIRST_COLUMN_NAME
                         Name for the first column in output
-  --second_column_name SECOND_COLUMN_NAME, --second_row_name SECOND_COLUMN_NAME
+  --second_column_name, --second_row_name SECOND_COLUMN_NAME
                         Name for the second column in output
-  --gene_order GENE_ORDER [GENE_ORDER ...], --rank_genes_order_in_rows GENE_ORDER [GENE_ORDER ...]
+  --gene_order, --rank_genes_order_in_rows GENE_ORDER [GENE_ORDER ...]
                         Gene types to include as columns, in order
-  --metadata_mode {first_nonempty,casual,advanced,per_gene,all}, --write_metadata_mode {first_nonempty,casual,advanced,per_gene,all}
+  --metadata_mode, --write_metadata_mode {first_nonempty,casual,advanced,per_gene,all}
                         How to aggregate metadata across rows
-  --metadata_columns METADATA_COLUMNS [METADATA_COLUMNS ...], --mustbe_meta_data_list METADATA_COLUMNS [METADATA_COLUMNS ...]
+  --metadata_columns, --mustbe_meta_data_list METADATA_COLUMNS [METADATA_COLUMNS ...]
                         Metadata columns to include in output (default:
                         OrganizeConfig.meta_columns)
-  --extra_columns [EXTRA_COLUMNS ...], --extra_information_write_in [EXTRA_COLUMNS ...]
+  --extra_columns, --extra_information_write_in [EXTRA_COLUMNS ...]
                         Additional columns to append to output
-  --mtgenome_prefer_nc {yes,no}, --mtgenome_dupli_write_nc {yes,no}
+  --mtgenome_prefer_nc, --mtgenome_dupli_write_nc {yes,no}
                         Prefer NC_ accessions when mtgenome has duplicates
   --drop_empty_gene_columns
                         leave out gene columns that are empty in every row
                         (default: all gene columns, fixed layout)
   --split_by COLUMN     Also write one matrix per value of COLUMN (e.g.
                         Family, Order) into by_<COLUMN>/ with _summary.csv
-  --organize_18_28s_separately {yes,no}, --if_organize_18_28s_into_seprate {yes,no}
+  --organize_18_28s_separately, --if_organize_18_28s_into_seprate {yes,no}
                         Propagate 18-28s LocusIDs to sub-gene columns
-  --organize_mtgenome_separately {yes,no}, --if_organize_mtgenomes_into_sep {yes,no}
+  --organize_mtgenome_separately, --if_organize_mtgenomes_into_sep {yes,no}
                         Propagate mtgenome LocusIDs to sub-gene columns
   --mtgenome_includes [MTGENOME_INCLUDES ...]
                         Gene columns that receive the accession of a
@@ -460,13 +456,11 @@ Update the NCBI matrix (A) from your own table (B) -> a corrected matrix (C)
 
 options:
   -h, --help            show this help message and exit
-  -m MATRIX, --matrix MATRIX
-                        matrix A: .xlsx (sheet 'Matrix') / .csv / .tsv
-  -u UPDATES, --updates UPDATES
+  -m, --matrix MATRIX   matrix A: .xlsx (sheet 'Matrix') / .csv / .tsv
+  -u, --updates UPDATES
                         table B: your own Excel/csv with any column names (or
                         a g2t corrections template)
-  -o OUTPUT, --output OUTPUT
-                        output C: .xlsx (Matrix / Changes / Problems / Column
+  -o, --output OUTPUT   output C: .xlsx (Matrix / Changes / Problems / Column
                         mapping / Matrix (GenBank)) or .csv (log and problems
                         written next to it)
   --sheet SHEET         sheet of table B (name or 0-based number; default
@@ -481,4 +475,62 @@ options:
                         species_voucher_new)
   --template TEMPLATE   write a pre-filled corrections template (.csv or
                         .xlsx) and exit
+```
+
+## g2t-mitostats
+
+```text
+usage: g2t-mitostats [-h] -i PATH [PATH ...] -o DIR [--title TITLE] [--top N]
+                     [--no-figures] [--no-taxonomy] [--citations FILE]
+
+Sequencing technology, assembly programs and publications of mitochondrial genomes.
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input PATH [PATH ...]
+                        GenBank files or directories (e.g. gb/mitogenome-
+                        header)
+  -o, --output DIR      output directory
+  --title TITLE         title of the HTML report
+  --top N               assemblers shown in the alluvial figure
+  --no-figures          skip the PNG/PDF figures
+  --no-taxonomy         do not look up phylum..genus on NCBI
+  --citations FILE      g2t-cite output (cite.xlsx): journals of records still
+                        'Unpublished' in GenBank
+
+examples:
+  g2t-download -t Annelida -o gb --mitogenome --header-only
+  g2t-mitostats -i gb/mitogenome-header -o annelida_mito
+  open annelida_mito/mitostats_report.html
+  g2t-cite -i gb/mitogenome-header -o annelida_mito/cite.xlsx      # papers of "Unpublished" records
+  g2t-mitostats -i gb/mitogenome-header -o annelida_mito --citations annelida_mito/cite.xlsx
+
+Records without an Assembly-Data comment are counted as "Unknown" (not as Sanger).
+Spellings and rules: g2t/data/mito_methods.yaml.
+```
+
+## g2t-cite
+
+```text
+usage: g2t-cite [-h] -i INPUT [INPUT ...] -o OUTPUT [--mailto MAILTO]
+                [--delay DELAY] [-q]
+
+Find the published paper (Crossref) of GenBank records still marked 'Unpublished'.
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input INPUT [INPUT ...]
+                        GenBank files/folders, or g2t tables (.csv/.tsv/.xlsx)
+                        with Ref1Journal.. columns
+  -o, --output OUTPUT   cite.xlsx (or .csv -> _curate.csv + _candidates.csv)
+  --mailto MAILTO       your e-mail for the Crossref polite pool (default:
+                        $CROSSREF_MAILTO; none sent otherwise)
+  --delay DELAY         seconds between Crossref queries (default 0.2)
+  -q, --quiet
+
+examples:
+  g2t-cite -i gb/mitogenome-header -o cite.xlsx
+  g2t-cite -i final.csv -o cite.xlsx
+  g2t-curate -m matrix.xlsx -u cite.xlsx -o curated.xlsx   # apply sheet 'Curate'
+  g2t-mitostats -i gb/mitogenome-header -o mito --citations cite.xlsx
 ```
