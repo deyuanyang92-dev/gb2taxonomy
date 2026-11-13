@@ -6,7 +6,7 @@
 
 **From an NCBI taxon name to a specimen × gene matrix, and to a report on how its mitogenomes were sequenced, assembled and published.**
 
-[![version](https://img.shields.io/badge/version-v0.04-2a78d6)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.05-2a78d6)](CHANGELOG.md)
 [![python](https://img.shields.io/badge/python-%E2%89%A53.9-2a78d6)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-1baf7a)](LICENSE)
 [![demo](https://img.shields.io/badge/live%20demo-Annelida%20mitogenomes-eb6834)](https://deyuanyang92-dev.github.io/gb2taxonomy/demo/annelida_mitostats.html)
@@ -33,9 +33,10 @@
 |---|---|---|
 | `g2t-download` | taxon name / taxid → GenBank batch files (`--header-only`: record headers only) | get the data, update it later |
 | `g2t` (steps 1–4) | GenBank files → specimen × gene matrix | multi-locus phylogeny, taxonomy |
-| `g2t-curate` (step 5) | matrix + your table → corrected matrix with a change log | fix coordinates, names, references |
+| `g2t-curate` (step 6) | matrix + your table → corrected matrix with a change log | fix coordinates, names, references |
 | `g2t-mitostats` | mitogenome records → tables, thesis-style figures, interactive HTML report | how were the mitogenomes of a clade sequenced and assembled, and where were they published? |
 | `g2t-cite` | records marked "Unpublished" → their papers on Crossref | complete the journal information |
+| `g2t-screen` | records + g2t types → per marker, sequences almost identical to another genus or far from all others (possible contamination or misidentification); runs as step 5 of `g2t` | find what used to take align → distances → tree by hand, e.g. Opheliidae COI OQ417162 "Polyophthalmus pictus" 0.4% from *Armandia* |
 | `g2t-verify` | records + g2t types → which rRNA the sequence really is (12S, 16S, 18S, 5.8S, 28S, ITS1/ITS2), with coordinates and cut regions | catch mislabelled records, e.g. 16S titled "small subunit" (Hesionidae) or "18S…ITS…28S" records holding only ITS |
 
 ## Installation
@@ -47,7 +48,7 @@ pip install -e ".[report]"      # [report] adds matplotlib + plotly for g2t-mito
 g2t --help
 ```
 
-Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80, openpyxl ≥ 3.0 (Excel files of Step 5, `g2t-curate`, `g2t-cite`), pyyaml ≥ 6.0 (reads the bundled gene dictionary `gene_dict.yaml`, the only copy of the synonyms). The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so. `g2t-mitostats` figures need matplotlib, its HTML report plotly (`pip install -e ".[report]"`).
+Requirements: Python ≥ 3.9, pandas ≥ 1.5, Biopython ≥ 1.80, openpyxl ≥ 3.0 (Excel files of step 6, `g2t-curate`, `g2t-cite`), pyyaml ≥ 6.0 (reads the bundled gene dictionary `gene_dict.yaml`, the only copy of the synonyms), pyhmmer ≥ 0.10 (step 2b; not on Windows, where step 2b is skipped). The columns Class/Order/Family/Genus come from ete3 if it works; otherwise (e.g. on Python 3.13, where ete3 cannot be imported) they are fetched once from NCBI Taxonomy by TaxonID and cached in `gb_metadata/taxonomy_cache.json`. Without network access they stay empty and a warning says so. `g2t-mitostats` figures need matplotlib, its HTML report plotly (`pip install -e ".[report]"`).
 
 ## Quick start
 
@@ -70,7 +71,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 # open mito/mitostats_report.html
 ```
 
-Annelida, November 2026: 745 mitogenomes; NGS 512, Sanger 55, long-read 5, no Assembly-Data comment 173 (reported as "Unknown", never guessed); NOVOPlasty is the commonest single assembler (106), 108 records name several.
+Annelida, November 2026: 745 mitogenomes; NGS 512, Sanger 68, long-read 5, Unknown 160 (no Assembly-Data comment, submitted 2013 or later); NOVOPlasty is the commonest single assembler (106), 108 records name several.
 
 ## Tutorials
 
@@ -123,7 +124,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 
 - `--header-only` fetches each record with `seq_start=1&seq_stop=1` (the LOCUS line then says `1 bp`); true length, dates and taxid come from esummary and are written to `summary.tsv`. Headers are stored in their own `_records_header.sqlite`, so a later full download never mistakes them for full records. Reruns fetch and summarise only new accession.versions.
 - `g2t-mitostats` writes `mitostats.csv` (one row per record, raw text next to the normalised value), `counts_by_year.csv`, `counts_by_assembler.csv`, `counts_by_journal.csv`, `fig_seqtech_by_year.{png,pdf}` (cumulative records by sequencing technology, with a pie of the totals), `fig_alluvial.{png,pdf}` (year → sequencing technology → assembler) and `mitostats_report.html`: one offline file with filters for years, technology, taxon (class, order, family, genus), assembler and publication status, charts that follow the filters, a sortable table linked to NCBI and a CSV download of the filtered rows.
-- **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment are "Unknown", never assumed to be Sanger.** Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
+- **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment:** NGS if the paper title names a high-throughput method (454, Illumina, NGS, genome skimming …); Sanger if first submitted before 2012 — NCBI introduced the comment in 2012, none of the 150,025 metazoan records submitted earlier has it, and among the first annotated records (2012) Sanger outnumbers NGS 195 to 66; otherwise "Unknown". Column `seq_basis` says which rule applied. Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
 - `g2t-cite` groups records whose references are all "Unpublished" by (title, authors), searches Crossref by title and first author, and grades the best paper: **high** (title similarity ≥ 0.90 and ≥ half of the authors shared), **medium** (≥ 0.75 and ≥ half), **check** (title changed but ≥ 3/4 of the authors shared, or a near-identical template title with few shared authors), **low**. A paper whose title does not name the record's taxon (when the GenBank title does) scores 0, since mitogenome notes share template titles. Sheet *Curate* (high + medium, one row per accession) is table B for `g2t-curate` and the input of `g2t-mitostats --citations`; sheet *Candidates* shows every group with its scores, "check" rows in yellow. Crossref answers are cached (`crossref_cache.json`), so reruns query only new groups. No e-mail is sent unless you pass `--mailto` (or set `CROSSREF_MAILTO`), which puts you in Crossref's faster "polite pool".
 
 ### Checking gene types against the sequence (`g2t-verify`)
@@ -135,11 +136,13 @@ g2t-verify -i gb/markers --g2t out -o verify          # rRNA, unmatched and conf
 
 g2t assigns gene types from record titles. `g2t-verify` scans the sequences with profile HMMs (HMMER via pyhmmer) of mitochondrial 12S and 16S and nuclear 18S, 5.8S and 28S rRNA, locates each region, derives ITS1/ITS2 from the 5.8S, and reports per record `agree`, `partly`, `different`, `no_hit`, `unverifiable` (spacer only, nothing to place it by) or `new` (unmatched by g2t, but an rRNA). Output: `verify.csv` and `regions/*.fa` (sequences cut by region). Models: Rfam 15.1 profile HMMs for 18S/5.8S/28S (CC0, bundled) and barrnap 0.9 `mito.hmm` for 12S/16S (GPL-3.0, downloaded on first use and checked by SHA-256); `--models` takes your own. Evaluation, with the numbers: [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md). Hesionidae: of 904 rRNA records, 5 titled "small subunit ribosomal RNA; mitochondrial" are 16S (confirmed by 98–100% identity to 16S records), invisible to the title-based conflict check. Speed: 4,750 Enchytraeidae records in 83 s on a busy 16-core machine (11 min 36 s before tiling the long models, scanning each distinct sequence once and using all cores); hits are cached, so a rerun takes 9 s (`--no-cache` to switch off).
 
-### Steps 1–4 — the pipeline (`g2t`)
+### Steps 1–5 — the pipeline (`g2t`)
 
 ```bash
-g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcile_min_confidence high]
+g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcile_min_confidence high] [--no-verify] [--no-screen]
 ```
+
+Since v0.05 the pipeline checks rRNA records against their sequence (step 2b, `g2t-verify`) and uses the sequence's gene type where it differs from the title / annotation, and screens every marker for possible contamination or misidentification (step 5, `g2t-screen`). `--no-verify` keeps the annotation's types (as in v0.04); `--no-screen` skips the screen. Evaluation: [docs/evaluation/v0.05.md](docs/evaluation/v0.05.md).
 
 Input: GenBank flat files (`.gb`, `.gbf`, `.gbk`, `.gbff`, `.genbank`) or directories holding them. A small dataset to try offline is in [`examples/haplotaxidae`](examples/haplotaxidae) (347 records, about 4 s). Every command prints its version with `--version`.
 
@@ -147,10 +150,12 @@ Input: GenBank flat files (`.gb`, `.gbf`, `.gbk`, `.gbff`, `.genbank`) or direct
 |---|---|---|
 | 1 | `g2t-extract -i gb/markers -o s1` | GenBank → `final.csv` (one row per record: accession, length, definition, organism, voucher, isolate, locality, coordinates, date, references, …) |
 | 2 | `g2t-classify -i s1/final.csv -o s2` | → `assigned_genes_types_all.csv` (gene type per record), `unmatched_sequences.csv`, `filtered_records.csv`, `record_status.csv` |
+| 2b | `g2t-verify -i gb/markers --g2t OUT -o OUT/verified_rrna` | rRNA types from the sequence (in `g2t`: applied to step 2's tables; annotation kept in `*.annotation.csv`) |
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
 | 3b | `g2t-reconcile -i s3/updated_species_voucher.csv -o s3` | → `reconciled_species_voucher.csv`, `reconcile_report.csv` |
 | 4 | `g2t-organize -i s3/reconciled_species_voucher.csv -o matrix.csv` | → specimen × gene matrix |
-| 5 | `g2t-curate -m matrix_A.xlsx -u your_table_B.xlsx -o curated_C.xlsx` | → corrected matrix C (sheets Matrix / Changes / Problems / Column mapping / Matrix (GenBank)) (optional) |
+| 5 | `g2t-screen -i gb/markers --g2t OUT` | → `organized_genes/screen.csv`; matrix column `screen_flags` |
+| 6 | `g2t-curate -m matrix_A.xlsx -u your_table_B.xlsx -o curated_C.xlsx` | → corrected matrix C (sheets Matrix / Changes / Problems / Column mapping / Matrix (GenBank)) (optional) |
 
 Output of the full pipeline:
 
@@ -162,10 +167,13 @@ OUT/
 ├── labeled_genes/unmatched_sequences.csv              step 2 (no gene type found)
 ├── labeled_genes/filtered_records.csv                 step 2 (records removed by a filter, with the reason)
 ├── labeled_genes/record_status.csv                    step 2 (every input record: assigned / unmatched / filtered + reason)
+├── labeled_genes/*.annotation.csv                     step 2 before step 2b (types from the annotation only)
+├── verified_rrna/verify.csv, regions/*.fa             step 2b (per rRNA record: annotation vs sequence, regions)
 ├── updated_species_vouchers/updated_species_voucher.csv     step 3
 ├── updated_species_vouchers/reconciled_species_voucher.csv  step 3b
 ├── updated_species_vouchers/reconcile_report.csv            step 3b (every candidate pair + decision)
-├── organized_genes/organized_species_voucher.csv      step 4 (final matrix)
+├── organized_genes/organized_species_voucher.csv      step 4 (final matrix; column screen_flags from step 5)
+├── organized_genes/screen.csv                         step 5 (flagged sequences, nearest sequence, distances)
 └── g2t_run.json                                       date, command, versions of g2t/Python/Biopython/pandas/ete3, all parameters, input files (path, size, SHA-256), taxonomy source
 ```
 
@@ -197,13 +205,13 @@ Submitters often write the voucher of one specimen differently for each gene (`C
 | `voucher_standardized` | one voucher per specimen, built from `specimen_voucher` only (empty when the specimen has only `isolate` etc.): gene names removed, the most complete form kept, written in the INSDC `/specimen_voucher` format `[<institution-code>:[<collection-code>:]]<specimen_id>` (`ZMMU:MSU:WS2585`; `ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`) |
 | `voucher_note` | filled when the forms differ by more than prefixes/separators (check by hand) |
 
-### Step 5 — correcting metadata (`g2t-curate`)
+### Step 6 — correcting metadata (`g2t-curate`)
 
 #### Purpose
 
 Sequences are usually deposited in GenBank when a manuscript is submitted. Peer review often changes things afterwards: the specimens may be re-identified or given a new combination, the species may be described as new, the title may change, or the coordinates and dates may be corrected. Only the submitters can bring a record up to date. INSDC welcomes "corrections of errors and update of the records by authors" ([INSDC policy](https://www.insdc.org/policy/)), and NCBI asks submitters to send the publication data once the paper appears ([GenBank overview](https://www.ncbi.nlm.nih.gov/genbank/); source updates via a table, [Update GenBank records](https://www.ncbi.nlm.nih.gov/genbank/update/)). In practice many records are never updated, so the metadata of a downloaded dataset can be out of date or wrong. Misidentified and poorly annotated public sequences are well documented (Bridge et al. 2003, *New Phytologist* 160: 43–48, [doi:10.1046/j.1469-8137.2003.00861.x](https://doi.org/10.1046/j.1469-8137.2003.00861.x); Meiklejohn et al. 2019, *PLOS ONE* 14: e0217084, [doi:10.1371/journal.pone.0217084](https://doi.org/10.1371/journal.pone.0217084)).
 
-Step 5 lets a taxonomist apply verified information to the specimen × gene matrix without editing GenBank and without losing the original values:
+Step 6 lets a taxonomist apply verified information to the specimen × gene matrix without editing GenBank and without losing the original values:
 
 - **A**: the matrix built from GenBank, exactly as deposited (one specimen = one row).
 - **B**: your own table, in whatever layout you already keep. It holds the information you have checked: the accepted species name, the published title and authors, corrected coordinates or dates, and extra fields such as depth.
@@ -279,24 +287,24 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 3. **Length filter.** Records outside 150–50,000 bp (or without a length, or duplicated LocusIDs) are removed before classification. They are not lost silently: each is listed in `filtered_records.csv` with the reason, and `record_status.csv` gives every input record exactly one status. To classify them instead, widen all three ranges: `g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`.
 4. **Only 41 gene types, matched by keywords.** Other loci (nuclear protein-coding genes, microsatellites, Hox genes, …) end up in `unmatched_sequences.csv` unless added to the gene dictionary (see *Gene types* above). Specimen identifiers in the DEFINITION (`isolate CO2`, `voucher COI-12`) and the English word "its" are ignored, and a few look-alikes are excluded (16S rRNA methyltransferase, histone H3 lysine/demethylase, elongation factor-1 beta/gamma), but keyword matching can still misfire on unusual wording.
 5. **Vouchers and metadata.** Step 3 joins records of one organism whose voucher strings are identical, without further checks; two specimens that happen to share a code would be merged. Step 3b also joins identical identifiers (ignoring case and punctuation, in any identifier field) of one genus deposited under different names (*Bathykurila* sp. / *Bathykurila* sp. AH-2023); if both groups hold the same gene, only with the same date or coordinates; identical vouchers in different genera stay apart and are flagged in `match_evidence`. Step 3b depends on the metadata submitted to GenBank: without a shared publication, date, coordinates or collector, variants of one voucher stay unmerged (it errs on the side of not merging); when both groups already hold the same gene, a shared publication is not enough, and the pair is flagged instead. Identifiers that differ only by a lot or sub-sample ending (`CE438` / `CE438_2`) or by the institution, collector or sample code around the number (`USNM 123456` / `MCZ 123456`) are treated as different specimens. In the matrix, locality, date and other metadata are taken from the first record of the specimen that has a value, column by column, so they can come from different records; `Conflict` is true if any record was flagged.
-6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are unless you correct them in Step 5.
+6. **Names are taken as submitted.** Organism names are not checked against a taxonomic authority (WoRMS, NCBI synonyms); misidentified or outdated names stay as they are unless you correct them in step 6.
 7. **Download.** NCBI nuccore only (no BOLD, ENA-only, or SRA data). Speed is set by NCBI E-utilities (3 requests/s without an API key, 10 with one); measured: ~12,000 mitogenome headers per minute without a key. `--gene` searches gene fields and title words, so it can miss records with unusual wording; a gene query also returns mitogenomes that contain the gene.
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
-9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment stay "Unknown", and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
-10. **Curation (Step 5).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-11. **Code status.** v0.04 is an early release. 752 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment submitted from 2012 on stay "Unknown"; older ones are counted as Sanger (inferred), so a 2006–2011 NGS record that says so neither in a comment nor in the paper title is miscounted; and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
+10. **Curation (step 6).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
+11. **Code status.** v0.05 is an early release. 767 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 
 There is no paper on g2t yet. Please cite the software and version you used:
 
-> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.04) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
+> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.05) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
 
 ```bibtex
 @software{yang_g2t_2026,
   author  = {Yang, Deyuan},
   title   = {g2t: GenBank to Taxonomy},
-  version = {v0.04},
+  version = {v0.05},
   year    = {2026},
   url     = {https://github.com/deyuanyang92-dev/gb2taxonomy}
 }

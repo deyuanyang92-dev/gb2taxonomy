@@ -695,6 +695,117 @@ def verify(inputs: list[str], g2t_dir: str, out_dir: str, models: list[Path] | N
     return t
 
 
+def apply_to_assignments(t: pd.DataFrame, classify_dir: str | Path) -> dict[str, int]:
+    """Use the sequence result for the rRNA gene types in the g2t step-2 tables (default in ``g2t``).
+
+    ``different`` / ``partly``: the record's rRNA types become the sequence's (its other types,
+    e.g. coi, stay); ``new``: an unmatched record becomes assigned; ``agree``, ``unverifiable`` and
+    ``no_hit`` keep the annotation's type (no hit is no evidence against a short fragment, e.g.
+    GU453353, 175 bp of 28S, 4.3 bits). Every scanned record gets the columns
+    annotation_type, sequence_type and verify_verdict. The annotation-based tables are kept as
+    ``*.annotation.csv``; reruns start from them, so applying twice gives the same result."""
+    d = Path(classify_dir)
+    files = {k: d / f"{k}.csv" for k in ("assigned_genes_types_all", "unmatched_sequences", "record_status")}
+    tables = {}
+    for k, f in files.items():
+        orig = f.with_suffix(".annotation.csv")
+        if not orig.exists():
+            if not f.exists():
+                continue
+            orig.write_bytes(f.read_bytes())
+        tables[k] = pd.read_csv(orig, dtype=str, keep_default_na=False, low_memory=False)
+    v = t.assign(base=t["accession"].str.split(".").str[0]).drop_duplicates("base").set_index("base")
+    stats = {"changed": 0, "added": 0, "removed": 0}
+
+    def new_type(acc: str, old: str) -> str | None:
+        """None: keep; otherwise the new gene_type ('' = no type left)."""
+        if acc not in v.index or v.at[acc, "verdict"] not in ("different", "partly", "new"):
+            return None
+        seq = [x for x in str(v.at[acc, "sequence_type"] or "").split(",") if x]
+        other = [x for x in g2t_types(old) if x not in RRNA_TYPES]
+        return ",".join(other + seq)
+
+    def note(df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        base = df["ACCESSION"].astype(str)
+        hit = base.isin(v.index)
+        df["annotation_type"] = df.get("gene_type", "")
+        df["sequence_type"] = [str(v.at[b, "sequence_type"] or "") if h else "" for b, h in zip(base, hit)]
+        df["verify_verdict"] = [str(v.at[b, "verdict"]) if h else "" for b, h in zip(base, hit)]
+        return df
+
+    a = note(tables.get("assigned_genes_types_all", pd.DataFrame(columns=["ACCESSION", "gene_type"])))
+    u = note(tables.get("unmatched_sequences", pd.DataFrame(columns=["ACCESSION", "gene_type"])))
+    move_out, move_in = [], []
+    for i, (acc, old) in enumerate(zip(a["ACCESSION"].astype(str), a["gene_type"].astype(str))):
+        nt = new_type(acc, old)
+        if nt is None or nt == old:
+            continue
+        stats["changed"] += 1
+        a.at[i, "gene_type"] = nt
+        if "Assignment_reason" in a:
+            a.at[i, "Assignment_reason"] = (a.at[i, "Assignment_reason"] + " | " if a.at[i, "Assignment_reason"]
+                                            else "") + f"sequence (g2t-verify): {old or '-'} -> {nt or '-'}"
+        if not nt:
+            move_out.append(i)
+    for i, acc in enumerate(u["ACCESSION"].astype(str)):
+        nt = new_type(acc, "")
+        if nt:
+            u.at[i, "gene_type"] = nt
+            if "Assignment_reason" in u:
+                u.at[i, "Assignment_reason"] = f"sequence (g2t-verify): - -> {nt}"
+            move_in.append(i)
+    stats["removed"], stats["added"] = len(move_out), len(move_in)
+    a2 = pd.concat([a.drop(index=move_out), u.loc[move_in]], ignore_index=True)
+    u2 = pd.concat([u.drop(index=move_in), a.loc[move_out]], ignore_index=True)
+    if "assigned_genes_types_all" in tables:
+        a2.to_csv(files["assigned_genes_types_all"], index=False)
+    if "unmatched_sequences" in tables:
+        u2.to_csv(files["unmatched_sequences"], index=False)
+    if "record_status" in tables:
+        st = tables["record_status"]
+        gt = dict(zip(a2["ACCESSION"].astype(str), a2["gene_type"].astype(str)))
+        for i, acc in enumerate(st["ACCESSION"].astype(str)):
+            if acc in v.index and v.at[acc, "verdict"] in ("different", "partly", "new"):
+                nt = gt.get(acc, "")
+                if nt != st.at[i, "gene_type"]:
+                    st.at[i, "reason"] = f"sequence (g2t-verify): {st.at[i, 'gene_type'] or '-'} -> {nt or '-'}"
+                    st.at[i, "gene_type"] = nt
+                    st.at[i, "status"] = "assigned" if nt else "unmatched"
+        st.to_csv(files["record_status"], index=False)
+    return stats
+
+
+def pipeline_step(inputs: list[str], out_root: str | Path, cpus: int = 0) -> list[str]:
+    """Step 2b of ``g2t``: verify the rRNA records and apply the result; returns log lines.
+
+    Skipped with a message (annotation types kept) when pyhmmer or the mitochondrial models are
+    not available."""
+    import importlib.util
+
+    root = Path(out_root)
+    if importlib.util.find_spec("pyhmmer") is None:
+        return ["Step 2b skipped: pyhmmer not installed (pip install pyhmmer); rRNA types from the annotation"]
+    try:
+        models = default_models()
+    except Exception as e:  # noqa: BLE001 - offline etc.: keep the annotation types
+        return [f"Step 2b skipped: models not available ({type(e).__name__}: {e}); rRNA types from the annotation"]
+    classify_dir = root / "labeled_genes"
+    if not any((classify_dir / f).exists() for f in ("record_status.csv", "record_status.annotation.csv")):
+        return ["Step 2b skipped: no labeled_genes/record_status.csv; rRNA types from the annotation"]
+    for k in ("assigned_genes_types_all", "unmatched_sequences", "record_status"):  # verify the annotation result
+        orig = classify_dir / f"{k}.annotation.csv"
+        if orig.exists():
+            (classify_dir / f"{k}.csv").write_bytes(orig.read_bytes())
+    t = verify(inputs, str(root), str(root / "verified_rrna"), models=models, cpus=cpus, cache=hit_cache_path())
+    st = apply_to_assignments(t, classify_dir)
+    counts = t["verdict"].value_counts().to_dict()
+    return [f"Step 2b: rRNA types checked against the sequence: {len(t)} records "
+            + ", ".join(f"{k} {n}" for k, n in counts.items())
+            + f"; gene type changed for {st['changed']} (no type left {st['removed']}), {st['added']} unmatched"
+            " records added; details: verified_rrna/verify.csv"]
+
+
 def describe(t: pd.DataFrame) -> list[str]:
     lines = [f"{len(t)} records scanned: " + ", ".join(f"{k} {v}" for k, v in t["verdict"].value_counts().items())]
     for v in ("different", "new", "no_hit"):

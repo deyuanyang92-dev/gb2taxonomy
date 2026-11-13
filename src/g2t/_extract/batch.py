@@ -201,7 +201,7 @@ def process_batch_mode(
 ) -> ProcessingSummary:
     summary = ProcessingSummary()
     summary.gb_files_found = len(gb_files)
-    t0 = time.time()
+    t0 = time.monotonic()
     os.makedirs(output_dir, exist_ok=True)
 
     do_metadata = not only_assembly
@@ -288,5 +288,5 @@ def process_batch_mode(
     except Exception as e:
         logger.error(f"Batch merge error: {e}")
 
-    summary.total_elapsed_time = time.time() - t0
+    summary.total_elapsed_time = time.monotonic() - t0
     return summary

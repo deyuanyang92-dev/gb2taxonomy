@@ -1,6 +1,42 @@
 # 更新日志 / Changelog
 
-## 未发布
+## v0.05（2026-11-13）
+
+包内版本 `0.0.5`。本版重点：
+
+1. **按序列归类 rRNA，默认开启。** 流程新增第 2b 步：12S、16S、18S、5.8S、28S、ITS 按序列本身归类，不再只看标题和注释。
+2. **自动提示疑似污染或鉴定错误的序列，默认开启。** 流程新增第 5 步 `g2t-screen`。
+
+测评见 `docs/evaluation/v0.05.md`。
+
+- **流程第 2b 步：rRNA 按序列归类（默认）**
+  - 第 2 步按注释归类后，`g2t-verify` 用 profile HMM 逐条核对 rRNA、未匹配和有冲突的记录。序列结果与注释不同的，改用序列的类型。
+  - 对照：原注释保存在 `labeled_genes/*.annotation.csv`；表中新增 `annotation_type`、`sequence_type`、`verify_verdict` 三列；`Assignment_reason` 写明改动。
+  - 逐条结果和切好的区段在 `verified_rrna/`。
+  - `--no-verify` 恢复 v0.04 的做法，只按注释归类。
+  - pyhmmer 改为必需依赖（Windows 除外，HMMER 没有 Windows 版本）。缺 pyhmmer 或模型下载失败时，跳过本步并给出提示。
+  - Hesionidae：MG523356–60 从 12S 列移到 16S 列；只含 44–48 bp 18S 末端的 ITS 记录移出 18S 列。
+- **流程第 5 步 / `g2t-screen`（新命令，默认运行）：提示疑似污染或鉴定错误的序列**
+  - 对每个标记分别计算 k-mer 距离（正反链，不需比对，不需外部程序）。
+  - 提示两类序列：与另一个属几乎相同（≤ 2%）而离本属较远的序列（`near_other_genus`，只用于 COI、16S 等快速进化的标记）；与同一标记所有序列都相距很远的序列（`remote`）。
+  - 结果写入 `organized_genes/screen.csv`，矩阵新增 `screen_flags` 列。`--no-screen` 关闭。
+  - Opheliidae COI 只提示 OQ417162（"*Polyophthalmus pictus*"，与 *Armandia* 相差 0.4%），即此前人工建树发现的那条。
+  - Enchytraeidae 9,188 条提示 10 条；Hesionidae 0 条。
+  - 见 `docs/evaluation/screen.md`。
+- **下载加速**
+  - 自动读取 API key：`$NCBI_API_KEY`，或 `~/.config/g2t/credentials` 中的 `api_key=`。
+  - 有 key 时默认 10 个并发。环节动物 6,000 条实测：3 个并发 152–173 条/秒，8 个 254–258 条/秒，10 个 331 条/秒。
+- **`g2t-mitostats` 不再把早年线粒体基因组记为 Unknown**
+  - NCBI 从 2012 年才有 Assembly-Data 注释（Sequencing Technology）：150,025 条后生动物线粒体基因组中，2012 年以前提交的没有一条带这个注释。所以“没有注释”对早年记录说明不了测序方法。
+  - 新规则（新增 `seq_basis` 列说明依据）：
+    1. 有注释：按注释。
+    2. 没有注释、论文标题写明高通量方法（454、Illumina、NGS、genome skimming、shotgun 等）：NGS。标题中最早的这类记录出现在 2007 年。
+    3. 没有注释、2012 年以前首次提交：Sanger。在最早有注释的 2012 年，Sanger 195 条、NGS 66 条。
+    4. 其余（2012 年及以后，没有注释）：仍为 Unknown，因为当时两种方法都常见。
+  - 首次提交年份取 esummary 的建档日期，没有时取 Direct Submission 的 "Submitted (日期)"。
+  - 已知局限：2006–2011 年用了 NGS、但注释和标题都没写明的记录，会被算作 Sanger。
+- **修复**：运行时间偶尔显示为负数（如 "Time: -4.1s"）。WSL 下系统时钟会跳动，计时改用 `time.monotonic()`。
+
 
 - **线粒体基因组统计 `g2t-mitostats`（新命令）**：汇总一个类群线粒体基因组的测序技术（Sanger / NGS / Long-read / Unknown）、组装软件、发表期刊和年份。输出逐条记录表 `mitostats.csv`（原文与归类并排）、按年 / 软件 / 期刊的计数表、论文式累计面积图和年份 → 测序 → 组装冲积图（PNG/PDF），以及单文件离线交互报告 `mitostats_report.html`（年份、测序类别、分类阶元、组装软件、发表状态筛选，图表联动，表格可排序并链接 NCBI，可下载筛选后的 CSV，深色模式，手机可用）。归类规则在 `g2t/data/mito_methods.yaml`，收录 GenBank 中实际出现的拼写（含 getorangelle、GetOrgnelle 等错误写法）；没有 Assembly-Data 注释的记录记为 Unknown，不当作 Sanger。依赖 `pip install -e ".[report]"`（matplotlib、plotly）。
 - **`g2t-download --header-only`（新选项）**：只下载记录头（efetch `seq_start=1&seq_stop=1`），不含序列；真实长度、日期和 taxid 由 esummary 写入 `summary.tsv`。50 条环节动物线粒体基因组实测：0.10 MB vs 完整记录 1.24 MB。记录头存于单独的 `_records_header.sqlite`，之后的完整下载不会误用。重跑只下载、只汇总新的 accession.version；esummary 并行（`-w`），失败的部分留待下次补上。

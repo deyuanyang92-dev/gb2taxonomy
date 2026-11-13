@@ -494,7 +494,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
     if config is None:
         config = OrganizeConfig()
 
-    start_time = time.time()
+    start_time = time.monotonic()
 
     logger.info(f"Input: {input_file}")
     logger.info(f"Group column: {config.group_column}")
@@ -510,7 +510,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
         return StepResult(
             success=False,
             output_file=output_file,
-            elapsed=time.time() - start_time,
+            elapsed=time.monotonic() - start_time,
             error=f"missing required columns in {input_file}: {missing}",
         )
 
@@ -547,7 +547,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
         return StepResult(
             success=False,
             output_file=output_file,
-            elapsed=time.time() - start_time,
+            elapsed=time.monotonic() - start_time,
             error=f"no output rows (no records in {input_file})",
         )
 
@@ -574,7 +574,7 @@ def organize(input_file: str, output_file: str, config: OrganizeConfig | None = 
             gene_stats.append(f"{gene}={non_empty}")
     logger.info(f"Gene coverage: {', '.join(gene_stats)}")
 
-    elapsed = time.time() - start_time
+    elapsed = time.monotonic() - start_time
     return StepResult(success=True, output_file=output_file, rows=len(out_df), elapsed=elapsed)
 
 

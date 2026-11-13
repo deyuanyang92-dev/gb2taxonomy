@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "g2t"
-version = "0.0.4"
+version = "0.0.5"
 description = "GenBank to Taxonomy: download a taxon from NCBI and build a specimen x gene matrix"
 readme = "README.md"
 license = "MIT"
@@ -30,13 +30,14 @@ dependencies = [
     "biopython>=1.80",
     "openpyxl>=3.0",
     "pyyaml>=6.0",
+    "pyhmmer>=0.10; sys_platform != 'win32'",  # step 2b / g2t-verify (no Windows build of HMMER)
 ]
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0"]  # now a core dependency; extra kept so old install commands work
 xlsx = ["openpyxl>=3.0"]
 report = ["matplotlib>=3.5", "plotly>=5"]  # g2t-mitostats figures and HTML report
-verify = ["pyhmmer>=0.10"]  # g2t-verify (nucleotide profile HMM search)
+verify = ["pyhmmer>=0.10"]  # now a core dependency (not on Windows); extra kept for old install commands
 dev = ["pytest", "pytest-cov", "ruff", "mypy", "types-PyYAML", "openpyxl>=3.0", "pre-commit"]
 
 [project.urls]
@@ -57,6 +58,7 @@ g2t-curate = "g2t._cli:main_curate"
 g2t-mitostats = "g2t._cli:main_mitostats"
 g2t-cite = "g2t._cli:main_cite"
 g2t-verify = "g2t._cli:main_verify"
+g2t-screen = "g2t._cli:main_screen"
 
 [tool.setuptools.packages.find]
 where = ["src"]

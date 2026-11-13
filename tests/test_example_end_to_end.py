@@ -39,7 +39,10 @@ def result(tmp_path_factory):
 def test_pipeline_succeeds(result):
     res, out = result
     assert res.success, res.log
-    assert res.steps_completed == 5
+    assert res.steps_completed == 6  # 1, 2, 3, 3b, 4, 5 (2b is a check of step 2, not counted)
+    assert (out / "organized_genes" / "screen.csv").exists()
+    m = pd.read_csv(out / "organized_genes" / "organized_species_voucher.csv")
+    assert "screen_flags" in m.columns
 
 
 def test_every_record_has_a_status(result):
@@ -69,7 +72,7 @@ def test_run_record_written(result):
 
     assert prov["inputs"][0]["sha256"] == hashlib.sha256(EXAMPLE.read_bytes()).hexdigest()
     assert "taxonomy_source" in prov
-    assert prov["steps_completed"] == 5
+    assert prov["steps_completed"] == 6
 
 
 @pytest.mark.parametrize(
@@ -89,7 +92,7 @@ def test_version_flag(entry, prog, capsys):
     with pytest.raises(SystemExit) as e:
         getattr(_cli, entry)(["--version"])
     assert e.value.code == 0
-    assert capsys.readouterr().out.strip() == f"{prog} {g2t.RELEASE}" == f"{prog} v0.04"
+    assert capsys.readouterr().out.strip() == f"{prog} {g2t.RELEASE}" == f"{prog} v0.05"
 
 
 def test_gzipped_input_gives_the_same_matrix(result, tmp_path):

@@ -122,6 +122,18 @@ def main_pipeline(argv=None):
     )
     ap.add_argument("--skip_extract", action="store_true", help="Skip step 1 (use its output in -o)")
     ap.add_argument("--skip_classify", action="store_true", help="Skip step 2 (use its output in -o)")
+    ap.add_argument(
+        "--no-verify",
+        dest="no_verify",
+        action="store_true",
+        help="Keep the annotation's rRNA gene types (default: check them against the sequence, step 2b)",
+    )
+    ap.add_argument(
+        "--no-screen",
+        dest="no_screen",
+        action="store_true",
+        help="Skip step 5, the contamination / misidentification screen",
+    )
     ap.add_argument("--skip_voucher", action="store_true", help="Skip step 3 (use its output in -o)")
     ap.add_argument("--skip_organize", action="store_true", help="Skip step 4, the matrix")
     ap.add_argument(
@@ -164,6 +176,8 @@ def main_pipeline(argv=None):
         skip_voucher=args.skip_voucher,
         skip_organize=args.skip_organize,
         skip_reconcile=args.skip_reconcile,
+        skip_verify=args.no_verify,
+        skip_screen=args.no_screen,
         reconcile_min_confidence=args.reconcile_min_confidence,
         normalize_columns=args.normalize_columns,
         organize_extra=_organize_extra(args.drop_empty_gene_columns, args.split_by),
@@ -264,6 +278,15 @@ def main_verify(argv=None):
     _version_flag(argv, "g2t-verify")
     check_dependencies()
     from g2t.verify import main
+
+    return main(argv)
+
+
+def main_screen(argv=None):
+    """g2t-screen — Flag possible contaminated or misidentified sequences, marker by marker."""
+    _version_flag(argv, "g2t-screen")
+    check_dependencies()
+    from g2t.screen import main
 
     return main(argv)
 

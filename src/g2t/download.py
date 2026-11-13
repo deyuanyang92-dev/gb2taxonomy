@@ -101,12 +101,27 @@ class DownloadResult:
     candidates: int = 0  # records modified since that date
 
 
+def saved_api_key() -> str | None:
+    """NCBI API key from $NCBI_API_KEY or the ``api_key=`` line of ~/.config/g2t/credentials."""
+    if os.environ.get("NCBI_API_KEY"):
+        return os.environ["NCBI_API_KEY"]
+    f = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "g2t" / "credentials"
+    try:
+        for line in f.read_text(encoding="utf-8").splitlines():
+            k, _, v = line.partition("=")
+            if k.strip() == "api_key" and v.strip():
+                return v.strip()
+    except OSError:
+        pass
+    return None
+
+
 def setup_entrez(email: str | None = None, api_key: str | None = None) -> float:
     """Configure Bio.Entrez; returns the delay between requests (s)."""
     from Bio import Entrez
 
     Entrez.email = email or os.environ.get("NCBI_EMAIL") or None  # type: ignore[assignment]
-    Entrez.api_key = api_key or os.environ.get("NCBI_API_KEY") or None  # type: ignore[assignment]
+    Entrez.api_key = api_key or saved_api_key()  # type: ignore[assignment]
     Entrez.tool = "g2t"
     return 0.11 if Entrez.api_key else 0.34
 
@@ -585,7 +600,7 @@ def download(
     out.mkdir(parents=True, exist_ok=True)
     batches = [missing[i : i + o.batch] for i in range(0, len(missing), o.batch)]
     res.batches = len(batches)
-    t0 = time.time()
+    t0 = time.monotonic()
     failed_ids: list[str] = []
     workers = max(1, min(o.workers, len(batches) or 1))
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -601,7 +616,7 @@ def download(
             else:
                 res.fetched += st.put_many(iter_records(txt.splitlines(keepends=True)))
             if progress:
-                print(f"   {_progress(i, len(batches), len(ids), res.fetched, time.time() - t0)}"
+                print(f"   {_progress(i, len(batches), len(ids), res.fetched, time.monotonic() - t0)}"
                       + ("" if txt else "  (batch FAILED, will split)"), file=sys.stderr, flush=True)
     # split failing batches until the failing records are isolated
     while retry:
@@ -816,8 +831,10 @@ def add_selection_args(p: argparse.ArgumentParser) -> None:
 
 
 def default_workers(api_key: str | None = None) -> int:
-    """3 parallel requests (NCBI: 3/s without a key); 8 with an API key (10/s)."""
-    return 8 if (api_key or os.environ.get("NCBI_API_KEY")) else 3
+    """3 parallel requests (NCBI: 3/s without a key); 10 with an API key (10/s; requests are still
+    paced at 0.11 s). Annelida, 6,000 records per run: 3 workers 152-173 records/s, 8 workers
+    254-258, 10 workers 331 (2026-11-13)."""
+    return 10 if (api_key or saved_api_key()) else 3
 
 
 def options_from_args(a: argparse.Namespace) -> DownloadOptions:
@@ -869,7 +886,8 @@ def main(argv: list[str] | None = None) -> int:
                      help="file with one accession per line (or first column of a .csv/.tsv), instead of -t")
     p.add_argument("-o", "--output", metavar="DIR", help="output root; records go to DIR/TAG/ (default: <taxon>_gb)")
     p.add_argument("-e", "--email", metavar="ADDR", help="e-mail for NCBI (default: $NCBI_EMAIL)")
-    p.add_argument("-k", "--api-key", metavar="KEY", help="NCBI API key (default: $NCBI_API_KEY)")
+    p.add_argument("-k", "--api-key", metavar="KEY",
+                   help="NCBI API key (default: $NCBI_API_KEY, else api_key= in ~/.config/g2t/credentials)")
     p.add_argument("--validate", action="store_true", help="parse the batch files with Biopython afterwards")
     p.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)  # resuming is automatic
     add_selection_args(p)

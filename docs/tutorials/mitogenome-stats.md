@@ -45,7 +45,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito
 
 ```
 745 records; 573 with an Assembly-Data comment
-sequencing: Sanger 55, NGS 512, Long-read 5, Unknown 173
+sequencing: Sanger 68, NGS 512, Long-read 5, Unknown 160
 assembly:   Not stated 206, Multi-assembly 108, NOVOPlasty 106, GetOrganelle 53, MitoZ 51, MitoFinder 43, mtGrasp 41, SPAdes 29
 published:  294 (39%), 36 journals
 years:      1995-2026
@@ -78,7 +78,12 @@ years:      1995-2026
 | journal / year / year_source | Org Divers Evol / 2024 / publication |
 
 - 测序类别：有三代平台（PacBio、Nanopore）→ Long-read（含二代 + 三代混合组装）；否则有二代平台 → NGS（此时 Sanger 只是补洞）；否则 → Sanger。
-- **没有 Assembly-Data 注释的记录归 Unknown，不当作 Sanger。** Annelida 有 173 条这样的记录，并不都是早年数据：≤ 2012 年 13 条，2013–2020 年 34 条，2021–2025 年 92 条，2026 年 34 条。
+- **没有 Assembly-Data 注释的记录：**
+  - 论文标题写明高通量方法（454、Illumina、NGS、genome skimming 等）→ NGS；
+  - 2012 年以前提交 → Sanger（推断：NCBI 2012 年才有这个注释）；
+  - 其余 → Unknown。
+
+  `seq_basis` 列写明依据。Annelida 有 173 条记录没有测序技术注释：13 条在 2012 年以前提交，算作 Sanger；剩下 160 条为 Unknown，全部在 2013 年以后（2013–2020 年 29 条，2021–2025 年 98 条，2026 年 33 条）。
 - 组装软件：同一软件的各种写法（含 GenBank 里的拼写错误）合成一个名字；Trimmomatic、FastQC、MITOS、GapCloser 等不是组装软件，去掉；写了两个及以上组装软件的记为 Multi-assembly，什么都没写的记为 Not stated。认不出的写法保留在 `assembly_other` 列，最终归为 Other（Annelida 没有；全部后生动物 1,699 条）。只写了比对、一致序列软件（BWA、GATK 等）的记录归为 Reference mapping（Annelida 没有）。
 - 年份：发表年；没发表用直接提交年；都没有用建档日期。`year_source` 列写明用了哪个。
 
@@ -152,4 +157,6 @@ Crossref 的返回结果缓存在 `mito/crossref_cache.json`，再跑只查新�
 
 ## 5. 和博士论文图 2-12 的对比（说明口径很重要）
 
-截至 2023 年，本次统计 419 条（Sanger 53、NGS 274、Long-read 5、Unknown 87），论文图中约 490 条，Sanger 约 85 条。差异可能来自：论文把没有注释的记录算作 Sanger；纳入了 RefSeq；年份口径不同。**以上原因均未确证**，要核对需要当年的记录清单。因此发表时请写明：查询式（`manifest.json`）、下载日期、Unknown 怎么处理、年份用的是什么。
+截至 2023 年，本次统计 419 条：Sanger 66、NGS 274、Long-read 5、Unknown 74。论文图中约 490 条，其中 Sanger 约 85 条。
+
+v0.04 把 2012 年以前、没有注释的记录算作 Unknown，Sanger 只有 53 条；v0.05 把它们算作 Sanger 后，差距变小了。剩下的差异可能来自：论文把 2012 年以后没有注释的记录也算作 Sanger；纳入了 RefSeq；年份口径不同。**以上原因均未确证**，要核对需要当年的记录清单。因此发表时请写明：查询式（`manifest.json`）、下载日期、Unknown 怎么处理、年份用的是什么。

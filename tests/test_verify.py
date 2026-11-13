@@ -206,3 +206,30 @@ def test_fast_reader_matches_biopython(tmp_path):
     bio = [(r.id, r.annotations["organism"], str(r.seq).upper()) for r in SeqIO.parse(str(f), "genbank")]
     assert fast == bio and len(fast) == 2
     assert [a for a, _, _ in vf.read_sequences([str(f)], keep={"MF802218"})] == ["MF802218.1"]
+
+
+def test_sequence_types_replace_annotation_types(tmp_path):
+    d = tmp_path / "labeled_genes"
+    d.mkdir()
+    cols = {"ACCESSION": ["MG523356", "KP745545", "PX1", "AB1"], "Organism": ["a", "b", "c", "d"],
+            "Assignment_reason": ["12s: keyword", "18s+its: keyword", "coi: keyword", ""],
+            "gene_type": ["12s", "18s,its1-its2", "coi", ""]}
+    a = pd.DataFrame(cols)
+    a.iloc[:3].to_csv(d / "assigned_genes_types_all.csv", index=False)
+    a.iloc[3:].to_csv(d / "unmatched_sequences.csv", index=False)
+    pd.DataFrame({"ACCESSION": cols["ACCESSION"], "status": ["assigned"] * 3 + ["unmatched"],
+                  "gene_type": cols["gene_type"], "reason": [""] * 4}).to_csv(d / "record_status.csv", index=False)
+    t = pd.DataFrame({"accession": ["MG523356.1", "KP745545.1", "AB1.1"], "sequence_type": ["16s", "its1-its2", "28s"],
+                      "verdict": ["different", "partly", "new"]})
+    for _ in range(2):  # applying twice gives the same result
+        st = vf.apply_to_assignments(t, d)
+    assert st == {"changed": 2, "added": 1, "removed": 0}
+    got = pd.read_csv(d / "assigned_genes_types_all.csv", dtype=str, keep_default_na=False)
+    assert dict(zip(got["ACCESSION"], got["gene_type"])) == {"MG523356": "16s", "KP745545": "its1-its2", "PX1": "coi",
+                                                             "AB1": "28s"}
+    row = got.set_index("ACCESSION").loc["MG523356"]
+    assert (row["annotation_type"], row["verify_verdict"]) == ("12s", "different")
+    assert "12s -> 16s" in row["Assignment_reason"]
+    assert (d / "assigned_genes_types_all.annotation.csv").exists()
+    status = pd.read_csv(d / "record_status.csv", dtype=str, keep_default_na=False).set_index("ACCESSION")
+    assert status.at["AB1", "status"] == "assigned" and status.at["MG523356", "gene_type"] == "16s"

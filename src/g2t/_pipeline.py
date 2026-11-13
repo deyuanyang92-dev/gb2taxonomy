@@ -114,6 +114,8 @@ def run(
     skip_voucher: bool = False,
     skip_organize: bool = False,
     skip_reconcile: bool = False,
+    skip_verify: bool = False,
+    skip_screen: bool = False,
     reconcile_min_confidence: str = "medium",
     normalize_columns: bool = False,
     extract_extra: dict | None = None,
@@ -128,9 +130,15 @@ def run(
     records give evidence (shared paper, date, coordinates); see g2t.reconcile.
     Set skip_reconcile=True to organize the exact-match vouchers instead.
 
+    Step 2b (default) checks the rRNA records against their sequence (g2t.verify: profile HMMs of
+    12S, 16S, 18S, 5.8S, 28S) and uses the sequence's gene types where they differ from the
+    annotation; skip_verify=True keeps the annotation's types (the behaviour before v0.05).
+    Step 5 (default) flags possible contaminated / misidentified sequences per marker (g2t.screen):
+    organized_genes/screen.csv and a screen_flags column in the matrix; skip_screen=True skips it.
+
     Returns a PipelineResult with status and output paths.
     """
-    start_time = time.time()
+    start_time = time.monotonic()
     run_params = {k: v for k, v in locals().items() if k != "start_time"}
     log_lines: list[str] = []
     steps_completed = 0
@@ -157,7 +165,7 @@ def run(
             success=False,
             output_dir=str(out_root),
             steps_completed=steps_completed,
-            elapsed=time.time() - start_time,
+            elapsed=time.monotonic() - start_time,
             log=log_lines + [msg],
         )
 
@@ -215,6 +223,23 @@ def run(
     if not skip_classify:
         steps_completed += 1
 
+    # --- Step 2b: rRNA types from the sequence (default) ---
+    if not skip_verify:
+        from g2t.extract import discover_gb_files as _gb
+        from g2t.verify import pipeline_step
+
+        if not quiet:
+            print("Step 2b: checking rRNA gene types against the sequences (g2t-verify)")
+        try:
+            gbs, _, _ = _gb([p for p in input_files if Path(p).exists()])
+            lines = pipeline_step([str(f) for f in gbs], out_root)
+        except (Exception, SystemExit) as e:  # noqa: BLE001 - a failed check must not lose the annotation result
+            lines = [f"Step 2b failed ({type(e).__name__}: {e}); rRNA types from the annotation"]
+        log_lines.extend(lines)
+        if not quiet:
+            for line in lines:
+                print("  " + line)
+
     # --- Step 3: Voucher ---
     step3_kwargs: dict[str, Any] = dict(
         file_path=str(out_assigned_all),
@@ -245,7 +270,8 @@ def run(
     # --- Step 3b: Reconcile voucher variants ---
     # --resume must not reuse 3b/4 outputs made with other reconcile settings
     params_file = out_root / ".g2t_params.json"
-    params = {"skip_reconcile": bool(skip_reconcile), "reconcile_min_confidence": reconcile_min_confidence}
+    params = {"skip_reconcile": bool(skip_reconcile), "reconcile_min_confidence": reconcile_min_confidence,
+              "skip_verify": bool(skip_verify)}
     try:
         old_params = json.loads(params_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -305,7 +331,25 @@ def run(
     if not skip_organize:
         steps_completed += 1
 
-    elapsed = time.time() - start_time
+    # --- Step 5: contamination / misidentification screen (default) ---
+    if not skip_screen and out_organized.exists():
+        from g2t.extract import discover_gb_files as _gb5
+        from g2t.screen import pipeline_step as screen_step
+
+        if not quiet:
+            print("Step 5: screening for contaminated / misidentified sequences (g2t-screen)")
+        try:
+            gbs5, _, _ = _gb5([p for p in input_files if Path(p).exists()])
+            lines5 = screen_step([str(f) for f in gbs5], out_root)
+            steps_completed += 1
+        except (Exception, SystemExit) as e:  # noqa: BLE001 - the matrix is already written
+            lines5 = [f"Step 5 failed ({type(e).__name__}: {e}); matrix written without screen flags"]
+        log_lines.extend(lines5)
+        if not quiet:
+            for line in lines5:
+                print("  " + line)
+
+    elapsed = time.monotonic() - start_time
     prov = provenance(run_params)
     from g2t.extract import discover_gb_files
 

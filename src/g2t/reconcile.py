@@ -730,7 +730,7 @@ def reconcile(
     output_name: str = "reconciled_species_voucher.csv",
 ) -> StepResult:
     """Run Step 3b on the voucher-step output."""
-    t0 = time.time()
+    t0 = time.monotonic()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     df = read_table(input_file)
@@ -738,7 +738,7 @@ def reconcile(
     out_file = out_dir / output_name
     out.to_csv(out_file, index=False)
     report.to_csv(out_dir / "reconcile_report.csv", index=False)
-    return StepResult(success=True, output_file=str(out_file), rows=len(out), elapsed=time.time() - t0)
+    return StepResult(success=True, output_file=str(out_file), rows=len(out), elapsed=time.monotonic() - t0)
 
 
 def main(argv: list[str] | None = None) -> None:

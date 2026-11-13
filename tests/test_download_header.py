@@ -169,8 +169,18 @@ def test_progress_line_has_rate_and_eta():
     assert dl._progress(100, 100, 500, 50000, 600.0).split("  ")[2] == "done"
 
 
-def test_more_workers_with_api_key(monkeypatch):
+def test_more_workers_with_api_key(monkeypatch, tmp_path):
     monkeypatch.delenv("NCBI_API_KEY", raising=False)
-    assert dl.default_workers() == 3 and dl.default_workers("KEY") == 8
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))  # no saved key
+    assert dl.default_workers() == 3 and dl.default_workers("KEY") == 10
     monkeypatch.setenv("NCBI_API_KEY", "x")
-    assert dl.default_workers() == 8
+    assert dl.default_workers() == 10
+
+
+def test_saved_api_key_is_used(monkeypatch, tmp_path):
+    monkeypatch.delenv("NCBI_API_KEY", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    assert dl.saved_api_key() is None
+    (tmp_path / "g2t").mkdir()
+    (tmp_path / "g2t" / "credentials").write_text("email=\napi_key = abc123\n")
+    assert dl.saved_api_key() == "abc123" and dl.default_workers() == 10
