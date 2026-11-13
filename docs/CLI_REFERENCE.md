@@ -553,7 +553,8 @@ examples:
 ```text
 usage: g2t-verify [-h] -i INPUT [INPUT ...] --g2t DIR -o DIR
                   [--models HMM [HMM ...]] [--all] [--min-bp MIN_BP]
-                  [--min-cover MIN_COVER] [--cpu CPU]
+                  [--min-cover MIN_COVER] [--cpu CPU] [--no-cache]
+                  [--all-models]
 
 g2t-verify: check gene assignments against the sequence itself (rRNA profile HMMs).
 
@@ -570,7 +571,11 @@ options:
   --min-bp MIN_BP       region length that counts as a gene (default 150)
   --min-cover MIN_COVER
                         or this share of the model (default 0.5)
-  --cpu CPU             threads (default: all)
+  --cpu CPU             threads (default: all cores)
+  --no-cache            do not reuse or store hits (default cache:
+                        /root/.cache/g2t/verify_hits.sqlite)
+  --all-models          run every model on every record (default: g2t's region
+                        first, others if needed)
 
 examples:
   g2t-verify -i gb/markers --g2t out -o verify

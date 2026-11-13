@@ -12,7 +12,16 @@
   - 进度行显示已下载记录数、每分钟记录数和预计剩余时间。
   - 设置了 API key 时默认并行数为 8（NCBI 允许 10 次/秒），否则仍为 3；`-w` 可覆盖。
   - 未采纳：多数据源自动切换。GenBank 记录只能经 NCBI E-utilities 获取；ENA 检索接口实测对线粒体基因组全文检索 2 分 12 秒后返回 HTTP 500，不能作为替代来源。
-- **`g2t-verify`（新命令）**：用序列本身核验 rRNA 的基因归属。以 profile HMM（HMMER，经 pyhmmer 调用，`pip install pyhmmer` 即可，不需另装程序）扫描线粒体 12S、16S 和核 18S、5.8S、28S，定位各区段，由 5.8S 推出 ITS1、ITS2，逐条给出 agree / partly / different / no_hit / unverifiable / new，并按坐标切出各区段 FASTA。核模型取自 Rfam 15.1 协方差模型内嵌的 HMM（CC0，随 g2t 打包）；线粒体模型为 barrnap 0.9 `mito.hmm`（GPL-3.0，首次使用时下载并校验 SHA-256，不打包）；`--models` 可用自建模型。重叠的不同模型命中互相竞争；无命中的记录用高灵敏度模式重扫。实测：Enchytraeidae 600 条已知类型记录中 591 条一致，12S/16S/18S 无一混淆；Hesionidae 发现 5 条标题和注释都写 "small subunit … mitochondrial" 的 16S（MG523356–60，与 16S 记录 98–100% 相同），原冲突检查无法发现。近全长 18S/28S 每条约 0.5 秒；完整协方差模型（Infernal cmscan）太慢，未采用。
+- **`g2t-verify`（新命令）**：用序列本身核验 rRNA 的基因归属。以 profile HMM（HMMER，经 pyhmmer 调用，`pip install pyhmmer` 即可，不需另装程序）扫描线粒体 12S、16S 和核 18S、5.8S、28S，定位各区段，由 5.8S 推出 ITS1、ITS2，逐条给出 agree / partly / different / no_hit / unverifiable / new，并按坐标切出各区段 FASTA。核模型取自 Rfam 15.1 协方差模型内嵌的 HMM（CC0，随 g2t 打包）；线粒体模型为 barrnap 0.9 `mito.hmm`（GPL-3.0，首次使用时下载并校验 SHA-256，不打包）；`--models` 可用自建模型。重叠的不同模型命中互相竞争；无命中的记录以 E ≤ 1e-3 重扫。实测：Enchytraeidae 600 条已知类型记录中 591 条一致，12S/16S/18S 无一混淆；Hesionidae 发现 5 条标题和注释都写 "small subunit … mitochondrial" 的 16S（MG523356–60，与 16S 记录 98–100% 相同），原冲突检查无法发现。近全长 18S/28S 每条约 0.5 秒；完整协方差模型（Infernal cmscan）太慢，未采用。
+- **`g2t-verify` 加速**：Enchytraeidae 4,750 条在相同机器负载下从 11 分 36 秒（CPU 938 秒）降到 83 秒（CPU 162 秒），有缓存时重跑 9 秒；结论与每条记录跑全部完整模型的结果相比只有 4 条不同，都是改进。做法：
+  - 相同序列只扫描一次，“模型 × 序列块”任务用满全部核心；
+  - 长模型切成 300 个节点、互相重叠的分段模型（pyhmmer Builder 重建，E 值经过校准），分段没对上的末端只在那一小段上用完整模型补齐；
+  - 先跑 g2t 所标类型的模型，没解释完的记录再跑其余模型；
+  - 命中按序列和模型缓存（`~/.cache/g2t/verify_hits.sqlite`，`--no-cache` 关闭）；
+  - E 值固定按每 1 Mb 序列计算，结果不随批次大小变化；
+  - GenBank 改为整文件读入后切分，比 Biopython 快约 20 倍，输出相同。
+  - 详见 `docs/evaluation/rdna-regions.md` 第 8 节。
+  - 新选项：`--no-cache`、`--all-models`。
 - **全后生动物实测后的修正**（150,025 条线粒体基因组记录，2026-11-13）：
   - 交互报告在 15 万条记录时打不开：`Math.min(...years)` 把 15 万个值作为参数展开，超出调用栈（`Maximum call stack size exceeded`）。改为逐个比较后 5.6 秒打开，并加测试防止模板再出现这种写法。
   - 组装软件新增 **Reference mapping** 组：只写了比对或一致序列软件（BWA、MIA、bcftools、iVar、GATK、Ion Torrent variant caller 等）的记录，多为人类和古 DNA 线粒体基因组（37,394 条中 35,226 条属哺乳纲）。补充 Sanger 编辑拼接软件（SeqScape、CodonCode、BioEdit、UGENE、ContigExpress、Phrap、DNAMAN、ChromasPro）、Minia、IVA、SMRT Analysis、MitoMaker、Supernova 和常见拼写错误（gnenious → Geneious、novaplasty → NOVOPlasty、mito-z → MitoZ）；MAFFT、MEGA、leeHom、HaploGrep 等不算组装。"Other" 从 18,353 条降到 1,699 条。不含字母的条目（"x"、"5.0"、"build 2025-03-24"）不再计为 Other。

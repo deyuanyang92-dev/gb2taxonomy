@@ -131,3 +131,78 @@ def test_short_record_of_one_region_counts():
     assert vf.supported_types(r) == ["28s"]
     r = vf.regions([Hit("28s", 3, 70, 400, 470, 3401, 27)], 900)  # 68 bp of a 900 bp record: no
     assert vf.supported_types(r) == []
+
+
+def test_stage1_models_follow_g2t_type():
+    assert vf.stage1_regions(["16s"]) == {"5.8s", "16s"}
+    assert vf.stage1_regions(["28s", "its1-its2"]) == {"5.8s", "18s", "28s"}
+    assert vf.stage1_regions(["coi"]) is None and vf.stage1_regions([]) is None  # unknown: all models
+
+
+def test_explained_needs_strong_hits_over_the_whole_record():
+    assert vf.explained([Hit("28s", 1, 950, 1, 950, 3401, 300)], 960)  # 0.32 bits/bp, 10 bp left
+    # LSU cross-hit on a mitochondrial 16S record (OP407585: 184 bp at 0.29 bits/bp of 552 bp): run the rest
+    assert not vf.explained([Hit("28s", 200, 383, 900, 1080, 3401, 53)], 552)
+    assert not vf.explained([Hit("28s", 1, 950, 1, 950, 3401, 250)], 960)  # weak: 0.26 bits/bp
+    # ITS placed by a strong 5.8S counts as explained
+    assert vf.explained([Hit("5.8s", 300, 453, 1, 154, 154, 90)], 700)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("pyhmmer") is None, reason="pyhmmer not installed")
+def test_scan_dedups_and_caches(tmp_path, monkeypatch):
+    models = vf.load_models([vf.nuclear_models(tmp_path / "models")])
+    cache = vf.HitCache(tmp_path / "hits.sqlite")
+    seqs = {"A.1": MF802217, "B.1": MF802217.lower()}  # identical sequences: scanned once
+    calls = []
+    real = vf._nhmmer
+    monkeypatch.setattr(vf, "_nhmmer", lambda m, s, e: calls.append(len(s)) or real(m, s, e))
+    first = vf.scan(seqs, models, cpus=2, cache=cache)
+    assert sum(calls) == len(models) and first["A.1"] == first["B.1"]
+    assert any(h.region == "5.8s" for h in first["A.1"])
+    calls.clear()
+    again = vf.scan({"C.1": MF802217}, models, cpus=2, cache=vf.HitCache(tmp_path / "hits.sqlite"))
+    assert calls == [] and again["C.1"] == first["A.1"]  # from the cache, no nhmmer
+
+
+def test_tile_hits_join_across_a_variable_gap():
+    """PZ395572 (28S, 3,383 bp): tile hits 1-260, 211-419, then 738-893 after the D2 expansion segment."""
+    hs = [Hit("28s", 1, 260, 44, 300, 3401, 110.9), Hit("28s", 211, 419, 254, 436, 3401, 147.1),
+          Hit("28s", 738, 893, 636, 730, 3401, 54.7), Hit("28s", 902, 1206, 754, 1049, 3401, 254.1)]
+    (m,) = vf.merge_tiles(hs)
+    assert (m.start, m.end, m.hmm_from, m.hmm_to) == (1, 1206, 44, 1049)
+
+
+def test_tiles_do_not_join_untiled_or_out_of_order_hits():
+    two_58 = [Hit("5.8s", 432, 520, 1, 90, 154, 40), Hit("5.8s", 686, 839, 1, 154, 154, 90)]
+    assert len(vf.merge_tiles(two_58)) == 2  # 5.8S is not tiled
+    backwards = [Hit("28s", 1, 300, 2000, 2300, 3401, 200), Hit("28s", 400, 700, 100, 400, 3401, 200)]
+    assert len(vf.merge_tiles(backwards)) == 2  # the model does not run on along the record
+
+
+def test_minus_strand_tiles_join():
+    hs = [Hit("16s", 1, 200, 1300, 1500, 1624, 120, "-"), Hit("16s", 180, 400, 1100, 1320, 1624, 130, "-")]
+    (m,) = vf.merge_tiles(hs)
+    assert (m.start, m.end, m.hmm_from, m.hmm_to) == (1, 400, 1100, 1500)
+
+
+def test_ragged_ends_get_a_window_for_the_full_model():
+    # KU728933 (1,255 bp): tiles found 16S 563-1206 (model 819-1532); the full model aligns from 55
+    hs = [Hit("16s", 563, 1206, 819, 1532, 1624, 360)]
+    assert vf.ragged(hs, 1255, {"16s"}) == [("16s", 1, 763), ("16s", 1006, 1255)]  # 49 bp left at the 3' end too
+    # ends next to another region or at the model end are not ragged
+    hs = [Hit("5.8s", 300, 453, 1, 154, 154, 90), Hit("28s", 454, 700, 1, 247, 3401, 120)]
+    assert vf.ragged(hs, 700, {"28s"}) == []
+    ext = vf.extend([Hit("16s", 563, 1206, 819, 1532, 1624, 360)], "16s", [Hit("16s", 55, 760, 400, 1010, 1624, 300)])
+    assert (ext[0].start, ext[0].end, ext[0].hmm_from) == (55, 1206, 400)
+
+
+def test_fast_reader_matches_biopython(tmp_path):
+    from Bio import SeqIO
+
+    f = tmp_path / "x.gb"
+    f.write_text(REC.format(origin=_origin(MF802217.lower())) + REC.replace("MF802217", "MF802218").format(
+        origin=_origin(MF802217[:120])))
+    fast = list(vf.read_sequences([str(f)]))
+    bio = [(r.id, r.annotations["organism"], str(r.seq).upper()) for r in SeqIO.parse(str(f), "genbank")]
+    assert fast == bio and len(fast) == 2
+    assert [a for a, _, _ in vf.read_sequences([str(f)], keep={"MF802218"})] == ["MF802218.1"]
