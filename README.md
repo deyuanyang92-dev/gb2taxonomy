@@ -6,7 +6,7 @@
 
 **From an NCBI taxon name to a specimen × gene matrix, and to a report on how its mitogenomes were sequenced, assembled and published.**
 
-[![version](https://img.shields.io/badge/version-v0.05-2a78d6)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.06-2a78d6)](CHANGELOG.md)
 [![python](https://img.shields.io/badge/python-%E2%89%A53.9-2a78d6)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-1baf7a)](LICENSE)
 [![demo](https://img.shields.io/badge/live%20demo-Annelida%20mitogenomes-eb6834)](https://deyuanyang92-dev.github.io/gb2taxonomy/demo/annelida_mitostats.html)
@@ -71,7 +71,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 # open mito/mitostats_report.html
 ```
 
-Annelida, November 2026: 745 mitogenomes; NGS 512, Sanger 68, long-read 5, Unknown 160 (no Assembly-Data comment, submitted 2013 or later); NOVOPlasty is the commonest single assembler (106), 108 records name several.
+Annelida, November 2026: 745 mitogenomes; NGS 521, long-read 95 (mostly Darwin Tree of Life genomes, from their COMMENT), Sanger 68, Unknown 61 (no method anywhere in the record); NOVOPlasty is the commonest single assembler (106), 108 records name several.
 
 ## Tutorials
 
@@ -124,7 +124,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 
 - `--header-only` fetches each record with `seq_start=1&seq_stop=1` (the LOCUS line then says `1 bp`); true length, dates and taxid come from esummary and are written to `summary.tsv`. Headers are stored in their own `_records_header.sqlite`, so a later full download never mistakes them for full records. Reruns fetch and summarise only new accession.versions.
 - `g2t-mitostats` writes `mitostats.csv` (one row per record, raw text next to the normalised value), `counts_by_year.csv`, `counts_by_assembler.csv`, `counts_by_journal.csv`, `fig_seqtech_by_year.{png,pdf}` (cumulative records by sequencing technology, with a pie of the totals), `fig_alluvial.{png,pdf}` (year → sequencing technology → assembler) and `mitostats_report.html`: one offline file with filters for years, technology, taxon (class, order, family, genus), assembler and publication status, charts that follow the filters, a sortable table linked to NCBI and a CSV download of the filtered rows.
-- **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment:** NGS if the paper title names a high-throughput method (454, Illumina, NGS, genome skimming …); Sanger if first submitted before 2012 — NCBI introduced the comment in 2012, none of the 150,025 metazoan records submitted earlier has it, and among the first annotated records (2012) Sanger outnumbers NGS 195 to 66; otherwise "Unknown". Column `seq_basis` says which rule applied. Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
+- **Rules** (`src/g2t/data/mito_methods.yaml`, editable): a long-read platform makes a record "Long-read" (hybrid assemblies included); otherwise any NGS platform makes it "NGS" (Sanger then only closed gaps); otherwise "Sanger". **Records without an Assembly-Data comment:** the platform named in a free-text COMMENT ("based on 91x PacBio data …"; "Wellcome Sanger Institute" is not Sanger sequencing); NGS if DBLINK links SRA reads or the COMMENT names an SRA run; NGS if the paper title names a high-throughput method (454, Illumina, NGS, genome skimming …); Sanger if first submitted before 2012 — NCBI introduced the comment in 2012, none of the 150,025 metazoan records submitted earlier has it, and among the first annotated records (2012) Sanger outnumbers NGS 195 to 66; otherwise "Unknown". Column `seq_basis` says which rule applied. Assembler spellings found in GenBank (incl. typos such as "getorangelle") map to one name; trimming, QC, mapping and annotation tools (Trimmomatic, FastQC, MITOS, GapCloser…) are dropped; a record naming two assemblers is "Multi-assembly", one naming none "Not stated". A record naming only reference-mapping or consensus tools (BWA, MIA, bcftools, GATK…) is "Reference mapping" — 37,394 of the 150,025 metazoan records, mostly human. Year = publication year, else the year of the direct submission, else the record's creation date (`year_source` says which). `--exclude "Homo sapiens"` (repeatable; species, genus, family, order, class or phylum) leaves taxa out — humans are 46% of all metazoan mitogenome records.
 - `g2t-cite` groups records whose references are all "Unpublished" by (title, authors), searches Crossref by title and first author, and grades the best paper: **high** (title similarity ≥ 0.90 and ≥ half of the authors shared), **medium** (≥ 0.75 and ≥ half), **check** (title changed but ≥ 3/4 of the authors shared, or a near-identical template title with few shared authors), **low**. A paper whose title does not name the record's taxon (when the GenBank title does) scores 0, since mitogenome notes share template titles. Sheet *Curate* (high + medium, one row per accession) is table B for `g2t-curate` and the input of `g2t-mitostats --citations`; sheet *Candidates* shows every group with its scores, "check" rows in yellow. Crossref answers are cached (`crossref_cache.json`), so reruns query only new groups. No e-mail is sent unless you pass `--mailto` (or set `CROSSREF_MAILTO`), which puts you in Crossref's faster "polite pool".
 
 ### Checking gene types against the sequence (`g2t-verify`)
@@ -292,19 +292,19 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment submitted from 2012 on stay "Unknown"; older ones are counted as Sanger (inferred), so a 2006–2011 NGS record that says so neither in a comment nor in the paper title is miscounted; and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
 10. **Curation (step 6).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-11. **Code status.** v0.05 is an early release. 770 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+11. **Code status.** v0.06 is an early release. 770 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 
 There is no paper on g2t yet. Please cite the software and version you used:
 
-> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.05) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
+> Yang, D. (2026). *g2t: GenBank to Taxonomy* (version v0.06) [Computer software]. GitHub. https://github.com/deyuanyang92-dev/gb2taxonomy
 
 ```bibtex
 @software{yang_g2t_2026,
   author  = {Yang, Deyuan},
   title   = {g2t: GenBank to Taxonomy},
-  version = {v0.05},
+  version = {v0.06},
   year    = {2026},
   url     = {https://github.com/deyuanyang92-dev/gb2taxonomy}
 }

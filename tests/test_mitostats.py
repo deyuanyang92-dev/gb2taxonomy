@@ -179,7 +179,8 @@ def test_table_from_header_records(tmp_path):
     assert r["assemblers"] == "MitoZ; NOVOPlasty" and r["journal"] == "Mitochondrial DNA B Resour"
     assert r["year"] == 2020
     r2 = t.iloc[1]
-    assert r2["seq_category"] == "Unknown" and r2["assembler_group"] == "Not stated"  # no Assembly-Data block
+    assert r2["assembler_group"] == "Not stated"  # no Assembly-Data block, but a free-text comment
+    assert (r2["seq_category"], r2["seq_basis"]) == ("Sanger", "free-text COMMENT names the platform")
 
 
 def test_run_writes_table_and_report(tmp_path):
@@ -302,3 +303,17 @@ def test_taxonomy_cache_is_shared_between_output_folders(tmp_path):
 def test_sequencing_inferred_without_assembly_data(cat, date, titles, out):
     got = ms.infer_sequencing(cat, date, titles)
     assert got == out if isinstance(out, tuple) else got[0] == out
+
+
+@pytest.mark.parametrize(
+    "comment, dblinks, out",
+    [
+        ("The assembly ilCocRich1.hap1.1 is based on 91x PacBio data and Arima2 Hi-C data", [], "Long-read"),
+        ("Sequenced at the Wellcome Sanger Institute.", [], "Unknown"),  # an institute, not the method
+        ("", ["BioProject:PRJEB1", "Sequence Read Archive:ERR17583910"], "NGS"),
+        ("THIRD PARTY DATABASE: This TPA record uses data from DDBJ/EMBL/GenBank entry SRR33849666.", [], "NGS"),
+        ("Gerres sp. mitochondrial genome.", ["BioProject:PRJEB2"], "Unknown"),
+    ],
+)
+def test_sequencing_from_comment_and_dblink(comment, dblinks, out):
+    assert ms.infer_sequencing("Unknown", "2024-01-01", [], comment, dblinks)[0] == out

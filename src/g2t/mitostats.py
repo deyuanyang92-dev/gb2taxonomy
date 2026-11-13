@@ -16,6 +16,10 @@ Sequencing category: from the Assembly-Data comment ("Sequencing Technology") wh
 NCBI added that comment in 2012: no Metazoa mitogenome first submitted before 2012 has it (150,025
 records, 2026-11-13), so for older records it says nothing about the method. Without the comment:
 
+* the free-text COMMENT names a platform ("based on 91x PacBio data and Arima2 Hi-C data", Darwin Tree
+  of Life; "Wellcome Sanger Institute" is not Sanger sequencing) -> that category
+* DBLINK links raw reads in the Sequence Read Archive, or the COMMENT names an SRA run (third-party
+  assemblies: "uses data from ... SRR33849666") -> NGS
 * the paper title names a high-throughput method (454, Illumina, massively parallel, shotgun ...) -> NGS
 * first submitted before 2012 -> Sanger. NGS mitogenomes began in 2007 (ancient DNA, 454; the
   earliest such titles in GenBank); among the first annotated records (2012) Sanger outnumbers NGS
@@ -98,10 +102,22 @@ NGS_TITLE = re.compile(r"\bNGS\b|next[- ]generation|high[- ]throughput|\b454\b|i
 ASSEMBLY_DATA_FROM = 2012  # first year with Assembly-Data comments in GenBank mitogenomes
 
 
-def infer_sequencing(category: str, create_date: str, titles: Iterable[str]) -> tuple[str, str]:
+_NOT_PLATFORM = re.compile(r"(wellcome\s+(trust\s+)?)?sanger\s+(institute|centre|center)|\b454\s*(bp|nt|bases?)\b",
+                           re.I)
+
+
+def infer_sequencing(category: str, create_date: str, titles: Iterable[str], comment: str = "",
+                     dblinks: Iterable[str] = ()) -> tuple[str, str]:
     """(category, basis) for a record; see the module docstring."""
     if category != "Unknown":
         return category, "Assembly-Data comment"
+    free = sequencing_category(_NOT_PLATFORM.sub(" ", comment or ""))
+    if free != "Unknown":  # "based on 91x PacBio data and Arima2 Hi-C data" (Darwin Tree of Life etc.)
+        return free, "free-text COMMENT names the platform"
+    if any(str(x).startswith(("Sequence Read Archive", "SRA:")) for x in dblinks):
+        return "NGS", "raw reads in the Sequence Read Archive (DBLINK)"
+    if re.search(r"\b[SED]RR\d{6,}\b", comment or ""):  # TPA: "uses data from ... entry SRR33849666"
+        return "NGS", "assembled from SRA reads (run accession in COMMENT)"
     if any(NGS_TITLE.search(t or "") for t in titles):
         return "NGS", "paper title names a high-throughput method"
     m = re.match(r"(\d{4})", create_date or "")
@@ -298,7 +314,8 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         (m.group(1) for r in rec.annotations.get("references", [])
          if (m := re.search(r"Submitted \(\d{2}-[A-Z]{3}-(\d{4})\)", r.journal or ""))), "")
     category, basis = infer_sequencing(sequencing_category(st_raw), submitted,
-                                       [r.title or "" for r in rec.annotations.get("references", [])])
+                                       [r.title or "" for r in rec.annotations.get("references", [])],
+                                       str(rec.annotations.get("comment", "")), rec.dbxrefs)
     am_raw = asm.get("Assembly Method", "")
     names, other = assemblers(am_raw)
     length = summary.get("length") or (len(rec.seq) if len(rec.seq) > 1 else None)

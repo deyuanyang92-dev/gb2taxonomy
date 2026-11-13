@@ -1,6 +1,18 @@
 # 更新日志 / Changelog
 
-## 未发布
+## v0.06（2026-11-13）
+
+包内版本 `0.0.6`。
+
+- **`g2t-mitostats` 从更多记录头信息判断测序方法**。没有 Assembly-Data 注释时，依次看：
+  1. 自由文本 COMMENT 中写明的平台。例如 Darwin Tree of Life、ATLASea 等基因组计划写的 "based on 91x PacBio data and Arima2 Hi-C data"，判为 Long-read。"Wellcome Sanger Institute" 是机构名，不当作 Sanger 测序。
+  2. DBLINK 链接了 SRA 原始数据，或 COMMENT 中有 SRA 运行号（第三方组装），判为 NGS。
+  3. 论文标题写明高通量方法，判为 NGS。
+  4. 2012 年以前提交，推断为 Sanger。
+
+  结果：
+  - 后生动物（不含人类）的 Unknown 从 21,138 条降到 15,866 条，剩下的约 15,000 条记录头里没有任何 COMMENT；
+  - Annelida 的 Long-read 从 5 条增至 95 条，Unknown 从 160 条降到 61 条。
 
 - **`g2t-screen` 新增 `same_species_far` 提示**：同名的两条记录在快速进化的标记上相差超过 15%，就提示这两条。
   - 提示中写明各自到本属最近序列的距离，离本属远的那条更可疑。
