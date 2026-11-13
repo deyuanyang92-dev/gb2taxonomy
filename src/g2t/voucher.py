@@ -105,7 +105,7 @@ def build_species_vouchers(
     os.makedirs(output_dir, exist_ok=True)
     log_file_path = log_file
 
-    start_time = time.time()
+    start_time = time.monotonic()
     log(f"START: input={file_path}", quiet, log_file_path)
     log(f"OUTDIR: {output_dir}", quiet, log_file_path)
 
@@ -302,7 +302,7 @@ def build_species_vouchers(
             f.write(f"{freq} occurrences: {count}\n")
     log(f"Count file written: {count_file_path}", quiet, log_file_path)
 
-    elapsed = time.time() - start_time
+    elapsed = time.monotonic() - start_time
     log(f"DONE. elapsed={elapsed:.2f}s", quiet, log_file_path)
 
     return StepResult(

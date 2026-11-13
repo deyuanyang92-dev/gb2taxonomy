@@ -51,7 +51,7 @@ g2t-mitostats -i gb/mitogenome-header -o metazoa_mito
 
 ```
 150025 records; 105569 with an Assembly-Data comment
-sequencing: Sanger 17345, NGS 85095, Long-read 2723, Unknown 44862
+sequencing: Sanger 31615, NGS 86036, Long-read 2723, Unknown 29651
 assembly:   Not stated 56226, Reference mapping 37394, Geneious 11220, GetOrganelle 7118, Sequencher 6655, CLC 4868, Multi-assembly 4710, NOVOPlasty 3778
 published:  83805 (56%), 527 journals
 ```
@@ -79,17 +79,19 @@ g2t-mitostats -i gb/mitogenome-header -o metazoa_nohuman --exclude "Homo sapiens
 ```
 excluded Homo sapiens: 68433 records
 81592 records; 55759 with an Assembly-Data comment
-sequencing: Sanger 6544, NGS 47797, Long-read 1020, Unknown 26231
+sequencing: Sanger 11015, NGS 48419, Long-read 1020, Unknown 21138
 assembly:   Not stated 31024, Geneious 10936, Reference mapping 7636, GetOrganelle 7117, Multi-assembly 4599, NOVOPlasty 3778, SPAdes 2621, CLC 2162
 published:  36521 (45%), 468 journals
 ```
 
 | 截至 | Sanger | NGS | Long-read | Unknown |
 |---|---|---|---|---|
-| 2015 | 1,854 | 2,342 | 18 | 9,024 |
-| 2020 | 4,736 | 12,253 | 96 | 15,237 |
-| 2025 | 6,446 | 41,464 | 846 | 23,896 |
-| 2026-11-13 | 6,544 | 47,797 | 1,020 | 26,231 |
+| 2015 | 6,321 | 2,456 | 18 | 4,443 |
+| 2020 | 9,204 | 12,495 | 96 | 10,527 |
+| 2025 | 10,917 | 42,086 | 846 | 18,803 |
+| 2026-11-13 | 11,015 | 48,419 | 1,020 | 21,138 |
+
+v0.05 起，2012 年以前提交、没有 Assembly-Data 注释的记录算作 Sanger（推断）。原因：NCBI 2012 年才有这个注释，早年记录本来就没有。论文标题写明高通量方法的记录算作 NGS。v0.04 曾把这些记录都算作 Unknown：Sanger 6,544、Unknown 26,231。依据列在 `seq_basis` 列。
 
 ![后生动物（不含人类）线粒体基因组累计数，按测序技术](../images/metazoa_nohuman_fig_seqtech_by_year.png)
 
@@ -112,6 +114,6 @@ GenBank 中 "Assembly Method" 的写法五花八门。在全部后生动物数�
 
 1. 查询式（见 `manifest.json` 的 `query`）。
 2. 下载日期。
-3. 没有 Assembly-Data 注释的记录算作 Unknown，不算 Sanger。
+3. 没有 Assembly-Data 注释的记录怎么算：g2t 的做法是，论文标题写明高通量方法的算 NGS，2012 年以前提交的算 Sanger（推断），其余算 Unknown。依据见 `seq_basis` 列。
 4. 年份取发表年，没有则取提交年。
 5. 排除了哪些类群。

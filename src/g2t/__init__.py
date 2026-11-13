@@ -12,7 +12,7 @@ Usage (Python API):
     result = g2t.extract(["/path/to/gb"], "/path/to/out")
 """
 
-__version__ = "0.0.4"  # package version (pip, bioconda); PEP 440 would turn "0.04" into 0.4
+__version__ = "0.0.5"  # package version (pip, bioconda); PEP 440 would turn "0.04" into 0.4
 # release name used in --version, docs and citations: 0.0.4 -> v0.04
 RELEASE = "v{}.{}{}".format(*__version__.split("."))
 

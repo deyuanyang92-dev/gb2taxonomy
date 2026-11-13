@@ -12,7 +12,7 @@ g2t (GenBank to Taxonomy) 是一个生物信息学工具，用于将来自同一
 - Python ≥ 3.9
 - pandas ≥ 1.5
 - biopython ≥ 1.80
-- openpyxl ≥ 3.0: Step 5（`g2t-curate`）读写 Excel 文件
+- openpyxl ≥ 3.0: Step 6（`g2t-curate`）读写 Excel 文件
 - pyyaml ≥ 6.0: 读取自带的 `gene_dict.yaml`，这是同义词的唯一来源
 
 **可选依赖**:
@@ -151,6 +151,14 @@ Definition 同时写有 ITS 和 18S 或 28S 的跨区段 rRNA 记录（如 "smal
 
 ---
 
+### Step 2b: 按序列核对 rRNA 类型（默认）
+
+v0.05 起，`g2t` 在第 2 步之后用 profile HMM（pyhmmer）逐条核对 rRNA、未匹配和有冲突的记录：序列结果与标题或注释不同时，改用序列的类型。
+
+- 例：Hesionidae 的 MG523356–60 标题写 "small subunit … mitochondrial"，实际是 16S，从 12S 列移到 16S 列。
+- 原来按注释的结果保存在 `labeled_genes/*.annotation.csv`；逐条结果在 `verified_rrna/verify.csv`。
+- `--no-verify` 恢复只按注释归类（v0.04 的做法）。
+
 ### Step 3: 构建标本凭证 (voucher)
 
 通过标本凭证号将来自同一标本的不同序列关联起来。
@@ -222,17 +230,26 @@ g2t-organize -i updated_species_voucher.csv -o output.csv
 
 ---
 
+### Step 5: 污染和鉴定错误提示（默认）
+
+v0.05 起，`g2t` 生成矩阵后，对每个标记分别计算 k-mer 距离，提示两类序列：
+
+- 与另一个属几乎相同（≤ 2%）、而离本属较远的序列（`near_other_genus`）；
+- 与同一标记所有序列都相距很远的序列（`remote`）。
+
+结果写入 `organized_genes/screen.csv`，矩阵新增 `screen_flags` 列；`--no-screen` 关闭。也可以单独运行：`g2t-screen -i gb/markers --g2t OUT`。提示只表示值得核查，请对照原文、标本和系统树判断。评估见 `docs/evaluation/screen.md`。
+
 ### 矩阵中的凭证号
 
 矩阵在 `organism`、`organism_names` 之后有三列：`voucher_as_submitted`（该标本在 GenBank 中出现过的全部 specimen_voucher 原样写法，用于看出提交差异）、`voucher_standardized`（每个标本一个统一凭证号，只由 specimen_voucher 生成，只有 isolate 等编号的标本此列为空；去基因名前缀、取信息最全的写法，按 INSDC `/specimen_voucher` 格式 `[机构代码:[收藏代码:]]标本号` 书写，如 `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU:MSU:WS2585`，`ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`）、`voucher_note`（几种写法不只是前缀/分隔符不同时提示人工核对）。
 
-### Step 5: 校正元数据 (curate，可选)
+### Step 6: 校正元数据 (curate，可选)
 
 #### 目的
 
 序列通常在投稿时提交到 GenBank。审稿后常有改动：标本重新鉴定或组合变更、被描述为新种、题目改变、坐标和日期更正。GenBank 记录只能由提交者更新。INSDC 欢迎"作者对错误的更正和记录的更新"（[INSDC policy](https://www.insdc.org/policy/)）；NCBI 要求文章发表后由提交者把出版信息发给 GenBank（[GenBank 概述](https://www.ncbi.nlm.nih.gov/genbank/)），来源信息按表格提交更新（[Update GenBank records](https://www.ncbi.nlm.nih.gov/genbank/update/)）。实际上很多记录从未更新，下载的数据集里元数据可能过时或错误。公共序列鉴定错误和注释不全已有文献记载（Bridge et al. 2003, *New Phytologist* 160: 43–48, [doi:10.1046/j.1469-8137.2003.00861.x](https://doi.org/10.1046/j.1469-8137.2003.00861.x)；Meiklejohn et al. 2019, *PLOS ONE* 14: e0217084, [doi:10.1371/journal.pone.0217084](https://doi.org/10.1371/journal.pone.0217084)）。
 
-Step 5 让分类学者把核实过的信息用到"标本 × 基因"矩阵上，不修改 GenBank，也不丢失原始值：
+Step 6 让分类学者把核实过的信息用到"标本 × 基因"矩阵上，不修改 GenBank，也不丢失原始值：
 
 - **A**：由 GenBank 整理的矩阵，保持提交时的原样（一个标本一行）。
 - **B**：你自己整理的表，沿用你已有的格式。内容是你核实过的信息：有效种名、正式发表的题目和作者、更正后的坐标或日期，以及水深等额外字段。
@@ -301,6 +318,19 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 - `g2t-cite` 分级：high / medium 进入 `cite.xlsx` 的 *Curate* 页（可直接给 `g2t-curate -u` 和 `g2t-mitostats --citations`），check 行在 *Candidates* 页标黄，需人工确认。
 - 重跑只下载新记录、只查询新的论文组。
 - 完整实例（环节动物 745 条，含每一步的真实输出）：[docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md)；全后生动物及增量更新：[docs/tutorials/metazoa.md](docs/tutorials/metazoa.md)。
+
+## 用序列核验基因归属（g2t-verify）
+
+g2t 按记录标题判断基因类型，标题写错就会归错。例如 Hesionidae 有 5 条 16S 标题写作 "small subunit ribosomal RNA; mitochondrial"，被归到 12S。`g2t-verify` 用 12S、16S、18S、5.8S、28S 的 profile HMM 扫描序列本身，定位各区段，并由 5.8S 推出 ITS1、ITS2：
+
+```bash
+pip install pyhmmer
+g2t-verify -i gb/markers --g2t out -o verify
+```
+
+- **结论**：agree 一致；partly 部分一致（例如标题含 28S，但序列只有 ITS）；different 是别的 rRNA；no_hit 标题说是 rRNA，但没有模型命中；unverifiable 只有间隔区，无法定位；new 是 g2t 未归类的 rRNA。
+- **输出**：`verify.csv`；`regions/*.fa`，即按坐标切好的各区段序列。
+- **数据和评估**：见 [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md)。
 
 ## 输出文件说明
 
@@ -411,10 +441,10 @@ pip install pandas biopython openpyxl pyyaml
 3. **长度过滤。** 默认长度 150–50,000 bp 以外（以及缺长度、LocusID 重复）的记录在分类前被去掉。它们不会静默消失：逐条列在 `filtered_records.csv`（含原因），`record_status.csv` 给每条输入记录恰好一个状态。若要让它们也参与分类，三个范围都要放宽：`g2t-classify … --length_range2_all 1:1000000 --length2_mtgenes 1:1000000 --length2_ntgenes 1:1000000`。
 4. **只识别 41 类基因，按关键词匹配。** 其他位点（核蛋白编码基因、微卫星、Hox 基因等）进入 `unmatched_sequences.csv`，除非加入基因词典（见常见问题"如何添加自定义基因类型"）。DEFINITION 中的标本编号（`isolate CO2`、`voucher COI-12`）和英文单词 "its" 不参与匹配，并排除了几种形似的情况（16S rRNA methyltransferase、histone H3 lysine/demethylase、elongation factor-1 beta/gamma），但写法特殊时关键词匹配仍可能出错。
 5. **凭证号与元数据。** Step 3 把同一物种中凭证号字符串完全相同的记录直接合并，不做进一步检查；不同标本恰好同号时会被误并。Step 3b 还会合并同一属中以不同名称提交、编号完全相同（忽略大小写和标点，任一编号字段）的组（*Bathykurila* sp. / *Bathykurila* sp. AH-2023）；两组含同一基因时需采集日期或坐标相同；不同属的相同编号不合并，并在 `match_evidence` 中标注。Step 3b 依赖提交到 GenBank 的元数据：没有共同的论文、日期、坐标或采集人时，同一凭证号的不同写法不会合并（宁缺毋滥）；两组已含同一基因时，同一篇论文不够，该配对改为标注。只差批号或子样本尾号的编号（`CE438` / `CE438_2`），或编号两边的机构、采集人、样品编号不同（`USNM 123456` / `MCZ 123456`），视为不同标本。矩阵中的地点、日期等元数据逐列取该标本第一条有值的记录，因此可能来自不同记录；任一记录被标记冲突，`Conflict` 即为 True。
-6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样，除非在 Step 5 中校正。
+6. **物种名按提交原样。** 不与 WoRMS、NCBI 异名等分类权威核对；错误鉴定或过时名称保持原样，除非在 Step 6 中校正。
 7. **下载。** 只查 NCBI nuccore（不含 BOLD、仅在 ENA 的数据、SRA）。`--gene` 按基因字段和标题关键词检索，写法特殊的记录可能漏检；按基因检索也会返回含该基因的线粒体基因组。
 8. **格式损坏的文件。** GenBank 文件中某条记录无法被 Biopython 解析时，该文件中其后的记录不会被读取；`extraction_report.json` 中该文件标为部分完成，并在警告中给出应有与实际解析的记录数。
-9. **校正（Step 5）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
+9. **校正（Step 6）。** B 只校正 A 中已有的标本。没有 GenBank 记录的标本列为"匹配不到"，不会加入 C。空单元格表示"不改"，因此不能通过 B 清空 A 中的值。列识别是根据列名和"像登录号的值"的启发式判断，请查看 *Column mapping* 表，识别错时用 `--map` 指定。B 中的值被视为正确：程序不会把 B 本身与文献或 WoRMS 核对。
 10. **代码状态。** v0.04 为早期版本，610 项单元测试在 Python 3.12、3.13 和 3.9 上通过（本地测试；3.9 上其中 3 项 Excel 测试需要 openpyxl）；`ruff` 与 `mypy` 无警告。
 
 ---

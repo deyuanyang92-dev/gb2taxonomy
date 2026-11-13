@@ -12,8 +12,18 @@ taxon, and writes
 * ``fig_alluvial.{png,pdf}``   year -> sequencing category -> assembler (cf. Fig. 2-13);
 * ``mitostats_report.html``    one offline, interactive page (filters by year, category, assembler, taxon).
 
-Classification is conservative: a record without an Assembly-Data comment is "Unknown", never assumed
-to be Sanger. Rules and spellings are in ``data/mito_methods.yaml``.
+Sequencing category: from the Assembly-Data comment ("Sequencing Technology") where there is one.
+NCBI added that comment in 2012: no Metazoa mitogenome first submitted before 2012 has it (150,025
+records, 2026-11-13), so for older records it says nothing about the method. Without the comment:
+
+* the paper title names a high-throughput method (454, Illumina, massively parallel, shotgun ...) -> NGS
+* first submitted before 2012 -> Sanger. NGS mitogenomes began in 2007 (ancient DNA, 454; the
+  earliest such titles in GenBank); among the first annotated records (2012) Sanger outnumbers NGS
+  195 to 66. Records of 2006-2011 that were NGS but say so neither in a comment nor in the title are
+  miscounted as Sanger.
+* otherwise (2012 on) -> Unknown: by then both were common.
+
+The column ``seq_basis`` says which rule applied. Rules and spellings are in ``data/mito_methods.yaml``.
 """
 
 from __future__ import annotations
@@ -81,6 +91,23 @@ def sequencing_category(raw: str) -> str:
 
 
 _SPLIT = re.compile(r"\s*;\s*|\s*,\s*(?=[A-Za-z])|\s+and\s+|\s*\+\s*|\s*&\s*", re.IGNORECASE)
+
+
+NGS_TITLE = re.compile(r"\bNGS\b|next[- ]generation|high[- ]throughput|\b454\b|illumina|solexa|pyrosequenc|"
+                       r"genome skimming|shotgun|massively parallel|ion torrent|hiseq|miseq|nanopore|pacbio", re.I)
+ASSEMBLY_DATA_FROM = 2012  # first year with Assembly-Data comments in GenBank mitogenomes
+
+
+def infer_sequencing(category: str, create_date: str, titles: Iterable[str]) -> tuple[str, str]:
+    """(category, basis) for a record; see the module docstring."""
+    if category != "Unknown":
+        return category, "Assembly-Data comment"
+    if any(NGS_TITLE.search(t or "") for t in titles):
+        return "NGS", "paper title names a high-throughput method"
+    m = re.match(r"(\d{4})", create_date or "")
+    if m and int(m.group(1)) < ASSEMBLY_DATA_FROM:
+        return "Sanger", f"inferred: first submitted {m.group(1)}, before Assembly-Data comments ({ASSEMBLY_DATA_FROM})"
+    return "Unknown", ""
 
 
 def assemblers(raw: str) -> tuple[list[str], list[str]]:
@@ -267,6 +294,11 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
     first = next(((j, t, a) for j, t, a in ((r.journal, r.title, r.authors) for r in
                   rec.annotations.get("references", [])) if t and t != "Direct Submission"), ("", "", ""))
     st_raw = asm.get("Sequencing Technology", "")
+    submitted = summary.get("create_date", "") or next(  # first submission: "Submitted (12-MAR-2004) ..."
+        (m.group(1) for r in rec.annotations.get("references", [])
+         if (m := re.search(r"Submitted \(\d{2}-[A-Z]{3}-(\d{4})\)", r.journal or ""))), "")
+    category, basis = infer_sequencing(sequencing_category(st_raw), submitted,
+                                       [r.title or "" for r in rec.annotations.get("references", [])])
     am_raw = asm.get("Assembly Method", "")
     names, other = assemblers(am_raw)
     length = summary.get("length") or (len(rec.seq) if len(rec.seq) > 1 else None)
@@ -279,7 +311,8 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "lineage": "; ".join(rec.annotations.get("taxonomy", [])),
         "seq_technology_raw": st_raw,
         "seq_platforms": "; ".join(sequencing_platforms(st_raw)),
-        "seq_category": sequencing_category(st_raw),
+        "seq_category": category,
+        "seq_basis": basis,
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
         "assembler_group": assembler_group(names, other, mapping_tools(am_raw)),
@@ -628,7 +661,8 @@ EPILOG = """examples:
   g2t-cite -i gb/mitogenome-header -o annelida_mito/cite.xlsx      # papers of "Unpublished" records
   g2t-mitostats -i gb/mitogenome-header -o annelida_mito --citations annelida_mito/cite.xlsx
 
-Records without an Assembly-Data comment are counted as "Unknown" (not as Sanger).
+Records without an Assembly-Data comment: NGS if the paper title names a high-throughput method,
+Sanger if first submitted before 2012 (the comment did not exist yet), otherwise Unknown (column seq_basis).
 Spellings and rules: g2t/data/mito_methods.yaml."""
 
 

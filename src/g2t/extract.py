@@ -127,7 +127,7 @@ def _finish_extract(
     ``details`` (the command line): copy failed files to failed_extract/ and log the summary.
     ``tracking``: record_tracking.csv.
     """
-    summary.total_elapsed_time = time.time() - start_time
+    summary.total_elapsed_time = time.monotonic() - start_time
     try:
         os.makedirs(output_dir, exist_ok=True)
         if details:
@@ -145,7 +145,7 @@ def _finish_extract(
         success=success,
         output_file=final_path if success else "",
         rows=rows,
-        elapsed=time.time() - start_time,
+        elapsed=time.monotonic() - start_time,
         error="" if success else error,
     )
 
@@ -187,7 +187,7 @@ def extract(
     The keyword-only arguments are the options of ``g2t-extract``; their defaults are what the
     pipeline uses (``details``/``tracking`` are on for the command line).
     """
-    start_time = time.time()
+    start_time = time.monotonic()
     os.makedirs(output_dir, exist_ok=True)
     summary = ProcessingSummary()
 

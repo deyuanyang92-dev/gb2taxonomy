@@ -285,3 +285,20 @@ def test_taxonomy_cache_is_shared_between_output_folders(tmp_path):
     assert ms._lineage_cache([str(d)], out) == d / "taxonomy_lineage.json"
     assert (d / "taxonomy_lineage.json").exists()  # copied from the earlier report folder
     assert ms._lineage_cache([str(d)], tmp_path / "other_report") == d / "taxonomy_lineage.json"
+
+
+@pytest.mark.parametrize(
+    "cat, date, titles, out",
+    [
+        ("NGS", "2005-01-01", [], ("NGS", "Assembly-Data comment")),  # the comment wins
+        ("Unknown", "2004-03-12", ["Complete mitochondrial genome of X"], "Sanger"),  # before NGS
+        ("Unknown", "2010-06-01", ["Mitogenome of X"], "Sanger"),  # before Assembly-Data comments
+        ("Unknown", "2008-01-01", ["Using 454 technology for long-PCR based sequencing"], "NGS"),  # EU346694
+        ("Unknown", "2011-05-01", ["A massively parallel sequencing approach ..."], "NGS"),  # AP012267
+        ("Unknown", "2015-01-01", ["Mitogenome of X"], ("Unknown", "")),  # both common by then
+        ("Unknown", "", [], ("Unknown", "")),
+    ],
+)
+def test_sequencing_inferred_without_assembly_data(cat, date, titles, out):
+    got = ms.infer_sequencing(cat, date, titles)
+    assert got == out if isinstance(out, tuple) else got[0] == out

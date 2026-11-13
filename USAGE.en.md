@@ -14,7 +14,7 @@ In taxonomy and phylogenetics, several gene markers (e.g. COI, 16S, 18S) are oft
 - Python ≥ 3.9
 - pandas ≥ 1.5
 - biopython ≥ 1.80
-- openpyxl ≥ 3.0: reading and writing Excel files in Step 5 (`g2t-curate`)
+- openpyxl ≥ 3.0: reading and writing Excel files in step 6 (`g2t-curate`)
 - pyyaml ≥ 6.0: reads the bundled `gene_dict.yaml`, the only copy of the gene synonyms
 
 **Optional dependencies**:
@@ -162,6 +162,10 @@ A mitochondrial record matching several genes becomes `mtgenome` only if its tit
 
 ---
 
+### Step 2b: rRNA types from the sequence (default)
+
+Since v0.05, `g2t` checks rRNA, unmatched and conflicted records against their sequence with profile HMMs (pyhmmer) after step 2, and uses the sequence's gene type where it differs from the title / annotation. Example: Hesionidae MG523356–60 are titled "small subunit … mitochondrial" but are 16S; they move from the 12S to the 16S column. The annotation-only result is kept in `labeled_genes/*.annotation.csv`, the per-record result is in `verified_rrna/verify.csv`. `--no-verify` keeps the annotation's types (as in v0.04).
+
 ### Step 3: specimen voucher (voucher)
 
 Links the sequences of one specimen through its voucher number.
@@ -234,6 +238,10 @@ specimens per gene); rows without a family go to `unassigned_Family.csv`.
 
 ---
 
+### Step 5: contamination / misidentification screen (default)
+
+Since v0.05, `g2t` computes k-mer distances per marker after building the matrix and flags sequences almost identical (≤ 2%) to another genus while farther from their own (`near_other_genus`), and sequences far from all others of the marker (`remote`). Output: `organized_genes/screen.csv` and the matrix column `screen_flags`; `--no-screen` skips it; standalone: `g2t-screen -i gb/markers --g2t OUT`. A flag is a prompt to check, not a verdict. Evaluation: `docs/evaluation/screen.md`.
+
 ### Vouchers in the matrix
 
 After `organism` and `organism_names` the matrix has three voucher columns:
@@ -242,13 +250,13 @@ After `organism` and `organism_names` the matrix has three voucher columns:
 - `voucher_standardized`: one voucher per specimen, built from specimen_voucher only (empty for specimens that have only an isolate or other identifier). Gene-name prefixes are removed, the most complete spelling is used, and it is written in the INSDC `/specimen_voucher` format `[institution-code:[collection-code:]]specimen-id`. Examples: `COI_ZMMU_MSU_WS2585; 28S_ZMMU_WS2585; WS2585` → `ZMMU:MSU:WS2585`; `ZMMU:WS30980; ZMMU_WS30980` → `ZMMU:WS30980`.
 - `voucher_note`: asks for a manual check when the spellings differ in more than prefix or separators.
 
-### Step 5: curate metadata (curate, optional)
+### Step 6: curate metadata (curate, optional)
 
 #### Purpose
 
 Sequences are usually deposited in GenBank when a manuscript is submitted. Peer review often changes things afterwards: specimens are re-identified or given a new combination, species are described as new, the title changes, coordinates and dates are corrected. Only the submitter can update a GenBank record. INSDC welcomes "corrections of errors and update of the records by authors" ([INSDC policy](https://www.insdc.org/policy/)); NCBI asks submitters to send the publication data to GenBank once the paper is published ([GenBank overview](https://www.ncbi.nlm.nih.gov/genbank/)), and source information is updated by submitting a table ([Update GenBank records](https://www.ncbi.nlm.nih.gov/genbank/update/)). In practice many records are never updated, so the metadata in a downloaded dataset can be out of date or wrong. Misidentified and incompletely annotated public sequences are documented (Bridge et al. 2003, *New Phytologist* 160: 43–48, [doi:10.1046/j.1469-8137.2003.00861.x](https://doi.org/10.1046/j.1469-8137.2003.00861.x); Meiklejohn et al. 2019, *PLOS ONE* 14: e0217084, [doi:10.1371/journal.pone.0217084](https://doi.org/10.1371/journal.pone.0217084)).
 
-Step 5 lets a taxonomist apply verified information to the specimen × gene matrix without changing GenBank and without losing the original values:
+Step 6 lets a taxonomist apply verified information to the specimen × gene matrix without changing GenBank and without losing the original values:
 
 - **A**: the matrix built from GenBank, exactly as submitted (one row per specimen).
 - **B**: your own table, in the format you already use. It holds the information you have verified: valid species names, published title and authors, corrected coordinates or dates, and extra fields such as water depth.
@@ -319,6 +327,19 @@ g2t-mitostats -i gb/mitogenome-header -o mito --citations mito/cite.xlsx
 - `g2t-cite` tiers: high / medium go to sheet *Curate* of `cite.xlsx` (input for `g2t-curate -u` and `g2t-mitostats --citations`); "check" rows are yellow in sheet *Candidates* and need a look.
 - Reruns download only new records and query only new paper groups.
 - Worked example with real output (Annelida, 745 records; tutorials are in Chinese): [docs/tutorials/mitogenome-stats.md](docs/tutorials/mitogenome-stats.md); all Metazoa and incremental updates: [docs/tutorials/metazoa.md](docs/tutorials/metazoa.md).
+
+## Checking gene types against the sequence (g2t-verify)
+
+g2t assigns gene types from record titles, so a wrong title gives a wrong column. For example, five Hesionidae 16S records titled "small subunit ribosomal RNA; mitochondrial" end up in 12S. `g2t-verify` scans the sequences themselves with 12S, 16S, 18S, 5.8S and 28S profile HMMs, locates each region and derives ITS1/ITS2 from the 5.8S:
+
+```bash
+pip install pyhmmer
+g2t-verify -i gb/markers --g2t out -o verify
+```
+
+- **Verdicts**: agree; partly (e.g. the title names 28S, but the sequence holds only ITS); different (another rRNA); no_hit (rRNA by title, but no model matches); unverifiable (spacer only, nothing to place it by); new (unmatched by g2t, but an rRNA).
+- **Output**: `verify.csv` and `regions/*.fa` (sequences cut by region).
+- **Data and evaluation**: [docs/evaluation/rdna-regions.md](docs/evaluation/rdna-regions.md) (in Chinese).
 
 ## Output files
 

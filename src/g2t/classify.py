@@ -225,7 +225,7 @@ def classify(
     """
     import time
 
-    start_time = time.time()
+    start_time = time.monotonic()
     os.makedirs(output_dir, exist_ok=True)
 
     if config is None:
@@ -287,12 +287,12 @@ def classify(
             success=True,
             output_file=all_file,
             rows=rows,
-            elapsed=time.time() - start_time,
+            elapsed=time.monotonic() - start_time,
         )
     except Exception as e:
         logger.exception(f"Classify failed: {e}")
         return StepResult(
-            success=False, output_file="", elapsed=time.time() - start_time, error=f"{type(e).__name__}: {e}"
+            success=False, output_file="", elapsed=time.monotonic() - start_time, error=f"{type(e).__name__}: {e}"
         )
 
 

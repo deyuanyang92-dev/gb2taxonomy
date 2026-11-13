@@ -90,20 +90,20 @@ def _process_record_loop(
     Optimized: Single-pass file reading (no pre-validation).
     """
     result = FileResult(file_path=file_path)
-    start = time.time()
+    start = time.monotonic()
 
     # Quick file existence check
     if not os.path.exists(file_path):
         result.status = FileStatus.INVALID
         result.error_message = "File does not exist"
-        result.elapsed_time = time.time() - start
+        result.elapsed_time = time.monotonic() - start
         return result
 
     sz = os.path.getsize(file_path)
     if sz == 0:
         result.status = FileStatus.EMPTY
         result.error_message = "Empty file (0 bytes)"
-        result.elapsed_time = time.time() - start
+        result.elapsed_time = time.monotonic() - start
         return result
 
     logger.info(f"  Size: {format_size(sz)}")
@@ -164,7 +164,7 @@ def _process_record_loop(
                 # Progress logging
                 done = result.metadata_extracted + result.metadata_failed
                 if log_interval > 0 and done > 0 and done % log_interval == 0:
-                    elapsed = time.time() - start
+                    elapsed = time.monotonic() - start
                     speed = done / elapsed if elapsed > 0 else 0
                     mem = get_memory_mb()
                     mem_s = f", mem:{mem:.0f}MB" if mem else ""
@@ -234,7 +234,7 @@ def _process_record_loop(
     else:
         result.status = FileStatus.SUCCESS
 
-    result.elapsed_time = time.time() - start
+    result.elapsed_time = time.monotonic() - start
     return result
 
 
@@ -338,7 +338,7 @@ def memory_process_single_file(
 def combine_and_save_final_csv(
     md_file: str, asm_file: str, out_file: str, delimiter: str = ",", md_delimiter: str = ",", asm_delimiter: str = "\t"
 ):
-    start = time.time()
+    start = time.monotonic()
     # read everything as text so leading zeros ("007"), exponent-like ids
     # ("1E5") and big integers are never rewritten; empty cells stay "" and
     # strings such as "NA" are not turned into NaN.
@@ -365,7 +365,7 @@ def combine_and_save_final_csv(
         final = md_df
 
     final.to_csv(out_file, index=False, sep=delimiter, encoding="utf-8")
-    logger.info(f"Merged: {out_file} ({len(final)} records, {time.time() - start:.1f}s)")
+    logger.info(f"Merged: {out_file} ({len(final)} records, {time.monotonic() - start:.1f}s)")
 
 
 def _write_metadata_frame(rows: list[dict], path: str, delimiter: str) -> pd.DataFrame:
@@ -407,7 +407,7 @@ def process_all_files(
 ) -> ProcessingSummary:
     summary = ProcessingSummary()
     summary.gb_files_found = len(gb_files)
-    t0 = time.time()
+    t0 = time.monotonic()
 
     do_metadata = not only_assembly
     do_assembly = not only_except_assembly
@@ -532,5 +532,5 @@ def process_all_files(
             except Exception as e:
                 logger.error(f"Merge error: {e}")
 
-    summary.total_elapsed_time = time.time() - t0
+    summary.total_elapsed_time = time.monotonic() - t0
     return summary
