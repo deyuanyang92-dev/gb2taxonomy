@@ -36,7 +36,7 @@
 | `g2t-curate` (step 6) | matrix + your table → corrected matrix with a change log | fix coordinates, names, references |
 | `g2t-mitostats` | mitogenome records → tables, thesis-style figures, interactive HTML report | how were the mitogenomes of a clade sequenced and assembled, and where were they published? |
 | `g2t-cite` | records marked "Unpublished" → their papers on Crossref | complete the journal information |
-| `g2t-screen` | records + g2t types → per marker, sequences almost identical to another genus or far from all others (possible contamination or misidentification); runs as step 5 of `g2t` | find what used to take align → distances → tree by hand, e.g. Opheliidae COI OQ417162 "Polyophthalmus pictus" 0.4% from *Armandia* |
+| `g2t-screen` | records + g2t types → per marker, sequences almost identical to another genus or far from all others (possible contamination or misidentification); runs as step 5 of `g2t`; `--tree` places every sequence in gene trees with related families (FAMSA + FastTree, as OrthoFinder) and flags those sitting in another family or genus | find what used to take align → distances → tree by hand, e.g. Opheliidae COI OQ417162 "Polyophthalmus pictus" 0.4% from *Armandia* |
 | `g2t-verify` | records + g2t types → which rRNA the sequence really is (12S, 16S, 18S, 5.8S, 28S, ITS1/ITS2), with coordinates and cut regions | catch mislabelled records, e.g. 16S titled "small subunit" (Hesionidae) or "18S…ITS…28S" records holding only ITS |
 
 ## Installation
@@ -292,7 +292,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment submitted from 2012 on stay "Unknown"; older ones are counted as Sanger (inferred), so a 2006–2011 NGS record that says so neither in a comment nor in the paper title is miscounted; and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
 10. **Curation (step 6).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-11. **Code status.** v0.06 is an early release. 778 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+11. **Code status.** v0.06 is an early release. 788 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 

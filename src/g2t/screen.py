@@ -360,6 +360,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-i", "--input", nargs="+", required=True, help="GenBank files or folders (with sequences)")
     p.add_argument("--g2t", required=True, metavar="DIR", help="output folder of the g2t run on these records")
     p.add_argument("-o", "--output", metavar="CSV", help="default: <g2t>/organized_genes/screen.csv")
+    t_ = p.add_argument_group("phylogenetic screen (gene trees with related families; FAMSA/MAFFT + FastTree/IQ-TREE)")
+    t_.add_argument("--tree", action="store_true", help="also place every sequence in a gene tree with relatives")
+    t_.add_argument("--taxon", help="the studied family (default: the commonest Family of the records)")
+    t_.add_argument("--background", help="related families, comma separated (default: chosen from NCBI Taxonomy)")
+    t_.add_argument("--background-n", type=int, default=6, help="number of related families (default 6)")
+    t_.add_argument("--iqtree", action="store_true", help="IQ-TREE with 1,000 ultrafast bootstraps (slower)")
+    t_.add_argument("--support", type=float, default=0.9, help="branch support needed (default 0.9)")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     t = screen(a.input, a.g2t)
@@ -369,6 +376,19 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{len(t)} sequences flagged; {out}")
     if len(t):
         print(t[["gene", "accession", "organism", "flag", "note"]].head(30).to_string(index=False))
+    if a.tree:
+        from g2t import phylo
+
+        fam = a.taxon or phylo.study_family(a.g2t)
+        fams = [x.strip() for x in a.background.split(",")] if a.background else \
+            phylo.related_families(fam, a.background_n)
+        bg = phylo.fetch_background(fams, Path(a.g2t) / "background")
+        flags, notes = phylo.phylo_screen(a.input, a.g2t, bg, family=fam, iqtree=a.iqtree, support=a.support)
+        d = Path(a.g2t) / "organized_genes" / "phylo"
+        print(f"\ngene trees ({fam} + {', '.join(fams)}): {len(flags)} sequences sit outside their name; "
+              f"{len(notes)} taxon notes; {d}/phylo_flags.csv, phylo_taxon_notes.csv, <gene>.tre")
+        if len(flags):
+            print(flags[["gene", "accession", "organism", "flag", "note", "evidence"]].to_string(index=False))
     return 0
 
 
