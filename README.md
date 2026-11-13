@@ -148,7 +148,7 @@ Input: GenBank flat files (`.gb`, `.gbf`, `.gbk`, `.gbff`, `.genbank`) or direct
 
 | Step | Command | Input → output |
 |---|---|---|
-| 1 | `g2t-extract -i gb/markers -o s1` | GenBank → `final.csv` (one row per record: accession, length, definition, organism, voucher, isolate, locality, coordinates, date, references, …) |
+| 1 | `g2t-extract -i gb/markers -o s1` | GenBank → `final.csv` (one row per record: accession, length, definition, organism, voucher, isolate, locality, coordinates, date, references, primers (`PCR_primers`, names in `primer_fwd` / `primer_rev`), free-text `Comment`, DBLINK `BioProject` / `BioSample` / `SRA`, …) |
 | 2 | `g2t-classify -i s1/final.csv -o s2` | → `assigned_genes_types_all.csv` (gene type per record), `unmatched_sequences.csv`, `filtered_records.csv`, `record_status.csv` |
 | 2b | `g2t-verify -i gb/markers --g2t OUT -o OUT/verified_rrna` | rRNA types from the sequence (in `g2t`: applied to step 2's tables; annotation kept in `*.annotation.csv`) |
 | 3 | `g2t-voucher -i s2/assigned_genes_types_all.csv -o s3` | → `updated_species_voucher.csv` (specimen key = organism + voucher) |
@@ -292,7 +292,7 @@ g2t.organize("s3/reconciled_species_voucher.csv", "matrix.csv")
 8. **Malformed files.** If a GenBank file has a record that Biopython cannot parse, the records after it in that file are not read; the file is marked partial in `extraction_report.json` and a warning gives the expected and parsed record counts.
 9. **Mitogenome statistics and citations.** `g2t-mitostats` can only report what submitters wrote: records without an Assembly-Data comment submitted from 2012 on stay "Unknown"; older ones are counted as Sanger (inferred), so a 2006–2011 NGS record that says so neither in a comment nor in the paper title is miscounted; and an assembler not listed in `mito_methods.yaml` is reported as "Other" (`assembly_other` column) until added. `g2t-cite` depends on Crossref coverage and on the GenBank title resembling the published one: "high" and "medium" matches go to the *Curate* sheet, "check" rows need a look, and a paper whose title changed completely is not found. Check the *Candidates* sheet before using the matches in a publication.
 10. **Curation (step 6).** Each row of B corrects only specimens already in A. A specimen with no GenBank record is reported as unmatched and is not added to C. A blank cell means "keep", so B cannot empty a cell of A. Column recognition is a heuristic based on names and on accession-like values; check the *Column mapping* sheet and use `--map` where it is wrong. Values from B are taken as correct: B itself is not checked against the literature or WoRMS.
-11. **Code status.** v0.06 is an early release. 770 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
+11. **Code status.** v0.06 is an early release. 778 unit tests pass on Python 3.13 (2026-11-13; earlier releases were also tested on 3.12 and 3.9; on 3.9, 3 Excel tests need openpyxl); `ruff` and `mypy` are clean.
 
 ## Citation
 

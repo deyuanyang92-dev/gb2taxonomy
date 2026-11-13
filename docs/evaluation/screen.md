@@ -107,6 +107,25 @@ PX620130 *O. translucens* 没有同名的其他记录，这条规则判断不了
 
 **其他科的提示量：** Hesionidae 17 条，Enchytraeidae 34 条。多数集中在 *Fridericia*、*Marionina argentea*、*Buchholzia fallax*、*Enchytraeus buchholzi* 等，推测多为隐存种复合体，即同一个名称下有多个种。这类提示本身也有用：说明这个名称的序列不能直接当作一个种使用。
 
+## NCBI 自己存疑的记录（`ncbi_unverified`，v0.06）
+
+GenBank 对无法核实的记录有两种标注：
+
+- 标题以 "UNVERIFIED:" 开头；
+- COMMENT 写 "GenBank staff is unable to verify source organism provided by the submitter"（来源物种无法核实），或 "… unable to verify sequence and/or annotation …"（序列或注释无法核实，例如 COI 翻译不出正常蛋白）。
+
+`g2t-screen` 把这些记录单独列为 `ncbi_unverified`。
+
+**结果：**
+
+- Hesionidae 有 28 条。
+- 按距离提示的 22 条中，有 6 条同时被 NCBI 标为存疑：
+  - PX640331、PX640352、PX640417、PX640477（"UNVERIFIED:" COI，都与同名记录相差 > 18%）；
+  - MW278311（来源物种无法核实；与同名的 *Leocrates chinensis* 相差 20.6%，最近的是 *Sirsoe*）；
+  - PP652214。
+
+两种完全独立的依据（距离、NCBI 人工审核）指向同一批记录，说明距离提示是有效的。
+
 ## 测试过但没有采用：“比本属更接近另一个属”
 
 **规则：** 另一个属在 10% 以内，且比本属最近的序列至少近 3 个百分点，就提示。用全部 Opheliidae 标记数据（697 条）测试。

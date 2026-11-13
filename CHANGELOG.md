@@ -4,6 +4,15 @@
 
 包内版本 `0.0.6`。
 
+- **第 1 步提取更多记录头信息**（新列）。这些信息原来都没有提取，而测序方法和 NCBI 的核验意见正写在这里：
+  - `Comment`：自由文本 COMMENT；
+  - `BioProject`、`BioSample`、`SRA`：取自 DBLINK；
+  - `StructuredComment`：Assembly-Data 以外的结构化注释；
+  - `primer_fwd`、`primer_rev`：从 `/PCR_primers` 解析出的引物名，多套引物用 "; " 分隔；原始的 `PCR_primers` 照旧保留。
+- **`g2t-screen` 新增 `ncbi_unverified` 提示**：标题以 "UNVERIFIED:" 开头，或 COMMENT 写 "GenBank staff is unable to verify source organism / sequence and/or annotation"，即 NCBI 自己存疑的记录。
+  - Hesionidae 有 28 条。
+  - 按距离提示的记录中，有 6 条同时被 NCBI 标为存疑（PX640331、PX640352、PX640417、PX640477、MW278311、PP652214），这是对距离提示的独立印证。
+
 - **`g2t-mitostats` 从更多记录头信息判断测序方法**。没有 Assembly-Data 注释时，依次看：
   1. 自由文本 COMMENT 中写明的平台。例如 Darwin Tree of Life、ATLASea 等基因组计划写的 "based on 91x PacBio data and Arima2 Hi-C data"，判为 Long-read。"Wellcome Sanger Institute" 是机构名，不当作 Sanger 测序。
   2. DBLINK 链接了 SRA 原始数据，或 COMMENT 中有 SRA 运行号（第三方组装），判为 NGS。

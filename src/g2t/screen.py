@@ -17,6 +17,8 @@ is slow; g2t-screen does the distance part for every marker in seconds and flags
                       from the 16S of the O. neglecta mitogenome OZ260669 and 23% from every other
                       Ophelia, but 16% from Ophelina. Genes of mitogenomes are included (12S / 16S
                       found by the g2t-verify HMMs when the record has no annotation).
+    ncbi_unverified   NCBI's own doubt: title "UNVERIFIED:" or COMMENT "GenBank staff is unable to
+                      verify source organism / sequence and/or annotation provided by the submitter".
     remote            no sequence of this marker in the data set within a k-mer distance of 0.35
                       (roughly > 30% different): wrong gene, wrong organism, or the only sample of
                       a distant lineage. Data sets with fewer than 10 sequences are not judged.
@@ -273,6 +275,7 @@ def screen(inputs: Iterable[str], g2t_dir: str | Path) -> pd.DataFrame:
     org = dict(zip(a["ACCESSION"], a[oname]))
     gen = dict(zip(a["ACCESSION"], a["Genus"] if "Genus" in a else [""] * len(a)))
     mt = set(a.loc[a["gene_type"] == "mtgenome", "ACCESSION"])
+    every = a
     a = a[~a["gene_type"].str.contains(",") & (a["gene_type"] != "") & ~a["gene_type"].isin(SKIP)]
     seqs = {acc.split(".")[0]: (acc, s) for acc, _, s in read_sequences(inputs, set(a["ACCESSION"]))}
     by_gene: dict[str, list[tuple[str, str]]] = {}  # gene -> [(accession.version, sequence)]
@@ -297,13 +300,36 @@ def screen(inputs: Iterable[str], g2t_dir: str | Path) -> pd.DataFrame:
                      nearest_organism=org.get(r["nearest"].split(".")[0], ""))
         out += rows
         logger.info("%s: %d sequences, %d flagged", gene, len(ids), len(rows))
+    out += ncbi_unverified(every[every["gene_type"] != ""], seqs)
+    for r in out:
+        r["organism"] = r["organism"] or org.get(r["accession"].split(".")[0], "")
     return pd.DataFrame(out, columns=cols)
+
+
+def ncbi_unverified(a: pd.DataFrame, seqs: dict[str, tuple[str, str]]) -> list[dict]:
+    """Records NCBI itself doubts: title "UNVERIFIED: ..." or COMMENT "GenBank staff is unable to verify
+    source organism / sequence and/or annotation provided by the submitter" (Hesionidae: 28 records,
+    among them 4 COI that are also > 15% from a namesake)."""
+    rows = []
+    comment = a["Comment"] if "Comment" in a else pd.Series([""] * len(a), index=a.index)
+    for acc, gene, title, com in zip(a["ACCESSION"], a["gene_type"], a.get("Definition", ""), comment):
+        m = re.search(r"unable to verify ([^.]*?) provided by the submitter", str(com))
+        if m or str(title).startswith("UNVERIFIED"):
+            what = m.group(1) if m else "the record"
+            rows.append({"gene": gene, "accession": seqs.get(acc, (acc, ""))[0], "organism": "",
+                         "genus": "", "flag": "ncbi_unverified", "note": f"NCBI: unable to verify {what}",
+                         "nearest": "", "nearest_organism": "", "nearest_genus": "", "distance": None,
+                         "own_genus_distance": None})
+    return rows
 
 
 def mark_matrix(matrix_csv: str | Path, flags: pd.DataFrame) -> int:
     """Add a ``screen_flags`` column to the specimen x gene matrix; returns rows flagged."""
     m = pd.read_csv(matrix_csv, dtype=str, keep_default_na=False, low_memory=False)
-    text = {r.accession: f"{r.accession} {r.gene}: {r.flag} ({r.note})" for r in flags.itertuples()}
+    text: dict[str, str] = {}
+    for r in flags.itertuples():
+        t = f"{r.accession} {r.gene}: {r.flag} ({r.note})"
+        text[r.accession] = f"{text[r.accession]}; {t}" if r.accession in text else t
     genes = [c for c in m.columns if c in set(flags["gene"]) | {"mtgenome"}] if len(flags) else []
 
     def row_flags(r: pd.Series) -> str:

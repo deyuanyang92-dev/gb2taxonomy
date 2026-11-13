@@ -105,3 +105,15 @@ def test_same_species_far_apart_is_flagged():
     assert {r["accession"] for r in rows if r["flag"] == "same_species_far"} == {"OZ260669.1", "HM746718.1"}
     note = {r["accession"]: r["note"] for r in rows}
     assert "also named Polyophthalmus neglecta" in note["HM746718.1"]
+
+
+def test_ncbi_unverified_records_are_flagged():
+    staff = "GenBank staff is unable to verify {} provided by the submitter."
+    a = pd.DataFrame({"ACCESSION": ["PX640477", "MW278311", "OK1"], "gene_type": ["coi", "coi", "coi"],
+                      "Definition": ["UNVERIFIED: Hesiospina aurantiaca voucher MW_513 COI gene",
+                                     "Leocrates chinensis COI", "Hesione sp. COI"],
+                      "Comment": [staff.format("sequence and/or annotation"), staff.format("source organism"), ""]})
+    rows = sc.ncbi_unverified(a, {"PX640477": ("PX640477.1", ""), "MW278311": ("MW278311.1", "")})
+    assert [(r["accession"], r["note"]) for r in rows] == [
+        ("PX640477.1", "NCBI: unable to verify sequence and/or annotation"),
+        ("MW278311.1", "NCBI: unable to verify source organism")]
