@@ -50,13 +50,14 @@ options:
 ## g2t-download
 
 ```text
-usage: g2t-download [-h] -t NAME|TAXID [-o DIR] [-e ADDR] [-k KEY]
+usage: g2t-download [-h] (-t NAME|TAXID | -a FILE) [-o DIR] [-e ADDR] [-k KEY]
                     [--validate] [--all] [--mito] [--mitogenome] [--gene LIST]
                     [--minlen BP] [--maxlen BP] [--query CLAUSE]
                     [--include-wgs] [--include-mrna] [--include-tsa]
                     [--include-refseq] [--include-large] [--header-only]
-                    [--tag NAME] [--since auto|DATE] [--store FILE |
-                    --no-store] [-n] [--report] [-b N] [-w N] [-q]
+                    [--summary-only] [--tag NAME] [--since auto|DATE]
+                    [--store FILE | --no-store] [-n] [--report] [-b N] [-w N]
+                    [-q]
 
 Download GenBank records of a taxon from NCBI.
 
@@ -64,6 +65,9 @@ options:
   -h, --help            show this help message and exit
   -t, --taxon NAME|TAXID
                         taxon name or NCBI taxid
+  -a, --accessions FILE
+                        file with one accession per line (or first column of a
+                        .csv/.tsv), instead of -t
   -o, --output DIR      output root; records go to DIR/TAG/ (default:
                         <taxon>_gb)
   -e, --email ADDR      e-mail for NCBI (default: $NCBI_EMAIL)
@@ -88,6 +92,8 @@ selection (default: marker records, see README):
                         notes, references, source); lengths and dates in
                         summary.tsv. For metadata analyses such as
                         g2t-mitostats
+  --summary-only        no records: only summary.tsv (accession, length,
+                        dates, taxid, title) from esummary; fastest
   --tag NAME            output sub-directory (default: from the selection)
 
 update:
@@ -100,7 +106,8 @@ run:
   -n, --dry-run         report counts and records to fetch; write nothing
   --report              also count records per gene (extra NCBI searches)
   -b, --batch-size N    records per request and batch file (default: 500)
-  -w, --workers N       parallel NCBI requests (default: 3)
+  -w, --workers N       parallel NCBI requests (default: 3; 8 with an API key,
+                        which allows 10 requests/s)
   -q, --quiet           no progress output
 
 examples:
@@ -109,6 +116,8 @@ examples:
   g2t-download -t Polynoidae -o gb -n              counts only
   g2t-download -t 46593 -o gb --mitogenome
   g2t-download -t Annelida -o gb --mitogenome --header-only   metadata only (~1/12 of the size)
+  g2t-download -t Metazoa -o gb --mitogenome --summary-only    lengths/dates/taxa only, no records
+  g2t-download -a my_accessions.txt -o gb                      exactly these records
 
 Re-running skips records already downloaded. Exit status 1 if records failed.
 ```
@@ -481,7 +490,8 @@ options:
 
 ```text
 usage: g2t-mitostats [-h] -i PATH [PATH ...] -o DIR [--title TITLE] [--top N]
-                     [--no-figures] [--no-taxonomy] [--citations FILE]
+                     [--no-figures] [--no-taxonomy] [--exclude TAXON]
+                     [--citations FILE]
 
 Sequencing technology, assembly programs and publications of mitochondrial genomes.
 
@@ -495,6 +505,9 @@ options:
   --top N               assemblers shown in the alluvial figure
   --no-figures          skip the PNG/PDF figures
   --no-taxonomy         do not look up phylum..genus on NCBI
+  --exclude TAXON       leave out a species, genus, family, order, class or
+                        phylum; repeatable, e.g. --exclude "Homo sapiens" (46%
+                        of all metazoan mitogenomes in 2026)
   --citations FILE      g2t-cite output (cite.xlsx): journals of records still
                         'Unpublished' in GenBank
 

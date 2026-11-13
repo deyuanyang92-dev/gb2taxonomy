@@ -1,6 +1,7 @@
 """g2t-mitostats: sequencing category, assembler names, publication year/journal (strings as found in GenBank)."""
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -69,8 +70,9 @@ def test_assemblers(raw, names):
 
 
 def test_unrecognised_tool_is_kept():
-    names, other = ms.assemblers("2791862 v. v1.7.6.1; NOVOPlasty v. 4.3.1")
-    assert names == ["NOVOPlasty"] and other == ["2791862 v. v1.7.6.1"]
+    names, other = ms.assemblers("FooAssembler v. 1.2; NOVOPlasty v. 4.3.1")
+    assert names == ["NOVOPlasty"] and other == ["FooAssembler v. 1.2"]
+    assert ms.assemblers("2791862 v. v1.7.6.1")[1] == []  # no name, only numbers: not a program
 
 
 @pytest.mark.parametrize(
@@ -234,3 +236,52 @@ def test_citation_journal_takes_genbank_spelling(tmp_path):
         tmp_path / "c_curate.csv", index=False)
     # "Mitochondrial DNA" is commoner, but "Mitochondrial DNA B Resour" is the specific match
     assert ms.apply_citations(t, tmp_path / "c.csv").loc[3, "journal"] == "Mitochondrial DNA B Resour"
+
+
+@pytest.mark.parametrize(
+    "raw, group",
+    [
+        ("Burrows-Wheeler Aligner v. 0.7.17; bcftools v. 1.9", "Reference mapping"),  # human mtDNA style
+        ("MIA v. 1.0; leeHom v. 1", "Reference mapping"),  # ancient DNA
+        ("BWA v. 0.7; SPAdes v. 3.15", "SPAdes"),  # mapping then de novo: the assembler counts
+        ("Gnenious v. 11", "Geneious"),
+        ("genious prime v. 2022", "Geneious"),
+        ("NOVAPlasty v. 4.2", "NOVOPlasty"),
+        ("Mito-Z v. 2.4", "MitoZ"),
+        ("CodonCode Aligner v. 9", "CodonCode"),
+        ("MAFFT v. 7; MEGA v. 11", "Not stated"),  # alignment only
+        ("x", "Not stated"),
+        ("build 2025-03-24", "Not stated"),
+    ],
+)
+def test_assembler_group_from_metazoa_spellings(raw, group):
+    names, other = ms.assemblers(raw)
+    assert ms.assembler_group(names, other, ms.mapping_tools(raw)) == group
+
+
+def test_report_template_does_not_spread_record_arrays():
+    """Math.min(...years) overflowed the call stack with 150,025 Metazoa records (report never drew)."""
+    from importlib.resources import files
+
+    tpl = files("g2t").joinpath("data/mitostats_report.html").read_text(encoding="utf-8")
+    assert not re.search(r"Math\.(min|max)\(\s*\.\.\.", tpl)
+
+
+def test_exclude_taxa():
+    t = pd.DataFrame({"organism": ["Homo sapiens", "Homo sapiens neanderthalensis", "Homo naledi", "Pan troglodytes",
+                                   "Alitta virens"],
+                      "class": ["Mammalia"] * 4 + ["Polychaeta"], "genus": ["Homo"] * 3 + ["Pan", "Alitta"]})
+    assert list(ms.exclude_taxa(t, ["Homo sapiens"])["organism"]) == ["Homo naledi", "Pan troglodytes", "Alitta virens"]
+    assert list(ms.exclude_taxa(t, ["Mammalia"])["organism"]) == ["Alitta virens"]
+    assert len(ms.exclude_taxa(t, ["Homo"])) == 2
+
+
+def test_taxonomy_cache_is_shared_between_output_folders(tmp_path):
+    d = tmp_path / "gb"
+    d.mkdir()
+    out = tmp_path / "old_report"
+    out.mkdir()
+    (out / "taxonomy_lineage.json").write_text('{"6346": {"phylum": "Annelida"}}')
+    assert ms._lineage_cache([str(d)], out) == d / "taxonomy_lineage.json"
+    assert (d / "taxonomy_lineage.json").exists()  # copied from the earlier report folder
+    assert ms._lineage_cache([str(d)], tmp_path / "other_report") == d / "taxonomy_lineage.json"

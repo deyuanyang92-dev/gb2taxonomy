@@ -158,7 +158,8 @@ __G2T_PLOTLY__
   document.getElementById('title').textContent = D.title;
   document.getElementById('gen').textContent = D.generated;
   const years = R.map(r => r.year).filter(y => y != null);
-  const yMin = Math.min(...years), yMax = Math.max(...years);
+  // min/max by reduce: spreading 150k values into Math.min overflows the call stack (all Metazoa)
+  const yMin = years.reduce((a, b) => (b < a ? b : a), Infinity), yMax = years.reduce((a, b) => (b > a ? b : a), -Infinity);
   document.getElementById('subtitle').textContent = `${fmt(R.length)} GenBank records · ${yMin}–${yMax}`;
 
   // ---------------- state & controls

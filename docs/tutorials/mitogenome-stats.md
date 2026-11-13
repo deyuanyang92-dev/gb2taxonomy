@@ -46,7 +46,7 @@ g2t-mitostats -i gb/mitogenome-header -o mito
 ```
 745 records; 573 with an Assembly-Data comment
 sequencing: Sanger 55, NGS 512, Long-read 5, Unknown 173
-assembly:   Not stated 205, Multi-assembly 108, NOVOPlasty 106, GetOrganelle 53, MitoZ 51, MitoFinder 43, mtGrasp 41, SPAdes 29
+assembly:   Not stated 206, Multi-assembly 108, NOVOPlasty 106, GetOrganelle 53, MitoZ 51, MitoFinder 43, mtGrasp 41, SPAdes 29
 published:  294 (39%), 36 journals
 years:      1995-2026
 ```
@@ -79,7 +79,7 @@ years:      1995-2026
 
 - 测序类别：有三代平台（PacBio、Nanopore）→ Long-read（含二代 + 三代混合组装）；否则有二代平台 → NGS（此时 Sanger 只是补洞）；否则 → Sanger。
 - **没有 Assembly-Data 注释的记录归 Unknown，不当作 Sanger。** Annelida 有 173 条这样的记录，并不都是早年数据：≤ 2012 年 13 条，2013–2020 年 34 条，2021–2025 年 92 条，2026 年 34 条。
-- 组装软件：同一软件的各种写法（含 GenBank 里的拼写错误）合成一个名字；Trimmomatic、FastQC、MITOS、GapCloser 等不是组装软件，去掉；写了两个及以上组装软件的记为 Multi-assembly，什么都没写的记为 Not stated。认不出的写法保留在 `assembly_other` 列，最终归为 Other（Annelida 只有 1 条）。
+- 组装软件：同一软件的各种写法（含 GenBank 里的拼写错误）合成一个名字；Trimmomatic、FastQC、MITOS、GapCloser 等不是组装软件，去掉；写了两个及以上组装软件的记为 Multi-assembly，什么都没写的记为 Not stated。认不出的写法保留在 `assembly_other` 列，最终归为 Other（Annelida 没有；全部后生动物 1,699 条）。只写了比对、一致序列软件（BWA、GATK 等）的记录归为 Reference mapping（Annelida 没有）。
 - 年份：发表年；没发表用直接提交年；都没有用建档日期。`year_source` 列写明用了哪个。
 
 ### 交互报告

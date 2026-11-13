@@ -40,6 +40,7 @@ RANKS = ["phylum", "class", "order", "family", "genus"]
 NOT_STATED = "Not stated"
 MULTI = "Multi-assembly"
 OTHER = "Other"
+MAPPING = "Reference mapping"
 
 
 # ------------------------------------------------------------------ rules
@@ -58,6 +59,7 @@ def _rules() -> dict[str, Any]:
     return {
         "platforms": [(p["name"], p["category"], comp(p["patterns"])) for p in raw["platforms"]],
         "assemblers": [(a["name"], comp(a["patterns"])) for a in raw["assemblers"]],
+        "mapping": comp(raw.get("mapping", [])) if raw.get("mapping") else None,
         "not_assembly": comp(raw["not_assembly"]),
     }
 
@@ -98,19 +100,29 @@ def assemblers(raw: str) -> tuple[list[str], list[str]]:
             names += [n for n in hit if n not in names]
         elif (
             not rules["not_assembly"].search(item)
-            and re.search(r"[A-Za-z0-9]", item)
-            and not re.fullmatch(r"v\.?\s*[\w.]+", item, re.IGNORECASE)  # a stray version ("v. 4.3")
+            and not (rules["mapping"] and rules["mapping"].search(item))
+            and re.search(r"[A-Za-z]{2}", item)  # not "x", "5.0", "#"
+            and not re.fullmatch(r"(v\.?|version|build)\s*[\w.\- ]+", item, re.IGNORECASE)  # "v. 4.3", "build 2025"
         ):
             other.append(item)
     return names, other
 
 
-def assembler_group(names: list[str], other: list[str]) -> str:
-    """One label per record: the program, "Multi-assembly", "Other" or "Not stated"."""
+def mapping_tools(raw: str) -> bool:
+    """Does the Assembly Method name a reference-mapping / consensus-calling tool (BWA, MIA, GATK ...)?"""
+    rx = _rules()["mapping"]
+    return bool(rx and rx.search(str(raw or "")))
+
+
+def assembler_group(names: list[str], other: list[str], mapped: bool = False) -> str:
+    """One label per record: the program, "Multi-assembly", "Reference mapping" (only mapping /
+    consensus tools named), "Other" or "Not stated"."""
     if len(names) > 1:
         return MULTI
     if names:
         return names[0]
+    if mapped:
+        return MAPPING
     return OTHER if other else NOT_STATED
 
 
@@ -270,7 +282,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "seq_category": sequencing_category(st_raw),
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
-        "assembler_group": assembler_group(names, other),
+        "assembler_group": assembler_group(names, other, mapping_tools(am_raw)),
         "assembly_other": "; ".join(other),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),
@@ -536,14 +548,47 @@ def apply_citations(t: pd.DataFrame, path: str | Path) -> pd.DataFrame:
     return t
 
 
+def exclude_taxa(t: pd.DataFrame, names: Iterable[str]) -> pd.DataFrame:
+    """Drop records of the given taxa: a species ("Homo sapiens", incl. its subspecies) or a genus,
+    family, order, class or phylum name ("Mammalia")."""
+    keep = pd.Series(True, index=t.index)
+    for n in names:
+        n = n.strip()
+        if not n:
+            continue
+        hit = t["organism"].fillna("").str.fullmatch(re.escape(n) + r"(\s.*)?")
+        for c in ("genus", "family", "order", "class", "phylum"):
+            if c in t.columns:
+                hit |= t[c].fillna("") == n
+        logger.info("excluded %s: %d records", n, int(hit.sum()))
+        keep &= ~hit
+    return t[keep].reset_index(drop=True)
+
+
+def _lineage_cache(inputs: list[str], out: Path) -> Path:
+    """Taxonomy cache next to the data (first input folder), so reports written to other output
+    folders (e.g. with --exclude) reuse it; else in the output folder. An older cache in the output
+    folder is copied over once."""
+    first = Path(inputs[0]) if inputs else out
+    cache = (first if first.is_dir() else out) / "taxonomy_lineage.json"
+    old = out / "taxonomy_lineage.json"
+    if not cache.exists() and old.exists() and old != cache:
+        import shutil
+
+        shutil.copyfile(old, cache)
+    return cache
+
+
 def run(inputs: list[str], out_dir: str, lineage: dict[str, dict[str, str]] | None = None,
         figures: bool = True, title: str = "", top_assemblers: int = 15,
-        citations: str | None = None) -> pd.DataFrame:
+        citations: str | None = None, exclude: Iterable[str] = ()) -> pd.DataFrame:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    t = build_table(inputs, lineage=lineage, cache_path=out / "taxonomy_lineage.json")
+    t = build_table(inputs, lineage=lineage, cache_path=_lineage_cache(inputs, out))
     if citations:
         t = apply_citations(t, citations)
+    if exclude:
+        t = exclude_taxa(t, exclude)
     t.to_csv(out / "mitostats.csv", index=False)
     cy = counts_by_year(t)
     cy.to_csv(out / "counts_by_year.csv", index=False)
@@ -601,12 +646,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--top", type=int, default=15, metavar="N", help="assemblers shown in the alluvial figure")
     p.add_argument("--no-figures", action="store_true", help="skip the PNG/PDF figures")
     p.add_argument("--no-taxonomy", action="store_true", help="do not look up phylum..genus on NCBI")
+    p.add_argument("--exclude", action="append", default=[], metavar="TAXON",
+                   help='leave out a species, genus, family, order, class or phylum; repeatable, '
+                   'e.g. --exclude "Homo sapiens" (46%% of all metazoan mitogenomes in 2026)')
     p.add_argument("--citations", metavar="FILE",
                    help="g2t-cite output (cite.xlsx): journals of records still 'Unpublished' in GenBank")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     t = run(a.input, a.output, lineage={} if a.no_taxonomy else None, figures=not a.no_figures,
-            title=a.title, top_assemblers=a.top, citations=a.citations)
+            title=a.title, top_assemblers=a.top, citations=a.citations, exclude=a.exclude)
     for line in describe(t):
         print(line)
     print(f"output: {a.output}/mitostats.csv, mitostats_report.html")

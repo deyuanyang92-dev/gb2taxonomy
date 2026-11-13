@@ -16,9 +16,9 @@ platforms:
   - {name: Nanopore, category: Long-read, patterns: ['nanopore', '\bont\b', 'minion', 'gridion', 'promethion', 'flongle']}
 
 assemblers:
-  - {name: NOVOPlasty, patterns: ['novo\s*plasty']}
+  - {name: NOVOPlasty, patterns: ['nov[oa]\s*plasty']}
   - {name: NOVOWrap, patterns: ['novo\s*wrap']}
-  - {name: MitoZ, patterns: ['\bmito\s*z\b']}
+  - {name: MitoZ, patterns: ['\bmito[\s-]*z\b']}
   - {name: GetOrganelle, patterns: ['get\s*or\w{0,3}n\w{0,2}elle', '\bgetorg']}
   - {name: MitoFinder, patterns: ['mito\s*finder']}
   - {name: MITObim, patterns: ['mito\s*bim']}
@@ -37,8 +37,8 @@ assemblers:
   - {name: A5-miseq, patterns: ['\ba5\b', 'a5-miseq']}
   - {name: Newbler, patterns: ['newbler', 'gs\s*de\s*novo', 'gs\s*data\s*analysis', 'gs\s*assembler']}
   - {name: CLC, patterns: ['\bclc\b']}
-  - {name: Geneious, patterns: ['geneious']}
-  - {name: SeqMan, patterns: ['seq\s*man', 'dnastar', 'lasergene']}
+  - {name: Geneious, patterns: ['\bg[a-z]{1,4}ious\b']}  # geneious, genious, gnenious
+  - {name: SeqMan, patterns: ['seq\s*man', 'dna\s*star', 'lasergene']}
   - {name: Sequencher, patterns: ['sequencher']}
   - {name: Canu, patterns: ['\bcanu\b']}
   - {name: Flye, patterns: ['\bflye\b']}
@@ -46,6 +46,45 @@ assemblers:
   - {name: wtdbg2, patterns: ['wtdbg']}
   - {name: hifiasm, patterns: ['hifiasm']}
   - {name: Oatk, patterns: ['\boatk\b']}
+  - {name: Minia, patterns: ['\bminia']}
+  - {name: MitoMaker, patterns: ['mito\s*maker']}
+  - {name: Supernova, patterns: ['supernova']}
+  - {name: AutoAssembler, patterns: ['auto\s*assembler']}
+  - {name: IVA, patterns: ['^\s*iva\b']}
+  - {name: SMRT Analysis, patterns: ['\bsmrt\b', '\bhgap']}
+  # Sanger trace editors that also assemble contigs
+  - {name: CodonCode, patterns: ['codon\s*code']}
+  - {name: SeqScape, patterns: ['seq\s*scape']}
+  - {name: BioEdit, patterns: ['bio\s*edit']}
+  - {name: UGENE, patterns: ['ugene']}
+  - {name: ContigExpress, patterns: ['contig\s*express', 'vector\s*nti']}
+  - {name: Phrap, patterns: ['phrap', '\bconsed\b']}
+  - {name: DNAMAN, patterns: ['dnaman', 'danman']}
+  - {name: ChromasPro, patterns: ['chromas']}
+
+# Reference mapping / consensus calling (no de novo assembly): a record naming only these is
+# "Reference mapping" (typical of human and ancient-DNA mitogenomes).
+mapping:
+  - 'burrows-wheeler|\bbwa\b'
+  - 'bowtie'
+  - 'minimap'
+  - '\bmia\b'
+  - 'bcftools'
+  - 'samtools'
+  - '\bivar\b'
+  - 'freebayes'
+  - '\bgatk\b|haplotype\s*caller'
+  - 'snippy'
+  - 'variant\s*caller|torrent\s*(software\s*)?suite|torrent\s*suite'
+  - 'miseq\s*reporter'
+  - 'reference\s*mapper|re-?mapping|\bmapping\b'
+  - 'mtdna-server'
+  - 'eager'
+  - '\bpicard\b'
+  - '\bbbmap\b'
+  - 'nextgene'
+  - 'isaac'
+  - 'converge'
 
 # Programs that do not assemble (quality control, trimming, mapping, annotation, workflow platforms):
 # dropped silently instead of being reported as "Other".
@@ -62,8 +101,9 @@ not_assembly:
   - '\barwen\b'
   - 'galaxy'
   - 'gap\s*closer'
-  - '\bbwa\b'
-  - 'bowtie'
-  - 'samtools'
   - '\bpilon\b'
-  - '\bmapping\b'
+  - 'mafft|\bmuscle\b|clustal'
+  - '^\s*mega\b'
+  - 'leehom|bbmerge|trim\s*galore|adapter\s*removal'
+  - 'haplogrep|schmutzi|\bigv\b|integrative genomics viewer'
+  - 'snakemake|pipeline pilot'
