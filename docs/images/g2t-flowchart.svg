@@ -1,0 +1,158 @@
+<svg viewBox="0 0 980 1290" role="img" aria-label="g2t 整理流程图：从 NCBI 下载到标本×基因矩阵，含各步输出文件和可选分支" xmlns="http://www.w3.org/2000/svg" class="dg" width="980" height="1290" style="color:#1b2328"><style>
+.dg { display: block; width: 100%; min-width: 720px; height: auto; color: #1b2328; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #1b2328; }
+.dg .kw { font-weight: 600; }
+.dg .t { fill: #1b2328; }
+.dg .small { font-size: 11.5px; }
+.dg .cap { fill: #5d6a73; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .lab { fill: #5d6a73; font-size: 11.5px; }
+.dg .co { fill: #1b2328; font-size: 12px; }
+.dg .chg-t { fill: #b4232c; font-weight: 600; }
+.dg .lead { stroke: #5d6a73; stroke-width: .8; stroke-dasharray: 2 3; }
+.dg .dot { fill: #5d6a73; } .dg .dot.chg { fill: #b4232c; }
+.dg .band { stroke: none; }
+.dg .sec { font-weight: 700; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .b-head { fill: #2f6fb01a; } .dg .bar.b-head { fill: #2f6fb0; } .dg .s-head { fill: #2f6fb0; }
+.dg .b-org { fill: #2e8b571a; } .dg .bar.b-org { fill: #2e8b57; } .dg .s-org { fill: #2e8b57; }
+.dg .b-ref { fill: #8a5a001a; } .dg .bar.b-ref { fill: #8a5a00; } .dg .s-ref { fill: #8a5a00; }
+.dg .b-com { fill: #8e3fa81a; } .dg .bar.b-com { fill: #8e3fa8; } .dg .s-com { fill: #8e3fa8; }
+.dg .b-feat { fill: #c2410c1a; } .dg .bar.b-feat { fill: #c2410c; } .dg .s-feat { fill: #c2410c; }
+.dg .b-seq { fill: #5d6a731a; } .dg .bar.b-seq { fill: #5d6a73; } .dg .s-seq { fill: #5d6a73; }
+.dg .proc { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .proc.new { fill: #d6efeb; stroke: #0f766e; stroke-width: 1.6; }
+.dg .proc.side { stroke-dasharray: 4 3; }
+.dg .term { fill: #e7f0ee; stroke: #1b2328; stroke-width: 1.3; }
+.dg .dec { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .doc { fill: #f5f7f8; stroke: #5d6a73; stroke-width: 1; }
+.dg .doc.in { fill: #fbedd3; stroke: #9a5b00; }
+.dg .db { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .db-rim { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ar { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ahead { fill: #1b2328; }
+.dg .out-ok { fill: #e7f0ee; stroke: #5d6a73; stroke-width: 1; }
+.dg .out-warn { fill: #fbedd3; stroke: #9a5b00; stroke-width: 1.2; }
+.dg .out-chg { fill: #f9dcdc; stroke: #b4232c; stroke-width: 1.4; }
+
+ text{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif} .mono{font-family:Menlo,Consolas,'IBM Plex Mono',monospace}</style><rect width="100%" height="100%" fill="#ffffff"/><defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<rect x="328.4" y="24.0" width="203.2" height="32.0" rx="18" class="term"/>
+<text x="430.0" y="44.2" class="t" text-anchor="middle" font-size="12">开始：类群名，如 Hesionidae</text>
+<polyline points="430.0,58.0 430.0,96.0" class="ar" marker-end="url(#ah2)"/>
+<path d="M371.8,80.0 A58.20000000000001,7 0 0 1 488.20000000000005,80.0 V112.0 A58.20000000000001,7 0 0 1 371.8,112.0 Z" class="db"/>
+<path d="M371.8,80.0 A58.20000000000001,7 0 0 0 488.20000000000005,80.0" class="db-rim"/>
+<text x="430.0" y="104.2" class="t" text-anchor="middle" font-size="12">NCBI GenBank</text>
+<polyline points="430.0,124.0 430.0,158.0" class="ar" marker-end="url(#ah2)"/>
+<text x="436.0" y="145.0" class="lab" text-anchor="start">检索 + 批量获取</text>
+<rect x="346.4" y="168.0" width="167.2" height="32.0" rx="6" class="proc"/>
+<text x="430.0" y="188.2" class="t" text-anchor="middle" font-size="12">0  下载 g2t-download</text>
+<path d="M705.0,160.0 A85.0,7 0 0 1 875.0,160.0 V208.0 A85.0,7 0 0 1 705.0,208.0 Z" class="db"/>
+<path d="M705.0,160.0 A85.0,7 0 0 0 875.0,160.0" class="db-rim"/>
+<text x="790.0" y="184.2" class="t" text-anchor="middle" font-size="12">本地记录库</text>
+<text x="790.0" y="200.2" class="t" text-anchor="middle" font-size="12">按 登录号.版本 存</text>
+<polyline points="513.6,184.0 705.0,184.0" class="ar" marker-end="url(#ah2)"/>
+<text x="523.6" y="176.0" class="lab" text-anchor="start">写入 / 只取新版本</text>
+<polyline points="430.0,204.0 430.0,246.0" class="ar" marker-end="url(#ah2)"/>
+<text x="436.0" y="229.0" class="lab" text-anchor="start">batch_*.gb</text>
+<polyline points="346.4,184.0 190.0,184.0 190.0,236.0" class="ar" marker-end="url(#ah2)"/>
+<text x="196.0" y="178.0" class="lab" text-anchor="start">--header-only</text>
+<rect x="89.6" y="238.0" width="200.8" height="48.0" rx="6" class="proc side"/>
+<text x="190.0" y="258.2" class="t" text-anchor="middle" font-size="12">线粒体基因组统计</text>
+<text x="190.0" y="274.2" class="t" text-anchor="middle" font-size="12">g2t-mitostats / g2t-cite</text>
+<path d="M105.54999999999997,307.0 H274.45000000000005 V349.0 Q232.22500000000002,341.0 190.0,349.0 T105.54999999999997,349.0 Z" class="doc"/>
+<text x="190.0" y="323.5" class="t small" text-anchor="middle" font-size="11.5">mitostats_report.html</text>
+<text x="190.0" y="338.5" class="t small" text-anchor="middle" font-size="11.5">cite.xlsx</text>
+<polyline points="190.0,286.0 190.0,305.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="350.0" y="242.0" width="160.0" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="262.2" class="t" text-anchor="middle" font-size="12">1  提取 g2t-extract</text>
+<text x="430.0" y="278.2" class="t" text-anchor="middle" font-size="12">一条记录 → 一行</text>
+<path d="M705.55,250.5 H874.45 V277.5 Q832.225,269.5 790.0,277.5 T705.55,277.5 Z" class="doc"/>
+<text x="790.0" y="267.0" class="t small" text-anchor="middle" font-size="11.5">gb_metadata/final.csv</text>
+<polyline points="510.0,266.0 710.0,266.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,290.0 430.0,338.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="334.4" y="338.0" width="191.2" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="358.2" class="t" text-anchor="middle" font-size="12">2  基因类型 g2t-classify</text>
+<text x="430.0" y="374.2" class="t" text-anchor="middle" font-size="12">按标题和特征 + 同义词词典</text>
+<path d="M681.4,339.0 H898.6000000000001 V381.0 Q844.3000000000001,373.0 790.0,381.0 T681.4,381.0 Z" class="doc"/>
+<text x="790.0" y="355.5" class="t small" text-anchor="middle" font-size="11.5">assigned_genes_types_all.csv</text>
+<text x="790.0" y="370.5" class="t small" text-anchor="middle" font-size="11.5">record_status.csv</text>
+<polyline points="525.6,362.0 698.0,362.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,386.0 430.0,420.0" class="ar" marker-end="url(#ah2)"/>
+<polygon points="430,425.0 542.86,456 430,487.0 317.14,456" class="dec"/>
+<text x="430.0" y="460.2" class="t" text-anchor="middle" font-size="12">加了 --no-verify？</text>
+<polyline points="430.0,487.0 430.0,520.0" class="ar" marker-end="url(#ah2)"/>
+<text x="436.0" y="507.5" class="lab" text-anchor="start">否</text>
+<rect x="327.2" y="522.0" width="205.6" height="48.0" rx="6" class="proc new"/>
+<text x="430.0" y="542.2" class="t" text-anchor="middle" font-size="12">2b  按序列核对 rRNA</text>
+<text x="430.0" y="558.2" class="t" text-anchor="middle" font-size="12">HMM：12S 16S 18S 5.8S 28S</text>
+<path d="M695.1999999999999,515.5 H884.8 V572.5 Q837.4,564.5 790.0,572.5 T695.1999999999999,572.5 Z" class="doc"/>
+<text x="790.0" y="532.0" class="t small" text-anchor="middle" font-size="11.5">verified_rrna/verify.csv</text>
+<text x="790.0" y="547.0" class="t small" text-anchor="middle" font-size="11.5">regions/*.fa</text>
+<text x="790.0" y="562.0" class="t small" text-anchor="middle" font-size="11.5">*.annotation.csv</text>
+<polyline points="532.8,546.0 708.0,546.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="542.9,456.0 605.0,456.0 605.0,620.0 440.0,620.0" class="ar" marker-end="url(#ah2)"/>
+<text x="550.0" y="448.0" class="lab" text-anchor="start">是：保留注释类型</text>
+<polyline points="430.0,570.0 430.0,628.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="346.4" y="630.0" width="167.2" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="650.2" class="t" text-anchor="middle" font-size="12">3  标本 g2t-voucher</text>
+<text x="430.0" y="666.2" class="t" text-anchor="middle" font-size="12">学名 + 凭证号 = 标本键</text>
+<path d="M684.8499999999999,638.5 H895.15 V665.5 Q842.575,657.5 790.0,665.5 T684.8499999999999,665.5 Z" class="doc"/>
+<text x="790.0" y="655.0" class="t small" text-anchor="middle" font-size="11.5">updated_species_voucher.csv</text>
+<polyline points="513.6,654.0 702.0,654.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,678.0 430.0,716.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="321.2" y="718.0" width="217.6" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="738.2" class="t" text-anchor="middle" font-size="12">3b  凭证号核对 g2t-reconcile</text>
+<text x="430.0" y="754.2" class="t" text-anchor="middle" font-size="12">同一标本的不同写法合并</text>
+<path d="M674.5,719.0 H905.5000000000001 V761.0 Q847.7500000000001,753.0 790.0,761.0 T674.5,761.0 Z" class="doc"/>
+<text x="790.0" y="735.5" class="t small" text-anchor="middle" font-size="11.5">reconciled_species_voucher.csv</text>
+<text x="790.0" y="750.5" class="t small" text-anchor="middle" font-size="11.5">reconcile_report.csv</text>
+<polyline points="538.8,742.0 694.0,742.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,766.0 430.0,804.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="338.0" y="806.0" width="184.0" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="826.2" class="t" text-anchor="middle" font-size="12">4  矩阵 g2t-organize</text>
+<text x="430.0" y="842.2" class="t" text-anchor="middle" font-size="12">一个标本一行，一个基因一列</text>
+<path d="M677.9499999999999,807.0 H902.0500000000001 V849.0 Q846.025,841.0 790.0,849.0 T677.9499999999999,849.0 Z" class="doc"/>
+<text x="790.0" y="823.5" class="t small" text-anchor="middle" font-size="11.5">organized_species_voucher.csv</text>
+<text x="790.0" y="838.5" class="t small" text-anchor="middle" font-size="11.5">每个基因的 FASTA</text>
+<polyline points="522.0,830.0 696.0,830.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,854.0 430.0,892.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="329.6" y="894.0" width="200.8" height="48.0" rx="6" class="proc new"/>
+<text x="430.0" y="914.2" class="t" text-anchor="middle" font-size="12">5  污染提示 g2t-screen</text>
+<text x="430.0" y="930.2" class="t" text-anchor="middle" font-size="12">k-mer 距离 + NCBI 存疑标注</text>
+<path d="M715.9,895.0 H864.1 V937.0 Q827.05,929.0 790.0,937.0 T715.9,937.0 Z" class="doc"/>
+<text x="790.0" y="911.5" class="t small" text-anchor="middle" font-size="11.5">screen.csv</text>
+<text x="790.0" y="926.5" class="t small" text-anchor="middle" font-size="11.5">矩阵列 screen_flags</text>
+<polyline points="530.4,918.0 720.0,918.0" class="ar" marker-end="url(#ah2)"/>
+<polyline points="430.0,942.0 430.0,976.0" class="ar" marker-end="url(#ah2)"/>
+<polygon points="430,981.0 514.96,1012 430,1043.0 345.03999999999996,1012" class="dec"/>
+<text x="430.0" y="1016.2" class="t" text-anchor="middle" font-size="12">加了 --tree？</text>
+<polyline points="345.0,1012.0 190.0,1012.0 190.0,1050.0" class="ar" marker-end="url(#ah2)"/>
+<text x="327.0" y="1004.0" class="lab" text-anchor="start">是</text>
+<rect x="106.4" y="1052.0" width="167.2" height="48.0" rx="6" class="proc new"/>
+<text x="190.0" y="1072.2" class="t" text-anchor="middle" font-size="12">下载近缘科作背景</text>
+<text x="190.0" y="1088.2" class="t" text-anchor="middle" font-size="12">（按 NCBI 分类自动选）</text>
+<polyline points="190.0,1100.0 190.0,1130.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="101.6" y="1132.0" width="176.8" height="48.0" rx="6" class="proc new"/>
+<text x="190.0" y="1152.2" class="t" text-anchor="middle" font-size="12">比对 FAMSA → 修剪</text>
+<text x="190.0" y="1168.2" class="t" text-anchor="middle" font-size="12">→ 建树 FastTree → 判断</text>
+<polyline points="190.0,1180.0 190.0,1206.0" class="ar" marker-end="url(#ah2)"/>
+<path d="M105.54999999999997,1207.0 H274.45000000000005 V1249.0 Q232.22500000000002,1241.0 190.0,1249.0 T105.54999999999997,1249.0 Z" class="doc"/>
+<text x="190.0" y="1223.5" class="t small" text-anchor="middle" font-size="11.5">phylo_flags.csv</text>
+<text x="190.0" y="1238.5" class="t small" text-anchor="middle" font-size="11.5">phylo_taxon_notes.csv</text>
+<polyline points="430.0,1043.0 430.0,1112.0" class="ar" marker-end="url(#ah2)"/>
+<text x="436.0" y="1081.5" class="lab" text-anchor="start">否</text>
+<rect x="317.6" y="1116.0" width="224.8" height="48.0" rx="6" class="proc"/>
+<text x="430.0" y="1136.2" class="t" text-anchor="middle" font-size="12">6  人工校正 g2t-curate（可选）</text>
+<text x="430.0" y="1152.2" class="t" text-anchor="middle" font-size="12">用自己核实的表补全、改正</text>
+<polyline points="286.0,1156.0 317.6,1156.0" class="ar" marker-end="url(#ah2)"/>
+<text x="307.8" y="1160.0" class="lab" text-anchor="start">继续</text>
+<path d="M705.55,1117.0 H874.4499999999999 V1159.0 Q832.2249999999999,1151.0 790.0,1159.0 T705.55,1159.0 Z" class="doc"/>
+<text x="790.0" y="1133.5" class="t small" text-anchor="middle" font-size="11.5">curated.xlsx</text>
+<text x="790.0" y="1148.5" class="t small" text-anchor="middle" font-size="11.5">Changes 表：旧值 → 新值</text>
+<polyline points="542.4,1140.0 706.0,1140.0" class="ar" marker-end="url(#ah2)"/>
+<path d="M696.35,1034.5 H883.6500000000001 V1061.5 Q836.825,1053.5 790.0,1061.5 T696.35,1061.5 Z" class="doc in"/>
+<text x="790.0" y="1051.0" class="t small" text-anchor="middle" font-size="11.5">你的表（坐标、日期、学名……）</text>
+<polyline points="790.0,1070.0 790.0,1090.0 500.0,1090.0 500.0,1114.0" class="ar" marker-end="url(#ah2)"/>
+<text x="730.0" y="1084.0" class="lab" text-anchor="start">-u</text>
+<polyline points="430.0,1164.0 430.0,1226.0" class="ar" marker-end="url(#ah2)"/>
+<rect x="351.2" y="1234.0" width="157.6" height="32.0" rx="18" class="term"/>
+<text x="430.0" y="1254.2" class="t" text-anchor="middle" font-size="12">结束：标本 × 基因矩阵</text>
+</svg>

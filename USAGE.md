@@ -84,6 +84,8 @@ g2t -i /path/to/files -o /path/to/output --resume
 
 ## 处理流程
 
+图解（GenBank 记录的组成、整理流程图、三张逻辑图）：[docs/genbank-and-workflow.md](docs/genbank-and-workflow.md)。
+
 ### Step 0: 下载 (download)
 
 按类群从 NCBI 下载 GenBank 记录。默认只下"标记基因"：排除 WGS contig、mRNA、TSA（转录组组装）contig、RefSeq（预测模型及 NC_ 等与 INSDC 重复的拷贝），大类群中这几类常占 95% 以上，对多基因表无用。

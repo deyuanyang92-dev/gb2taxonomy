@@ -138,6 +138,8 @@ g2t assigns gene types from record titles. `g2t-verify` scans the sequences with
 
 ### Steps 1–5 — the pipeline (`g2t`)
 
+Diagrams (Chinese): the parts of a GenBank record and what g2t takes from each, the pipeline as a flowchart, and the decision logic for gene types, the tree screen and sequencing methods — [docs/genbank-and-workflow.md](docs/genbank-and-workflow.md).
+
 ```bash
 g2t -i GB_DIR_OR_FILES -o OUT --stream [--resume] [--skip_reconcile] [--reconcile_min_confidence high] [--no-verify] [--no-screen]
 ```

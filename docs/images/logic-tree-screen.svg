@@ -1,0 +1,103 @@
+<svg viewBox="0 0 900 848" role="img" aria-label="逻辑图：建树检查怎样判断一条序列（g2t-screen --tree）" xmlns="http://www.w3.org/2000/svg" class="dg" width="900" height="848" style="color:#1b2328"><style>
+.dg { display: block; width: 100%; min-width: 720px; height: auto; color: #1b2328; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #1b2328; }
+.dg .kw { font-weight: 600; }
+.dg .t { fill: #1b2328; }
+.dg .small { font-size: 11.5px; }
+.dg .cap { fill: #5d6a73; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .lab { fill: #5d6a73; font-size: 11.5px; }
+.dg .co { fill: #1b2328; font-size: 12px; }
+.dg .chg-t { fill: #b4232c; font-weight: 600; }
+.dg .lead { stroke: #5d6a73; stroke-width: .8; stroke-dasharray: 2 3; }
+.dg .dot { fill: #5d6a73; } .dg .dot.chg { fill: #b4232c; }
+.dg .band { stroke: none; }
+.dg .sec { font-weight: 700; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .b-head { fill: #2f6fb01a; } .dg .bar.b-head { fill: #2f6fb0; } .dg .s-head { fill: #2f6fb0; }
+.dg .b-org { fill: #2e8b571a; } .dg .bar.b-org { fill: #2e8b57; } .dg .s-org { fill: #2e8b57; }
+.dg .b-ref { fill: #8a5a001a; } .dg .bar.b-ref { fill: #8a5a00; } .dg .s-ref { fill: #8a5a00; }
+.dg .b-com { fill: #8e3fa81a; } .dg .bar.b-com { fill: #8e3fa8; } .dg .s-com { fill: #8e3fa8; }
+.dg .b-feat { fill: #c2410c1a; } .dg .bar.b-feat { fill: #c2410c; } .dg .s-feat { fill: #c2410c; }
+.dg .b-seq { fill: #5d6a731a; } .dg .bar.b-seq { fill: #5d6a73; } .dg .s-seq { fill: #5d6a73; }
+.dg .proc { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .proc.new { fill: #d6efeb; stroke: #0f766e; stroke-width: 1.6; }
+.dg .proc.side { stroke-dasharray: 4 3; }
+.dg .term { fill: #e7f0ee; stroke: #1b2328; stroke-width: 1.3; }
+.dg .dec { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .doc { fill: #f5f7f8; stroke: #5d6a73; stroke-width: 1; }
+.dg .doc.in { fill: #fbedd3; stroke: #9a5b00; }
+.dg .db { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .db-rim { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ar { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ahead { fill: #1b2328; }
+.dg .out-ok { fill: #e7f0ee; stroke: #5d6a73; stroke-width: 1; }
+.dg .out-warn { fill: #fbedd3; stroke: #9a5b00; stroke-width: 1.2; }
+.dg .out-chg { fill: #f9dcdc; stroke: #b4232c; stroke-width: 1.4; }
+
+ text{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif} .mono{font-family:Menlo,Consolas,'IBM Plex Mono',monospace}</style><rect width="100%" height="100%" fill="#ffffff"/><defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<rect x="173.2" y="16.0" width="193.6" height="48.0" rx="6" class="proc"/>
+<text x="270.0" y="36.2" class="t" text-anchor="middle" font-size="12">每个基因：研究类群 + 近缘科</text>
+<text x="270.0" y="52.2" class="t" text-anchor="middle" font-size="12">比对、修剪、建树（无根）</text>
+<polyline points="270.0,60.0 270.0,86.0" class="ar" marker-end="url(#ah4)"/>
+<polygon points="270,114.0 435.0,150 270,186.0 105.0,150" class="dec"/>
+<text x="270.0" y="146.2" class="t" text-anchor="middle" font-size="12">覆盖比对核心区段</text>
+<text x="270.0" y="162.2" class="t" text-anchor="middle" font-size="12">≥ 50%？</text>
+<rect x="475.0" y="126.0" width="330.0" height="48.0" rx="6" class="out-ok"/>
+<text x="640.0" y="146.2" class="t" text-anchor="middle" font-size="12">不判断：</text>
+<text x="640.0" y="162.2" class="t" text-anchor="middle" font-size="12">测的是基因的另一段</text>
+<polyline points="435.0,150.0 475.0,150.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="143.0" class="lab" text-anchor="start">否</text>
+<polyline points="270.0,186.0 270.0,218.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="206.0" class="lab" text-anchor="start">是</text>
+<polygon points="270,218.0 435.0,254 270,290.0 105.0,254" class="dec"/>
+<text x="270.0" y="250.2" class="t" text-anchor="middle" font-size="12">有支持率 ≥ 0.9、另含</text>
+<text x="270.0" y="266.2" class="t" text-anchor="middle" font-size="12">≥ 2 条序列的最小一侧？</text>
+<rect x="475.0" y="230.0" width="330.0" height="48.0" rx="6" class="out-ok"/>
+<text x="640.0" y="250.2" class="t" text-anchor="middle" font-size="12">不判断：</text>
+<text x="640.0" y="266.2" class="t" text-anchor="middle" font-size="12">位置不确定</text>
+<polyline points="435.0,254.0 475.0,254.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="247.0" class="lab" text-anchor="start">否</text>
+<polyline points="270.0,290.0 270.0,322.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="310.0" class="lab" text-anchor="start">是</text>
+<polygon points="270,322.0 435.0,358 270,394.0 105.0,358" class="dec"/>
+<text x="270.0" y="354.2" class="t" text-anchor="middle" font-size="12">近邻全是别科（1–2 科）</text>
+<text x="270.0" y="370.2" class="t" text-anchor="middle" font-size="12">或全是本科别属？</text>
+<rect x="475.0" y="342.0" width="330.0" height="32.0" rx="6" class="out-ok"/>
+<text x="640.0" y="362.2" class="t" text-anchor="middle" font-size="12">位置正常</text>
+<polyline points="435.0,358.0 475.0,358.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="351.0" class="lab" text-anchor="start">否</text>
+<polyline points="270.0,394.0 270.0,426.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="414.0" class="lab" text-anchor="start">是</text>
+<polygon points="270,426.0 435.0,462 270,498.0 105.0,462" class="dec"/>
+<text x="270.0" y="458.2" class="t" text-anchor="middle" font-size="12">本属其他序列也在这里、</text>
+<text x="270.0" y="474.2" class="t" text-anchor="middle" font-size="12">两属互嵌，或本属仅此一条？</text>
+<rect x="475.0" y="438.0" width="330.0" height="48.0" rx="6" class="out-warn"/>
+<text x="640.0" y="458.2" class="t" text-anchor="middle" font-size="12">写入分类问题表</text>
+<text x="640.0" y="474.2" class="t" text-anchor="middle" font-size="12">（属的位置、异名）</text>
+<polyline points="435.0,462.0 475.0,462.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="455.0" class="lab" text-anchor="start">是</text>
+<polyline points="270.0,498.0 270.0,530.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="518.0" class="lab" text-anchor="start">否</text>
+<polygon points="270,530.0 435.0,566 270,602.0 105.0,566" class="dec"/>
+<text x="270.0" y="562.2" class="t" text-anchor="middle" font-size="12">按距离也更接近</text>
+<text x="270.0" y="578.2" class="t" text-anchor="middle" font-size="12">所在的那一组？</text>
+<rect x="475.0" y="542.0" width="330.0" height="48.0" rx="6" class="out-ok"/>
+<text x="640.0" y="562.2" class="t" text-anchor="middle" font-size="12">不提示：</text>
+<text x="640.0" y="578.2" class="t" text-anchor="middle" font-size="12">树上的假象（如长枝吸引）</text>
+<polyline points="435.0,566.0 475.0,566.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="559.0" class="lab" text-anchor="start">否</text>
+<polyline points="270.0,602.0 270.0,634.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="622.0" class="lab" text-anchor="start">是</text>
+<polygon points="270,634.0 435.0,670 270,706.0 105.0,670" class="dec"/>
+<text x="270.0" y="666.2" class="t" text-anchor="middle" font-size="12">同一标本的</text>
+<text x="270.0" y="682.2" class="t" text-anchor="middle" font-size="12">其他基因位置正常？</text>
+<rect x="475.0" y="646.0" width="330.0" height="48.0" rx="6" class="out-chg"/>
+<text x="640.0" y="666.2" class="t" text-anchor="middle" font-size="12">这条序列有问题：</text>
+<text x="640.0" y="682.2" class="t" text-anchor="middle" font-size="12">污染或混样</text>
+<polyline points="435.0,670.0 475.0,670.0" class="ar" marker-end="url(#ah4)"/>
+<text x="442.0" y="663.0" class="lab" text-anchor="start">是</text>
+<polyline points="270.0,706.0 270.0,738.0" class="ar" marker-end="url(#ah4)"/>
+<text x="278.0" y="726.0" class="lab" text-anchor="start">否</text>
+<rect x="105.0" y="746.0" width="330.0" height="48.0" rx="6" class="out-chg"/>
+<text x="270.0" y="766.2" class="t" text-anchor="middle" font-size="12">其他基因也错位：</text>
+<text x="270.0" y="782.2" class="t" text-anchor="middle" font-size="12">可能是标本鉴定错误</text>
+</svg>

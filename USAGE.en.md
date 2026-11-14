@@ -93,6 +93,8 @@ g2t -i examples/haplotaxidae/haplotaxidae.gb -o example_out
 
 ## Workflow
 
+Diagrams (in Chinese): the parts of a GenBank record, the pipeline flowchart and three decision diagrams — [docs/genbank-and-workflow.md](docs/genbank-and-workflow.md).
+
 ### Step 0: download
 
 Downloads GenBank records of a taxon from NCBI. By default only "marker" records are downloaded: WGS contigs, mRNA, TSA (transcriptome shotgun assembly) contigs and RefSeq records (predicted models, and NC_ and other copies that duplicate INSDC records) are excluded. In large taxa these classes often make up more than 95% of the records and are of no use for a multi-gene table.

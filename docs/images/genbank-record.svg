@@ -1,0 +1,124 @@
+<svg viewBox="0 0 1110 625.5" role="img" aria-label="GenBank 记录 MG523356 的各个部分，以及 g2t 从关键字段取出什么" xmlns="http://www.w3.org/2000/svg" class="dg" width="10" height="10" style="color:#1b2328"><style>
+.dg { display: block; width: 100%; min-width: 720px; height: auto; color: #1b2328; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #1b2328; }
+.dg .kw { font-weight: 600; }
+.dg .t { fill: #1b2328; }
+.dg .small { font-size: 11.5px; }
+.dg .cap { fill: #5d6a73; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .lab { fill: #5d6a73; font-size: 11.5px; }
+.dg .co { fill: #1b2328; font-size: 12px; }
+.dg .chg-t { fill: #b4232c; font-weight: 600; }
+.dg .lead { stroke: #5d6a73; stroke-width: .8; stroke-dasharray: 2 3; }
+.dg .dot { fill: #5d6a73; } .dg .dot.chg { fill: #b4232c; }
+.dg .band { stroke: none; }
+.dg .sec { font-weight: 700; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.dg .b-head { fill: #2f6fb01a; } .dg .bar.b-head { fill: #2f6fb0; } .dg .s-head { fill: #2f6fb0; }
+.dg .b-org { fill: #2e8b571a; } .dg .bar.b-org { fill: #2e8b57; } .dg .s-org { fill: #2e8b57; }
+.dg .b-ref { fill: #8a5a001a; } .dg .bar.b-ref { fill: #8a5a00; } .dg .s-ref { fill: #8a5a00; }
+.dg .b-com { fill: #8e3fa81a; } .dg .bar.b-com { fill: #8e3fa8; } .dg .s-com { fill: #8e3fa8; }
+.dg .b-feat { fill: #c2410c1a; } .dg .bar.b-feat { fill: #c2410c; } .dg .s-feat { fill: #c2410c; }
+.dg .b-seq { fill: #5d6a731a; } .dg .bar.b-seq { fill: #5d6a73; } .dg .s-seq { fill: #5d6a73; }
+.dg .proc { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .proc.new { fill: #d6efeb; stroke: #0f766e; stroke-width: 1.6; }
+.dg .proc.side { stroke-dasharray: 4 3; }
+.dg .term { fill: #e7f0ee; stroke: #1b2328; stroke-width: 1.3; }
+.dg .dec { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .doc { fill: #f5f7f8; stroke: #5d6a73; stroke-width: 1; }
+.dg .doc.in { fill: #fbedd3; stroke: #9a5b00; }
+.dg .db { fill: #ffffff; stroke: #1b2328; stroke-width: 1.3; }
+.dg .db-rim { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ar { fill: none; stroke: #1b2328; stroke-width: 1.3; }
+.dg .ahead { fill: #1b2328; }
+.dg .out-ok { fill: #e7f0ee; stroke: #5d6a73; stroke-width: 1; }
+.dg .out-warn { fill: #fbedd3; stroke: #9a5b00; stroke-width: 1.2; }
+.dg .out-chg { fill: #f9dcdc; stroke: #b4232c; stroke-width: 1.4; }
+
+ text{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif} .mono{font-family:Menlo,Consolas,'IBM Plex Mono',monospace}</style><rect width="100%" height="100%" fill="#ffffff"/><defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<text x="132.0" y="18.0" class="cap" text-anchor="start" font-size="11">GenBank 原文（固定列宽：关键词第 1–12 列，内容从第 13 列，限定词从第 22 列）</text>
+<text x="720.0" y="18.0" class="cap" text-anchor="start" font-size="11">g2t 怎么用这一行</text>
+<rect x="118" y="23.0" width="564" height="93.5" class="band b-head"/>
+<rect x="118" y="23.0" width="4" height="93.5" class="bar b-head"/>
+<text x="110.0" y="73.8" class="sec s-head" text-anchor="end" font-size="12">记录头</text>
+<rect x="118" y="116.0" width="564" height="62.5" class="band b-org"/>
+<rect x="118" y="116.0" width="4" height="62.5" class="bar b-org"/>
+<text x="110.0" y="151.2" class="sec s-org" text-anchor="end" font-size="12">物种与分类</text>
+<rect x="118" y="178.0" width="564" height="109.0" class="band b-ref"/>
+<rect x="118" y="178.0" width="4" height="109.0" class="bar b-ref"/>
+<text x="110.0" y="236.5" class="sec s-ref" text-anchor="end" font-size="12">文献</text>
+<rect x="118" y="286.5" width="564" height="47.0" class="band b-com"/>
+<rect x="118" y="286.5" width="4" height="47.0" class="bar b-com"/>
+<text x="110.0" y="314.0" class="sec s-com" text-anchor="end" font-size="12">注释 COMMENT</text>
+<rect x="118" y="333.0" width="564" height="186.5" class="band b-feat"/>
+<rect x="118" y="333.0" width="4" height="186.5" class="bar b-feat"/>
+<text x="110.0" y="430.2" class="sec s-feat" text-anchor="end" font-size="12">特征表 FEATURES</text>
+<rect x="118" y="519.0" width="564" height="78.0" class="band b-seq"/>
+<rect x="118" y="519.0" width="4" height="78.0" class="bar b-seq"/>
+<text x="110.0" y="562.0" class="sec s-seq" text-anchor="end" font-size="12">序列 ORIGIN</text>
+<text x="132" y="34.0" class="mono" xml:space="preserve"><tspan class="kw s-head">LOCUS</tspan>       MG523356                 489 bp    DNA     linear   INV 17-OCT-2018</text>
+<text x="132" y="49.5" class="mono" xml:space="preserve"><tspan class="kw s-head">DEFINITION</tspan>  Amphiduropsis cf. axialensis GWR-2018 voucher SIO:BIC:A1758 small</text>
+<line x1="644.2" y1="45.5" x2="714" y2="45.5" class="lead"/>
+<circle cx="714" cy="45.5" r="2.5" class="dot chg"/>
+<text x="722.0" y="49.5" class="co chg-t" text-anchor="start" font-size="12">第 2 步：按标题判断 → 12s（标题写错了）</text>
+<text x="132" y="65.0" class="mono" xml:space="preserve">            subunit ribosomal RNA gene, partial sequence; mitochondrial.</text>
+<text x="132" y="80.5" class="mono" xml:space="preserve"><tspan class="kw s-head">ACCESSION</tspan>   MG523356</text>
+<text x="132" y="96.0" class="mono" xml:space="preserve"><tspan class="kw s-head">VERSION</tspan>     MG523356.1</text>
+<line x1="281.2" y1="92.0" x2="714" y2="92.0" class="lead"/>
+<circle cx="714" cy="92.0" r="2.5" class="dot"/>
+<text x="722.0" y="96.0" class="co" text-anchor="start" font-size="12">登录号.版本：本地库的键，重跑只下新版本</text>
+<text x="132" y="111.5" class="mono" xml:space="preserve"><tspan class="kw s-head">KEYWORDS</tspan>    .</text>
+<text x="132" y="127.0" class="mono" xml:space="preserve"><tspan class="kw s-org">SOURCE</tspan>      mitochondrion Amphiduropsis cf. axialensis GWR-2018</text>
+<text x="132" y="142.5" class="mono" xml:space="preserve">  <tspan class="kw s-org">ORGANISM</tspan>  Amphiduropsis cf. axialensis GWR-2018</text>
+<text x="132" y="158.0" class="mono" xml:space="preserve">            Eukaryota; Metazoa; ... Annelida; Polychaeta;</text>
+<text x="132" y="173.5" class="mono" xml:space="preserve">            Errantia; Phyllodocida; Hesionidae; Amphiduropsis.</text>
+<line x1="545.2" y1="169.5" x2="714" y2="169.5" class="lead"/>
+<circle cx="714" cy="169.5" r="2.5" class="dot"/>
+<text x="722.0" y="173.5" class="co" text-anchor="start" font-size="12">→ Taxonomy；按 taxon ID 补 Family、Genus</text>
+<text x="132" y="189.0" class="mono" xml:space="preserve"><tspan class="kw s-ref">REFERENCE</tspan>   1  (bases 1 to 489)</text>
+<text x="132" y="204.5" class="mono" xml:space="preserve">  <tspan class="kw s-ref">AUTHORS</tspan>   Rouse,G.W., Carvajal,J.I. and Pleijel,F.</text>
+<text x="132" y="220.0" class="mono" xml:space="preserve">  <tspan class="kw s-ref">TITLE</tspan>     Phylogeny of Hesionidae (Aciculata, Annelida), with four new ...</text>
+<text x="132" y="235.5" class="mono" xml:space="preserve">  <tspan class="kw s-ref">JOURNAL</tspan>   Invertebr. Syst. 32 (5), 1050-1068 (2018)</text>
+<line x1="485.8" y1="231.5" x2="714" y2="231.5" class="lead"/>
+<circle cx="714" cy="231.5" r="2.5" class="dot"/>
+<text x="722.0" y="235.5" class="co" text-anchor="start" font-size="12">→ Ref1Journal；Unpublished 时用 g2t-cite 查</text>
+<text x="132" y="251.0" class="mono" xml:space="preserve"><tspan class="kw s-ref">REFERENCE</tspan>   2  (bases 1 to 489)</text>
+<text x="132" y="266.5" class="mono" xml:space="preserve">  <tspan class="kw s-ref">TITLE</tspan>     Direct Submission</text>
+<text x="132" y="282.0" class="mono" xml:space="preserve">  <tspan class="kw s-ref">JOURNAL</tspan>   Submitted (15-NOV-2017) Scripps Institution of Oceanography, ...</text>
+<text x="132" y="297.5" class="mono" xml:space="preserve"><tspan class="kw s-com">COMMENT</tspan>     ##Assembly-Data-START##</text>
+<text x="132" y="313.0" class="mono" xml:space="preserve">            Sequencing Technology :: Sanger dideoxy sequencing</text>
+<line x1="545.2" y1="309.0" x2="714" y2="309.0" class="lead"/>
+<circle cx="714" cy="309.0" r="2.5" class="dot"/>
+<text x="722.0" y="313.0" class="co" text-anchor="start" font-size="12">→ Sequencing Technology（g2t-mitostats）</text>
+<text x="132" y="328.5" class="mono" xml:space="preserve">            ##Assembly-Data-END##</text>
+<text x="132" y="344.0" class="mono" xml:space="preserve"><tspan class="kw s-feat">FEATURES</tspan>             Location/Qualifiers</text>
+<text x="132" y="359.5" class="mono" xml:space="preserve">     source          1..489</text>
+<text x="132" y="375.0" class="mono" xml:space="preserve">                     /organism=&quot;Amphiduropsis cf. axialensis GWR-2018&quot;</text>
+<text x="132" y="390.5" class="mono" xml:space="preserve">                     /organelle=&quot;mitochondrion&quot;</text>
+<line x1="446.2" y1="386.5" x2="714" y2="386.5" class="lead"/>
+<circle cx="714" cy="386.5" r="2.5" class="dot"/>
+<text x="722.0" y="390.5" class="co" text-anchor="start" font-size="12">区分线粒体 / 细胞核，再匹配基因名</text>
+<text x="132" y="406.0" class="mono" xml:space="preserve">                     /mol_type=&quot;genomic DNA&quot;</text>
+<text x="132" y="421.5" class="mono" xml:space="preserve">                     /specimen_voucher=&quot;SIO:BIC:A1758&quot;</text>
+<line x1="492.4" y1="417.5" x2="714" y2="417.5" class="lead"/>
+<circle cx="714" cy="417.5" r="2.5" class="dot"/>
+<text x="722.0" y="421.5" class="co" text-anchor="start" font-size="12">第 3 步：学名 + 凭证号 = 标本键</text>
+<text x="132" y="437.0" class="mono" xml:space="preserve">                     /db_xref=&quot;taxon:2053924&quot;</text>
+<text x="132" y="452.5" class="mono" xml:space="preserve">                     /lat_lon=&quot;8.92983 N 84.312 W&quot;</text>
+<line x1="466.0" y1="448.5" x2="714" y2="448.5" class="lead"/>
+<circle cx="714" cy="448.5" r="2.5" class="dot"/>
+<text x="722.0" y="452.5" class="co" text-anchor="start" font-size="12">→ lat_lon、collection_date 等采集列</text>
+<text x="132" y="468.0" class="mono" xml:space="preserve">                     /collection_date=&quot;10-Jan-2010&quot;</text>
+<text x="132" y="483.5" class="mono" xml:space="preserve">                     /collected_by=&quot;G.W. Rouse&quot;</text>
+<text x="132" y="499.0" class="mono" xml:space="preserve">     rRNA            &lt;1..&gt;489</text>
+<text x="132" y="514.5" class="mono" xml:space="preserve">                     /product=&quot;small subunit ribosomal RNA&quot;</text>
+<line x1="525.4" y1="510.5" x2="714" y2="510.5" class="lead"/>
+<circle cx="714" cy="510.5" r="2.5" class="dot"/>
+<text x="722.0" y="514.5" class="co" text-anchor="start" font-size="12">与标题一致 → 不报冲突</text>
+<text x="132" y="530.0" class="mono" xml:space="preserve"><tspan class="kw s-seq">ORIGIN</tspan></text>
+<text x="132" y="545.5" class="mono" xml:space="preserve">        1 gggaagtacg tcctgcccgg tgaattacgg ttttaacggc cgcggtactt tgaccgtgca</text>
+<line x1="631.0" y1="541.5" x2="714" y2="541.5" class="lead"/>
+<circle cx="714" cy="541.5" r="2.5" class="dot chg"/>
+<text x="722.0" y="545.5" class="co chg-t" text-anchor="start" font-size="12">第 2b 步：HMM 扫描 → 16S 1–489 → 改为 16s</text>
+<text x="132" y="561.0" class="mono" xml:space="preserve">       61 aaggtagcat aatcatttgc cttttaattg gaggctggta tgaatggata aacgaggggc</text>
+<text x="132" y="576.5" class="mono" xml:space="preserve">      ... (to 489)</text>
+<text x="132" y="592.0" class="mono" xml:space="preserve"><tspan class="kw s-seq">//</tspan></text>
+</svg>
