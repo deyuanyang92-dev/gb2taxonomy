@@ -171,3 +171,30 @@ def test_declared_genus_confirmed_is_resolved_and_conserved_markers_need_no_spec
     assert run([("AB000001.1", 92.0, 1), ("AC009000.1", 91.8, 2)], declared=decl).resolved
     r = run([("AB000001.1", 99.5, 1), ("AC009000.1", 99.4, 2)], gene="18s")
     assert r.agrees and r.declared_rank == "family" and r.resolved
+
+
+def _mini_taxdb(tmp_path):
+    import sqlite3
+
+    p = tmp_path / "taxa.sqlite"
+    c = sqlite3.connect(p)
+    c.execute("CREATE TABLE species (taxid INT, parent INT, spname TEXT, rank TEXT)")
+    c.execute("CREATE TABLE synonym (taxid INT, spname TEXT)")
+    c.execute("CREATE TABLE merged (taxid_old INT, taxid_new INT)")
+    c.executemany("INSERT INTO species VALUES (?,?,?,?)", [
+        (10, 1, "Nereididae", "family"), (11, 10, "Hediste", "genus"), (12, 11, "Hediste diversicolor", "species"),
+        (13, 10, "Nereis", "genus"), (14, 13, "Nereis pelagica", "species"), (1, 1, "root", "no rank")])
+    c.executemany("INSERT INTO synonym VALUES (?,?)", [(12, "Nereis diversicolor"), (12, "Nereis dual"),
+                                                       (14, "Nereis dual")])
+    c.execute("INSERT INTO merged VALUES (99, 12)")
+    c.commit()
+    return p
+
+
+def test_accepted_name_resolves_synonym_and_merged_taxid(tmp_path):
+    tax = bc.Taxonomy(_mini_taxdb(tmp_path))
+    assert tax.accepted("Nereis diversicolor") == (12, "Hediste diversicolor")
+    assert tax.accepted("Hediste diversicolor") == (12, "Hediste diversicolor")
+    assert tax.accepted("Nereis dual") is None  # synonym of two taxa: ambiguous
+    assert tax.accepted("Nope nope") is None
+    assert tax.lineage(99).get("species") == "Hediste diversicolor"  # merged taxid

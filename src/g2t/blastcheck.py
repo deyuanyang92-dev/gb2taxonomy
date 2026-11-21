@@ -68,6 +68,11 @@ class Taxonomy:
     def node(self, taxid: int) -> tuple[int, str, str] | None:
         if taxid not in self._node and self.db is not None:
             row = self.db.execute("SELECT parent, rank, spname FROM species WHERE taxid=?", (taxid,)).fetchone()
+            if row is None:  # a taxid merged into another one (NCBI merged.dmp)
+                m = self.db.execute("SELECT taxid_new FROM merged WHERE taxid_old=?", (taxid,)).fetchone()
+                if m:
+                    row = self.db.execute("SELECT parent, rank, spname FROM species WHERE taxid=?",
+                                          (int(m[0]),)).fetchone()
             self._node[taxid] = (int(row[0] or 0), row[1], row[2]) if row else None  # type: ignore[assignment]
         return self._node.get(taxid)
 
@@ -90,6 +95,21 @@ class Taxonomy:
             t = parent
         self._lin[taxid] = out
         return out
+
+    def accepted(self, name: str) -> tuple[int, str] | None:
+        """(taxid, accepted name) of a scientific name or a synonym; None if unknown or ambiguous. A name that is
+        itself an accepted name wins over a synonym of another taxon."""
+        if not self.ok or not name:
+            return None
+        for sql in ("SELECT taxid FROM species WHERE spname=?", "SELECT taxid FROM synonym WHERE spname=?"):
+            ids = {int(r[0]) for r in self.db.execute(sql, (name,)).fetchall()}  # type: ignore[union-attr]
+            if len(ids) == 1:
+                tid = ids.pop()
+                n = self.node(tid)
+                return (tid, n[2]) if n else None
+            if ids:
+                return None
+        return None
 
     def by_name(self, name: str) -> dict[str, str]:
         """Lineage of a taxon given by scientific name ({} if unknown or the name is ambiguous)."""
@@ -340,7 +360,7 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
         if hf.stat().st_size == 0:
             continue
         hits = read_hits(hf)
-        declared, org = {}, {}
+        declared, org, syn = {}, {}, {}
         for q in hits["qseqid"].unique():
             r = rows.get(acc_key(q))
             if r is None:
@@ -351,6 +371,12 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                            **({"genus": r["Genus"]} if r["Genus"] else {})}
             sp = species_of(r["Organism"])
             if sp:
+                acc_sp = tax.accepted(sp)
+                if acc_sp and acc_sp[1] != sp and tax.lineage(acc_sp[0]).get("species") == acc_sp[1]:
+                    # a synonym (Nereis diversicolor = Hediste diversicolor): compare with the accepted lineage
+                    syn[q] = f"{sp} = {acc_sp[1]}"
+                    declared[q] = {**declared[q], **tax.lineage(acc_sp[0])}
+                    sp = acc_sp[1]
                 declared[q]["species"] = sp
         for x in check_all(hits, declared, {q: g for q in declared}, tax):
             out.append({"accession": x.accession, "gene": g, "organism": org.get(x.accession, ""), "gate": x.gate,
@@ -358,5 +384,6 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                         "n_units": x.n_units, "conflict_rank": x.conflict_rank, "own_best": x.own_best,
                         "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "agrees": x.agrees,
                         "reverse": x.reverse, "note": x.note, "confirmed_rank": x.confirmed_rank,
-                        "declared_rank": x.declared_rank, "resolved": x.resolved})
+                        "declared_rank": x.declared_rank, "resolved": x.resolved,
+                        "synonym": syn.get(x.accession, "")})
     return pd.DataFrame(out)

@@ -242,3 +242,6 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 5. **被丢弃的命中解锁种级冲突**：`best_pident` 取了所有命中的最大值；现只取 bitscore ≥ 0.95×最佳（投票命中）的最大值。
 **未改（待用户决定）**：4 重复污染序列使树/k-mer 证据消失；6 异名造成假种级冲突；7 `ncbi_unverified` 被丢弃；8 树「resolved」假确认；9 登录号分箱 ≠ 独立提交；10–13 翻译侧翼、ND/ATP/COX2-3 未进翻译与 BLAST、未评估记录消失、重跑混入旧树。
 **影响**（沙蚕科，缓存命中重算，`recombine_verdict_v2.py`，行单位改为 登录号×基因，故总数不可直接比）：clean 5602→4820、新增 coarse_agree 869、likely_contaminant 4→2、likely_misidentified 20→16、suspect 98→136；OQ729919 不再是 clean。
+
+**第 6 条（异名造成假种级冲突）已修（2026-11-21）：** 声明种若是 NCBI 异名（synonym 表）或旧 taxid（merged 表），先换成接受名及其完整谱系再与 BLAST 共识比较；`blastcheck.csv` 新增列 `synonym`（如 `Nereis diversicolor = Hediste diversicolor`）；一个名字对应多个 taxid 时不解析（保持原样）。测试 `test_accepted_name_resolves_synonym_and_merged_taxid`。
+**局限：** 只认 NCBI 的异名。沙蚕科的 58 条种级冲突（P. beaucoudrayi→cultrifera 等）在 NCBI 里是各自独立的接受种，本修复对它们**没有**改变；这类需要 WoRMS 等外部异名表（可加 `--synonyms` 用户表，待用户决定）。
