@@ -181,7 +181,8 @@ def accession_role(body: str, acc: str) -> tuple[str, str]:
 
 _SEQ_CTX = re.compile(r"sequenc|librar|reads?\b|platform|paired[- ]end|flow ?cell|nanopore|hifi|run\b", re.I)
 _ASM_CTX = re.compile(r"assembl|de novo|reconstruct|circulari", re.I)
-_NOT_ASM = re.compile(r"annotat|alignment|aligned|phylogen|nuclear|primer", re.I)
+_ANNOT = re.compile(r"\bannotat\w*", re.I)
+_NOT_ASM = re.compile(r"alignment|aligned|phylogen|nuclear|primer", re.I)
 
 
 def parse_methods(text: str, mito_paper: bool = True) -> dict[str, str]:
@@ -191,7 +192,9 @@ def parse_methods(text: str, mito_paper: bool = True) -> dict[str, str]:
     plats = ms.sequencing_platforms(" ".join(plat_s))
     names: list[str] = []
     ev = []
-    for x in sents:
+    for x0 in sents:
+        # "assembled with MitoZ and annotated with MITOS": only the part before "annotat…" can name the assembler
+        x = _ANNOT.split(x0)[0]
         if _ASM_CTX.search(x) and not _NOT_ASM.search(x) and (mito_paper or ms._MITO_WORD.search(x)):
             hit = [n for n, rx in ms._rules()["assemblers"] if rx.search(x) and n not in names]
             if hit:

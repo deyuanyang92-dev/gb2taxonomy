@@ -101,3 +101,10 @@ def test_record_pubmed_ids_column():
     ref.pubmed_id = "123"
     rec.annotations["references"] = [ref]
     assert [str(r.pubmed_id) for r in rec.annotations["references"]] == ["123"]
+
+
+def test_assembled_and_annotated_sentence():
+    t = "The clean reads were assembled de novo using MitoZ v3.4 and the mitogenome was annotated with MITOS."
+    assert lm.parse_methods(t)["lit_assemblers"] == "MitoZ"
+    t2 = "The mitogenome was annotated with MITOS after assembly."
+    assert not lm.parse_methods(t2).get("lit_assemblers")
