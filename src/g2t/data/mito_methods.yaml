@@ -22,7 +22,7 @@ assemblers:
   - {name: GetOrganelle, patterns: ['get\s*or\w{0,3}n\w{0,2}elle', '\bgetorg']}
   - {name: MitoFinder, patterns: ['mito\s*finder']}
   - {name: MITObim, patterns: ['mito\s*bim']}
-  - {name: MitoHiFi, patterns: ['mito\s*hifi']}
+  - {name: MitoHiFi, patterns: ['m\s*ito\s*hifi']}  # also the "M itoHiFi" line-wrap typo in DToL comments
   - {name: MitoFlex, patterns: ['mito\s*flex']}
   - {name: mtGrasp, patterns: ['mt\s*grasp']}
   - {name: SPAdes, patterns: ['spades']}
@@ -45,6 +45,9 @@ assemblers:
   - {name: Unicycler, patterns: ['unicycler']}
   - {name: wtdbg2, patterns: ['wtdbg']}
   - {name: hifiasm, patterns: ['hifiasm']}
+  - {name: ptGAUL, patterns: ['pt\s*gaul']}
+  - {name: mitoVGP, patterns: ['mito\s*vgp']}
+  - {name: myloasm, patterns: ['myloasm']}
   - {name: Oatk, patterns: ['\boatk\b']}
   - {name: Minia, patterns: ['\bminia']}
   - {name: MitoMaker, patterns: ['mito\s*maker']}
