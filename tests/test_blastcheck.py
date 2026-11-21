@@ -86,3 +86,34 @@ def test_conserved_marker_cannot_judge_genus():
 def test_acc_key_and_batch():
     assert bc.acc_key("gb|HM746718.1|") == "HM746718"
     assert bc.same_batch("HM746718.1", "HM746701.1") and not bc.same_batch("HM746718.1", "AB746718.1")
+
+
+def test_missing_rank_in_lineage_does_not_stop_the_consensus():
+    """Annelid lineages have no 'order'; hits without a rank abstain instead of ending the walk."""
+    saved = {k: dict(v) for k, v in LIN.items()}
+    try:
+        for v in LIN.values():
+            v.pop("order")
+        r = run([("AB000001.1", 93.0, 3), ("AC009000.1", 92.8, 4)])
+        assert r.conflict_rank == "family" and r.lca_taxon == "Capitellidae"
+    finally:
+        LIN.update(saved)
+
+
+def test_unclassified_hit_abstains():
+    LIN[9] = {"phylum": "Annelida", "class": "Polychaeta"}
+    try:
+        r = run([("AB000001.1", 93.0, 3), ("AC009000.1", 92.8, 4), ("AE000001.1", 92.7, 9)])
+        assert r.conflict_rank == "family"
+    finally:
+        del LIN[9]
+
+
+def test_distant_hits_do_not_make_a_phylum_conflict():
+    LIN[7] = {"phylum": "Mollusca", "class": "Gastropoda", "species": "Aplysia sp."}
+    LIN[8] = {"phylum": "Mollusca", "class": "Bivalvia", "species": "Mytilus sp."}
+    try:
+        r = run([("AB000001.1", 78.0, 7), ("AC009000.1", 77.9, 8)])
+        assert r.conflict_rank == "" and "distant_hit_only" in r.note
+    finally:
+        del LIN[7], LIN[8]

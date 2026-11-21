@@ -40,6 +40,7 @@ TOP = 0.95  # votes: bitscore >= TOP * best
 MIN_QCOV = 50.0
 AGREE = 0.80  # share of units that must agree for a rank
 MARGIN = 2.0  # foreign best identity must exceed the declared taxon's by this many points
+DISTANT = 85.0  # phylum / class conflicts need a best hit at least this close
 BATCH_SPAN = 500  # accessions of one prefix this close are one submission batch
 
 # best-hit identity needed to judge a rank, per marker class
@@ -195,18 +196,21 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
     for rk in RANKS[: finest_ok + 1]:
         votes: dict[str, int] = defaultdict(int)
         for u in units.values():
-            votes[u["lin"].get(rk, "")] += 1
+            if u["lin"].get(rk):  # a hit without this rank (no 'order' in annelids, 'Polychaeta sp.') abstains
+                votes[u["lin"][rk]] += 1
+        if not votes:
+            continue
         top, n = max(votes.items(), key=lambda kv: kv[1])
-        if top and n / len(units) >= AGREE:
+        if n / sum(votes.values()) >= AGREE:
             consensus[rk] = top
             res.lca_rank, res.lca_taxon = rk, top
+        elif rk in ("genus", "species"):
+            break  # fine ranks disagree: stop here, coarser ranks stay
         else:
             break
     # conflict with the declared lineage: highest rank where they differ
     for rk in RANKS:
-        if rk not in consensus:
-            break
-        if declared.get(rk) and consensus[rk] != declared[rk]:
+        if rk in consensus and declared.get(rk) and consensus[rk] != declared[rk]:
             res.conflict_rank = rk
             break
     if res.conflict_rank:
@@ -215,14 +219,15 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         res.same_batch_hit = any(u["same_batch"] for u in foreign)
         ok_margin = res.other_best - res.own_best >= MARGIN
         ok_units = len(foreign) >= 2 or res.same_batch_hit
-        # a genus-level conflict needs the declared genus to have a reference at all
-        ok_ref = res.conflict_rank != "genus" or res.own_best > 0
-        if not (ok_margin and ok_units):
+        if res.conflict_rank in ("phylum", "class") and res.best_pident < DISTANT:
+            res.note = "distant_hit_only: best hit below %.0f%%, a new lineage cannot be told from a stranger" % DISTANT
+            res.conflict_rank = ""
+        elif not (ok_margin and ok_units):
             res.note = "discordant but not independent / not clearly better than declared taxon"
             res.conflict_rank = ""
-        elif not ok_ref:
-            res.note = "no_reference_for_genus"
-            res.conflict_rank = ""
+        elif res.own_best == 0 and res.conflict_rank in ("genus", "family"):
+            # the declared taxon is absent from the top hits: still a conflict, but a weaker one
+            res.note = "declared taxon absent from top hits"
     return res
 
 
