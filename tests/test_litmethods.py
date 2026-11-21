@@ -63,3 +63,19 @@ def test_sra_runs_and_instrument_platform(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, "_get", lambda url: tsv.encode())
     got = lm.sra_methods(["ERR1000001", "ERR1000002"], lm.Cache(tmp_path / "c.json"))
     assert got["sra_seq_platforms"] == "PacBio" and got["sra_seq_category"] == "Long-read"  # Hi-C run ignored
+    assert got["sra_complete"] == "yes"
+
+
+def test_sra_partial_and_ambiguous(tmp_path, monkeypatch):
+    from g2t import litmethods as lm
+
+    tsv = ("run_accession\tinstrument_platform\tinstrument_model\tlibrary_strategy\n"
+           "ERR1\tILLUMINA\tIllumina NovaSeq 6000\tWGS\nERR2\tILLUMINA\tIllumina NovaSeq 6000\tOTHER\n")
+    monkeypatch.setattr(lm, "_get", lambda url: tsv.encode())
+    c = lm.Cache(tmp_path / "c.json")
+    part = lm.sra_methods(["ERR1", "ERR9"], c)  # ERR9 unknown to ENA -> partial, not complete
+    assert part["sra_complete"] == "no" and part["sra_unresolved"] == "ERR9"
+    assert lm.sra_methods(["ERR2"], c) == {}  # ambiguous strategy (Hi-C is often filed as OTHER): nothing inferred
+    assert f"{lm.CACHE_VERSION}:r:ERR9" not in c.d  # unknown runs are asked again next time
+    row = {"seq_category": "Long-read", "seq_platforms": "", "sra_runs": "ERR1", "assembler_group": "OATK"}
+    assert not lm.needs_lookup(row)  # platform named in COMMENT is not overridden

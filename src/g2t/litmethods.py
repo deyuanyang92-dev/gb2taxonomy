@@ -176,7 +176,7 @@ def parse_methods(text: str, mito_paper: bool = True) -> dict[str, str]:
     }
 
 
-_NOT_GENOMIC = {"hi-c", "rna-seq", "atac-seq", "chip-seq", "mirna-seq", "bisulfite-seq", "ssrna-seq", "est"}
+_GENOMIC = {"wgs", "wga", "wxs"}
 _PLATFORM_WORD = {"PACBIO_SMRT": "PacBio", "OXFORD_NANOPORE": "Nanopore", "LS454": "454", "ION_TORRENT": "Ion Torrent"}
 
 
@@ -193,31 +193,40 @@ def ena_runs(runs: list[str], cache: Cache) -> dict[str, dict[str, str]]:
         for line in _get(url).decode().splitlines()[1:]:
             f = line.split("\t") + [""] * 4
             got[f[0]] = {"platform": f[1], "model": f[2], "strategy": f[3]}
-        for r in part:  # runs ENA does not know are cached as empty, so they are not asked again
-            cache.get(f"r:{r}", lambda r=r: got.get(r, {}))
-    return {r: cache.d.get(f"{CACHE_VERSION}:r:{r}", {}) for r in runs}
+        for r in part:  # only runs ENA returned are cached: an unknown run may appear later and is asked again
+            if r in got:
+                cache.get(f"r:{r}", lambda r=r: got[r])
+    return {r: cache.d[f"{CACHE_VERSION}:r:{r}"] for r in runs if f"{CACHE_VERSION}:r:{r}" in cache.d}
 
 
 def sra_methods(runs: list[str], cache: Cache) -> dict[str, str]:
-    """Sequencing platform of a record from its raw-read runs (instrument fields, no text matching). Hi-C / RNA-seq
-    runs of the same project are ignored unless they are all there is."""
-    meta = {r: m for r, m in ena_runs(runs, cache).items() if m}
-    if not meta:
-        return {}
-    genomic = {r: m for r, m in meta.items() if m["strategy"].lower() not in _NOT_GENOMIC} or meta
+    """Sequencing platform of a record from its raw-read runs (instrument fields, no text matching). Only runs whose
+    library strategy is positively genomic (WGS / WGA / WXS) count; Hi-C, RNA-seq and ambiguous ones (OTHER, empty)
+    are ignored, and with no genomic run nothing is inferred. Runs ENA does not return are listed in
+    `sra_unresolved`: the platform is then only a partial answer (`sra_complete` = no)."""
+    meta = ena_runs(runs, cache)
+    unresolved = [r for r in runs if r not in meta]
+    genomic = {r: m for r, m in meta.items() if m["strategy"].lower() in _GENOMIC}
+    if not genomic:
+        return {"sra_unresolved": "; ".join(unresolved)} if unresolved else {}
     text = " ".join(f"{_PLATFORM_WORD.get(m['platform'], m['platform'])} {m['model']}" for m in genomic.values())
     plats = ms.sequencing_platforms(text)
-    models = sorted({m["model"] for m in genomic.values() if m["model"]})
     return {
         "sra_seq_category": ms.sequencing_category(text) if plats else "",
         "sra_seq_platforms": "; ".join(plats),
-        "sra_instruments": "; ".join(models),
+        "sra_instruments": "; ".join(sorted({m["model"] for m in genomic.values() if m["model"]})),
         "sra_strategies": "; ".join(sorted({m["strategy"] for m in meta.values() if m["strategy"]})),
+        "sra_runs_used": "; ".join(genomic),
+        "sra_unresolved": "; ".join(unresolved),
+        "sra_complete": "no" if unresolved else "yes",
     }
 
 
 def needs_lookup(row: pd.Series) -> bool:
-    no_platform = row.get("seq_category", "") in ("", "Unknown") or (row.get("sra_runs", "") and not row.get("seq_platforms", ""))
+    # a platform already named in the record (COMMENT, Assembly-Data) is not overridden: only unknown or the bare "NGS"
+    # category (SRA link without instrument) is looked up in ENA
+    no_platform = row.get("seq_category", "") in ("", "Unknown") or (
+        row.get("sra_runs", "") and row.get("seq_category", "") == "NGS" and not row.get("seq_platforms", ""))
     return bool(no_platform) or row.get("assembler_group", "") in _MISSING_ASM
 
 
@@ -231,11 +240,12 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
     for _, r in todo.iterrows():
         acc = str(r["accession"])
         base = {"accession": acc, "organism": r.get("organism", "")}
-        if r.get("sra_runs") and not r.get("seq_platforms", ""):
+        if r.get("sra_runs") and r.get("seq_category", "") in ("", "Unknown", "NGS") and not r.get("seq_platforms", ""):
             try:
                 base.update(sra_methods(r["sra_runs"].split("; "), cache))
                 if base.get("sra_seq_platforms"):
-                    base["method_source"] = "ENA read_run instrument fields"
+                    base["method_source"] = "ENA read_run instrument fields" + (
+                        "" if base.get("sra_complete") == "yes" else " (partial run set)")
             except Exception as e:
                 base["sra_note"] = f"ENA read_run failed: {e}"
         try:
