@@ -75,17 +75,40 @@ def test_genera_not_judged_on_conserved_markers():
     assert ph.judge(tips, parts, dict.fromkeys(names, 1.0), "Opheliidae", fast=False)[0] == []  # 18S / 28S
 
 
+def _intermixed_rows(n_each: int) -> list[dict]:
+    rows = []
+    for i in range(n_each):
+        rows.append({"gene": "16s", "accession": f"A{i}.1", "organism": "Ophiodromus sp.",
+                     "flag": "inside_other_genus",
+                     "note": "sits in Oxydromus (support 1.0); 5 other Ophiodromus sequences elsewhere",
+                     "support": 1.0})
+        rows.append({"gene": "16s", "accession": f"B{i}.1", "organism": "Oxydromus microantennatus",
+                     "flag": "inside_other_genus", "note": "sits in Ophiodromus (support 0.91); 51 other ...",
+                     "support": 0.91})
+    rows.append({"gene": "16s", "accession": "DQ442575.1", "organism": "Leocrates chinensis",
+                 "flag": "inside_other_genus", "note": "sits in Dalhousiella/Leocratides (support 0.93); ...",
+                 "support": 0.93})
+    return rows
+
+
 def test_intermixed_genera_become_a_note():
-    rows = [{"gene": "16s", "accession": "PP228861.1", "organism": "Ophiodromus sp.", "flag": "inside_other_genus",
-             "note": "sits in Oxydromus (support 1.0); 5 other Ophiodromus sequences elsewhere", "support": 1.0},
-            {"gene": "16s", "accession": "KJ855067.1", "organism": "Oxydromus microantennatus",
-             "flag": "inside_other_genus", "note": "sits in Ophiodromus (support 0.91); 51 other ...", "support": 0.91},
-            {"gene": "16s", "accession": "DQ442575.1", "organism": "Leocrates chinensis",
-             "flag": "inside_other_genus", "note": "sits in Dalhousiella/Leocratides (support 0.93); ...",
-             "support": 0.93}]
-    keep, notes = ph.intermixed_genera(rows, [])
+    keep, notes = ph.intermixed_genera(_intermixed_rows(2), [])
     assert [r["accession"] for r in keep] == ["DQ442575.1"]
-    assert {n["accession"] for n in notes} == {"PP228861.1", "KJ855067.1"}
+    assert {n["accession"] for n in notes} == {"A0.1", "A1.1", "B0.1", "B1.1"}
+
+
+def test_one_record_each_way_may_be_a_swap_and_stays_flagged():
+    keep, notes = ph.intermixed_genera(_intermixed_rows(1), [])
+    assert {r["accession"] for r in keep} == {"A0.1", "B0.1", "DQ442575.1"}  # not hidden
+    assert {n["accession"] for n in notes} == {"A0.1", "B0.1"}
+
+
+def test_unresolved_tip_is_not_positive_evidence():
+    names = ["P1", "P2", "O1", "O2", "O3"]
+    tips = [Tip(n, "x", "G", "Opheliidae", True) for n in names[:2]] + \
+           [Tip(n, "y", "H", "Other", False) for n in names[2:]]
+    cover = dict.fromkeys(names, 1.0)
+    assert ph.resolved_tips(tips, [], cover) == set()  # no supported split: unresolved
 
 
 def _mut(s, p, rng):
@@ -113,6 +136,15 @@ def test_orient_reverses_reversed_records():
     rc = s.translate(str.maketrans("ACGT", "TGCA"))[::-1]
     out, flipped = ph.orient({"a": s, "b": s[:400], "c": rc[50:450]})
     assert flipped == ["c"] and out["c"] in s
+
+
+def test_orient_reversed_longest_reference_does_not_flip_the_batch():
+    rng = random.Random(4)
+    s = "".join(rng.choice("ACGT") for _ in range(900))
+    rc = s.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+    seqs = {"long_rc": rc, "b": s[:700], "c": s[100:800], "d": s[200:850], "e": s[50:600], "f": s[:400]}
+    out, _ = ph.orient(seqs)
+    assert all(v in s for v in out.values()) or all(v in rc for v in out.values())  # one common strand
 
 
 @pytest.mark.skipif(not (ph.find_tool("famsa", "mafft") and ph.find_tool("FastTree", "fasttree", "iqtree3",

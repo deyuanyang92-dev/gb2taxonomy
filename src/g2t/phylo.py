@@ -97,16 +97,34 @@ class Tools:
 
 
 def orient(seqs: dict[str, str], n_ref: int = 5) -> tuple[dict[str, str], list[str]]:
-    """Put every sequence on the strand of the ``n_ref`` longest ones (shared 11-mers)."""
+    """Put every sequence on one strand, set by the ``n_ref`` longest ones. The references are first put on a
+    common strand themselves (longest first, each against those already placed), so a reverse-complemented
+    reference cannot flip the batch."""
+    def wins(x: str) -> tuple[np.ndarray, np.ndarray]:
+        f, r = sc._windows(x, 11)
+        return np.unique(f), np.unique(r)
+
+    def flips(x: str, ref: np.ndarray) -> bool:
+        f, r = sc._windows(x, 11)
+        return np.intersect1d(r, ref).size > np.intersect1d(f, ref).size
+
     refs = sorted(seqs, key=lambda k: len(seqs[k]), reverse=True)[:n_ref + 1]
-    fwd = {k: np.unique(sc._windows(seqs[k], 11)[0]) for k in refs}
+    placed: dict[str, np.ndarray] = {}
+    strand: dict[str, str] = {}
+    for k in refs:
+        s = seqs[k]
+        if placed:
+            s = s.translate(_COMP)[::-1] if flips(s, np.unique(np.concatenate(list(placed.values())))) else s
+        strand[k] = s
+        placed[k] = wins(s)[0]
     out, flipped = {}, []
     for k, s in seqs.items():
-        own = [fwd[x] for x in refs if x != k][:n_ref]  # never the sequence itself
-        ref = np.unique(np.concatenate(own)) if own else np.zeros(0, np.uint64)
-        f, r = sc._windows(s, 11)
-        if np.intersect1d(r, ref).size > np.intersect1d(f, ref).size:
-            s = s.translate(_COMP)[::-1]
+        if k in strand:
+            s = strand[k]
+        else:
+            ref = np.unique(np.concatenate(list(placed.values())))
+            s = s.translate(_COMP)[::-1] if flips(s, ref) else s
+        if s != seqs[k]:
             flipped.append(k)
         out[k] = s
     return out, flipped
@@ -209,6 +227,16 @@ def neighbours(i: int, n: int, parts: list[tuple[int, float]], usable: int, supp
         if k >= min_others and size < best_size:
             best, best_sup, best_size = others, sup, size
     return best, best_sup
+
+
+def resolved_tips(tips: list[Tip], parts: list[tuple[int, float]], cover: dict[str, float],
+                  support: float = 0.9, min_cover: float = 0.5) -> set[str]:
+    """Study tips whose position the tree settles (a supported split with >= 2 usable others). A tip that is
+    covered but unresolved is *not judged*: it is no positive evidence for specimen_check."""
+    n = len(tips)
+    usable = sum(1 << i for i, t in enumerate(tips) if cover.get(t.name, 0) >= min_cover)
+    return {t.name for i, t in enumerate(tips)
+            if t.study and usable >> i & 1 and neighbours(i, n, parts, usable, support)[0]}
 
 
 @dataclass
@@ -350,17 +378,28 @@ def intermixed_genera(rows: list[dict], notes: list[dict]) -> tuple[list[dict], 
     def gen(r: dict) -> str:
         return sc.genus_of(r["organism"])
 
-    pairs = {(gen(r), w) for r in rows if r["flag"] == "inside_other_genus" for w in r["note"].split(" (")[0]
-             .removeprefix("sits in ").split("/")}
+    def where_of(r: dict) -> list[str]:
+        return r["note"].split(" (")[0].removeprefix("sits in ").split("/")
+
+    count: dict[tuple[str, str], int] = {}
+    for r in rows:
+        if r["flag"] == "inside_other_genus":
+            for w in where_of(r):
+                count[(gen(r), w)] = count.get((gen(r), w), 0) + 1
     keep = []
     for r in rows:
-        where = r["note"].split(" (")[0].removeprefix("sits in ").split("/")
-        if r["flag"] == "inside_other_genus" and any((w, gen(r)) in pairs for w in where):
+        where = where_of(r)
+        both = r["flag"] == "inside_other_genus" and any((w, gen(r)) in count for w in where)
+        # >= 2 records each way: one lineage under two names. One each way may be two swapped samples:
+        # keep the record flags and add the note.
+        synonyms = both and any(count[(gen(r), w)] >= 2 and count.get((w, gen(r)), 0) >= 2 for w in where)
+        if both:
             notes.append({"gene": r["gene"], "genus": gen(r), "organism": r["organism"], "accession": r["accession"],
                           "level": "genus", "where": "/".join(where), "support": r["support"],
-                          "why": "genera intermixed: synonyms or unsettled genus limits",
+                          "why": "genera intermixed: synonyms or unsettled genus limits" if synonyms else
+                                 "genera intermixed, one record each way: synonyms or two swapped samples",
                           "group_distance": r.get("group_distance")})
-        else:
+        if not synonyms:
             keep.append(r)
     return keep, notes
 
@@ -532,10 +571,10 @@ def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[
                                   "from it; only sequence of its genus"})
         nt = [x for x in nt if x["accession"] not in {y["accession"] for y in r}]
         flagged = {x["accession"] for x in r}
+        placed = resolved_tips(tips, parts, cover, support, min_cover)
         for t in tips:
             if t.study:
-                judged[t.name] = ("flagged" if t.name in flagged else "ok" if cover.get(t.name, 0) >= min_cover
-                                  else "not judged")
+                judged[t.name] = "flagged" if t.name in flagged else "ok" if t.name in placed else "not judged"
         for x in r:
             x["gene"] = gene
         for x in nt:
