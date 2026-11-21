@@ -367,6 +367,11 @@ def main(argv: list[str] | None = None) -> int:
     t_.add_argument("--background-n", type=int, default=6, help="number of related families (default 6)")
     t_.add_argument("--iqtree", action="store_true", help="IQ-TREE with 1,000 ultrafast bootstraps (slower)")
     t_.add_argument("--support", type=float, default=0.9, help="branch support needed (default 0.9)")
+    b_ = p.add_argument_group("BLAST consensus + translation check + unified verdict.csv")
+    b_.add_argument("--blast", action="store_true", help="BLAST every marker, compare the consensus with the name")
+    b_.add_argument("--blast-db", metavar="DB", help="nucleotide BLAST database with taxids (e.g. metazoa_marker)")
+    b_.add_argument("--blastn", default="blastn", help="blastn executable")
+    b_.add_argument("--threads", type=int, default=16, help="BLAST threads (default 16)")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     t = screen(a.input, a.g2t)
@@ -389,7 +394,37 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(notes)} taxon notes; {d}/phylo_flags.csv, phylo_taxon_notes.csv, <gene>.tre")
         if len(flags):
             print(flags[["gene", "accession", "organism", "flag", "note", "evidence"]].to_string(index=False))
+    if a.blast or a.tree:
+        _verdict(a, t, a.blast)
     return 0
+
+
+def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
+    """Merge k-mer, tree, BLAST and translation evidence into organized_genes/verdict.csv."""
+    from g2t import blastcheck, phylo, translate_check, verdict
+
+    d = Path(a.g2t) / "organized_genes"
+    tree = None
+    pf = d / "phylo" / "phylo_flags.csv"
+    if pf.exists():
+        tree = pd.read_csv(pf, dtype=str, keep_default_na=False)
+    blast = None
+    if do_blast:
+        if not a.blast_db:
+            raise SystemExit("--blast needs --blast-db")
+        blast = blastcheck.run_blastcheck(a.input, a.g2t, a.blast_db, threads=a.threads, blastn=a.blastn)
+        blast.to_csv(d / "blastcheck.csv", index=False)
+    rows = []
+    for g, entries in phylo.marker_sets(list(a.input), a.g2t, True, "").items():
+        for acc, (seq, _tip) in entries.items():
+            r = translate_check.check_translation(seq, g)
+            if r.flag == "numt_suspect":
+                rows.append({"accession": acc, "gene": g, "flag": r.flag, "note": r.note})
+    trans = pd.DataFrame(rows, columns=["accession", "gene", "flag", "note"])
+    trans.to_csv(d / "translation_flags.csv", index=False)
+    v = verdict.combine(kmer=kmer, tree=tree, blast=blast, trans=trans)
+    v.to_csv(d / "verdict.csv", index=False)
+    print(f"\nverdict: {v.verdict.value_counts().to_dict()}; {d}/verdict.csv")
 
 
 if __name__ == "__main__":

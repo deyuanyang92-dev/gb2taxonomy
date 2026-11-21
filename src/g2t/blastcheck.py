@@ -256,3 +256,47 @@ def run_blast(fasta: str | Path, db: str | Path, out: str | Path, threads: int =
 
     subprocess.run(cmd, check=True, env={**os.environ, **env})
     return Path(out)
+
+
+# ------------------------------------------------------------------ whole g2t run
+
+
+def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn", genes=None,
+                   tax: Taxonomy | None = None) -> pd.DataFrame:
+    """BLAST every marker of a g2t run against ``db`` and compare with the declared Family / Genus."""
+    from g2t import phylo
+
+    d = Path(g2t_dir)
+    work = d / "organized_genes" / "blastcheck"
+    work.mkdir(parents=True, exist_ok=True)
+    tax = tax or Taxonomy()
+    a = phylo._table(d)
+    rows = {r["ACCESSION"]: r for _, r in a.iterrows()}
+    sets = phylo.marker_sets(list(inputs), d, True, "")
+    out: list[dict] = []
+    for g, entries in sets.items():
+        if genes and g not in genes or not entries:
+            continue
+        fa, hf = work / f"{g}.fa", work / f"{g}.hits.tsv"
+        with open(fa, "w") as fh:
+            for acc, (seq, _tip) in entries.items():
+                fh.write(f">{acc}\n{seq}\n")
+        run_blast(fa, db, hf, threads=threads, blastn=blastn)
+        if hf.stat().st_size == 0:
+            continue
+        hits = read_hits(hf)
+        declared, org = {}, {}
+        for q in hits["qseqid"].unique():
+            r = rows.get(acc_key(q))
+            if r is None:
+                continue
+            org[q] = r["Organism"]
+            lin = tax.by_name(r["Family"]) or tax.by_name(r["Genus"])
+            declared[q] = {**lin, **({"family": r["Family"]} if r["Family"] else {}),
+                           **({"genus": r["Genus"]} if r["Genus"] else {})}
+        for x in check_all(hits, declared, {q: g for q in declared}, tax):
+            out.append({"accession": x.accession, "gene": g, "organism": org.get(x.accession, ""), "gate": x.gate,
+                        "lca_rank": x.lca_rank, "lca_taxon": x.lca_taxon, "best_pident": x.best_pident,
+                        "n_units": x.n_units, "conflict_rank": x.conflict_rank, "own_best": x.own_best,
+                        "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "note": x.note})
+    return pd.DataFrame(out)
