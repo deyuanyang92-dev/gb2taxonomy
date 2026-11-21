@@ -11,10 +11,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -24,13 +27,21 @@ from g2t import mitostats as ms
 
 EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 _MISSING_ASM = {ms.NOT_STATED, "No assembly info in record"}
+CACHE_VERSION = "v2"  # bump when extraction rules change; raw XML stays cached, parsing reruns every time
+MAX_HITS = 100
 
 
-def _get(url: str, retries: int = 3) -> bytes:
+def _get(url: str, retries: int = 4) -> bytes:
+    """GET with retries for network errors, HTTP 429/5xx (honours Retry-After); other HTTP errors are permanent."""
     for i in range(retries):
         try:
             with urllib.request.urlopen(url, timeout=60) as r:  # noqa: S310 (fixed https host)
                 return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504) or i == retries - 1:
+                raise
+            wait = e.headers.get("Retry-After", "") if e.headers else ""
+            time.sleep(min(int(wait), 120) if wait.isdigit() else 2 * (i + 1))
         except Exception:
             if i == retries - 1:
                 raise
@@ -39,46 +50,128 @@ def _get(url: str, retries: int = 3) -> bytes:
 
 
 class Cache:
-    """JSON file cache so reruns do not query Europe PMC again."""
+    """JSON file cache so reruns do not query Europe PMC again; written atomically, a damaged file is ignored."""
 
     def __init__(self, path: Path):
         self.path = path
-        self.d: dict[str, Any] = json.loads(path.read_text()) if path.exists() else {}
+        self.d: dict[str, Any] = {}
+        if path.exists():
+            try:
+                self.d = json.loads(path.read_text())
+            except ValueError:
+                print(f"warning: cache {path} is damaged, starting empty")
 
     def get(self, key: str, fn):
+        key = f"{CACHE_VERSION}:{key}" if not key.startswith("x:") else key
         if key not in self.d:
             self.d[key] = fn()
-            self.path.write_text(json.dumps(self.d, ensure_ascii=False))
+            tmp = self.path.with_name(self.path.name + ".tmp")
+            tmp.write_text(json.dumps(self.d, ensure_ascii=False))
+            os.replace(tmp, self.path)
         return self.d[key]
 
 
 def search_accession(acc: str) -> list[dict[str, str]]:
-    """Europe PMC articles that mention the accession (version stripped) in their text."""
+    """Europe PMC articles that mention the accession (version stripped) in their text (cursor-paged, <= MAX_HITS)."""
     base = acc.split(".")[0]
     q = urllib.parse.quote(f'"{base}"')
-    url = f"{EPMC}/search?query={q}&format=json&pageSize=10&resultType=lite"
-    res = json.loads(_get(url)).get("resultList", {}).get("result", [])
-    return [{k: str(r.get(k, "")) for k in ("pmid", "pmcid", "doi", "title", "authorString", "journalTitle", "pubYear")}
-            for r in res]
+    out: list[dict[str, str]] = []
+    cursor = "*"
+    while len(out) < MAX_HITS:
+        url = f"{EPMC}/search?query={q}&format=json&pageSize=25&resultType=lite&cursorMark={urllib.parse.quote(cursor)}"
+        data = json.loads(_get(url))
+        res = data.get("resultList", {}).get("result", [])
+        out += [{k: str(r.get(k, "")) for k in ("pmid", "pmcid", "doi", "title", "authorString", "journalTitle",
+                                                "pubYear")} for r in res]
+        nxt = data.get("nextCursorMark", "")
+        if not res or not nxt or nxt == cursor:
+            break
+        cursor = nxt
+    return out
 
 
-def methods_text(pmcid: str) -> str:
-    """Plain text of an open-access article without its reference list (citations of other papers' tools
-    would otherwise count as methods used)."""
-    xml = _get(f"{EPMC}/{pmcid}/fullTextXML").decode("utf8", "replace")
-    xml = re.sub(r"<ref-list.*?</ref-list>", " ", xml, flags=re.S)
-    xml = re.sub(r"<(table-wrap|fig)\b.*?</\1>", " ", xml, flags=re.S)
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", xml))
+def fetch_xml(pmcid: str) -> str:
+    return _get(f"{EPMC}/{pmcid}/fullTextXML").decode("utf8", "replace")
 
 
-def parse_methods(text: str) -> dict[str, str]:
-    """Platform category/names and assemblers named in the article text (regex rules of mitostats)."""
-    plats = ms.sequencing_platforms(text)
-    names, _ = ms.assemblers(text)
+_METHOD_TITLE = re.compile(r"method|material|procedure|sequenc|assembl|experimental|sampling", re.I)
+_TEXT = re.compile(r"\s+")
+
+
+def _text(el: ET.Element) -> str:
+    return _TEXT.sub(" ", " ".join(el.itertext())).strip()
+
+
+def article_sections(xml: str) -> tuple[str, str, bool]:
+    """(Methods text, whole-body text, methods_found). Reference list, tables and figures are dropped; Methods are
+    the body sections whose sec-type or title says so (nested subsections included)."""
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        txt = _TEXT.sub(" ", re.sub(r"<[^>]+>", " ", re.sub(r"<ref-list.*?</ref-list>", " ", xml, flags=re.S)))
+        return txt, txt, False
+    for parent in root.iter():
+        for ch in list(parent):
+            if ch.tag in ("ref-list", "table-wrap", "fig", "back"):
+                parent.remove(ch)
+    body = root.find(".//body")
+    if body is None:
+        body = root
+    meth = []
+    for sec in body.iter("sec"):
+        title = sec.findtext("title") or ""
+        if _METHOD_TITLE.search(title) or _METHOD_TITLE.search(sec.get("sec-type", "")):
+            meth.append(_text(sec))
+    whole = _text(body)
+    return (" ".join(meth), whole, True) if meth else (whole, whole, False)
+
+
+def accession_re(acc: str) -> re.Pattern:
+    """Exact accession token: AB123456 matches AB123456 / AB123456.1, never AB1234567 or XAB123456."""
+    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(acc.split(".")[0]) + r"(?:\.\d+)?(?![A-Za-z0-9])")
+
+
+_SENT = re.compile(r"(?<=[.;])\s+(?=[A-Z(])")
+_DEPOSIT = re.compile(r"submitted|deposit|accession (?:no|number)|registered|available (?:in|at|from|under)|GenBank under|"
+                      r"under (?:the )?accession|has been (?:uploaded|released)|were? (?:uploaded|released)", re.I)
+_REUSE = re.compile(r"download|retriev|obtain\w* from|taken from|sequences? (?:of|from) (?:other|related)|"
+                    r"outgroup|used in (?:the )?(?:phylogen|analys)|previously|reference sequence|et al", re.I)
+
+
+def accession_role(body: str, acc: str) -> tuple[str, str]:
+    """("reports" | "cited", evidence sentence): does the article say it *deposited* the sequence, or only mention it?"""
+    rx = accession_re(acc)
+    # a character window, not a sentence: "accession no. OP104125" would be cut at "no."
+    wins = [body[max(0, m.start() - 220): m.end() + 60] for m in rx.finditer(body)]
+    for w in wins:
+        if _DEPOSIT.search(w) and not _REUSE.search(w):
+            return "reports", w
+    return "cited", (wins[0] if wins else "")
+
+
+_SEQ_CTX = re.compile(r"sequenc|librar|reads?\b|platform|paired[- ]end|flow ?cell|nanopore|hifi|run\b", re.I)
+_ASM_CTX = re.compile(r"assembl|de novo|reconstruct|circulari", re.I)
+_NOT_ASM = re.compile(r"annotat|alignment|aligned|phylogen|nuclear|primer", re.I)
+
+
+def parse_methods(text: str, mito_paper: bool = True) -> dict[str, str]:
+    """Platform / assemblers named in sequencing- and assembly-context sentences (not in the whole text), with evidence."""
+    sents = [x for x in _SENT.split(text) if x]
+    plat_s = [x for x in sents if _SEQ_CTX.search(x)]
+    plats = ms.sequencing_platforms(" ".join(plat_s))
+    names: list[str] = []
+    ev = []
+    for x in sents:
+        if _ASM_CTX.search(x) and not _NOT_ASM.search(x) and (mito_paper or ms._MITO_WORD.search(x)):
+            hit = [n for n, rx in ms._rules()["assemblers"] if rx.search(x) and n not in names]
+            if hit:
+                names += hit
+                ev.append(x[:200])
     return {
-        "lit_seq_category": ms.sequencing_category(text) if plats else "",
+        "lit_seq_category": ms.sequencing_category(" ".join(plat_s)) if plats else "",
         "lit_seq_platforms": "; ".join(plats),
         "lit_assemblers": "; ".join(names),
+        "lit_evidence": " | ".join(ev),
     }
 
 
@@ -109,9 +202,16 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                    "lit_note": "paper listed; full text not open access"}
             if h["pmcid"]:
                 try:
-                    txt = cache.get("t:" + h["pmcid"], lambda p=h["pmcid"]: methods_text(p))
-                    row.update(parse_methods(txt))
-                    row["lit_note"] = "parsed from open-access full text; confirm by hand"
+                    xml = cache.get("x:" + h["pmcid"], lambda p=h["pmcid"]: fetch_xml(p))
+                    meth, whole, found = article_sections(xml)
+                    role, ev = accession_role(whole, acc)
+                    row["lit_role"], row["lit_accession_sentence"] = role, ev
+                    if role == "reports":
+                        row.update(parse_methods(meth, mito_paper=bool(re.search("mito", h["title"], re.I))))
+                        row["lit_note"] = ("parsed from Methods section" if found else
+                                           "no Methods section found, whole text parsed") + "; confirm by hand"
+                    else:
+                        row["lit_note"] = "article mentions the accession but does not report depositing it; methods not taken"
                 except Exception as e:
                     row["lit_note"] = f"full text failed: {e}"
                 time.sleep(delay)
