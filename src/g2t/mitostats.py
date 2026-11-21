@@ -151,6 +151,28 @@ def assemblers(raw: str) -> tuple[list[str], list[str]]:
     return names, other
 
 
+_MITO_WORD = re.compile(r"mito|organelle|\bmt\s*dna\b|\bmtgenome\b", re.I)
+_SENTENCE = re.compile(r"(?<=[.;])\s+(?=[A-Z])")
+
+
+def assemblers_from_comment(comment: str) -> list[str]:
+    """Assemblers a free-text COMMENT names for the *mitogenome* (records without an Assembly-Data block).
+
+    Only sentences that mention the mitochondrion / organelle count: Darwin Tree of Life and ATLASea
+    comments describe the nuclear assembly too ("initial assembly with Hifiasm ...") and then state
+    "Mitochondrial genome was assembled using OATK." Sentences are split on ". " / "; ", with line
+    wraps joined first.
+    """
+    rules = _rules()
+    names: list[str] = []
+    for sent in _SENTENCE.split(re.sub(r"\s+", " ", comment or "")):
+        if _MITO_WORD.search(sent):
+            for n, rx in rules["assemblers"]:
+                if rx.search(sent) and n not in names:
+                    names.append(n)
+    return names
+
+
 def mapping_tools(raw: str) -> bool:
     """Does the Assembly Method name a reference-mapping / consensus-calling tool (BWA, MIA, GATK ...)?"""
     rx = _rules()["mapping"]
@@ -318,6 +340,11 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
                                        str(rec.annotations.get("comment", "")), rec.dbxrefs)
     am_raw = asm.get("Assembly Method", "")
     names, other = assemblers(am_raw)
+    asm_basis = "Assembly-Data comment" if names else ""
+    if not names:
+        names = assemblers_from_comment(str(rec.annotations.get("comment", "")))
+        if names:
+            asm_basis = "free-text COMMENT names the mitogenome assembler"
     length = summary.get("length") or (len(rec.seq) if len(rec.seq) > 1 else None)
     return {
         "accession": rec.id,
@@ -332,6 +359,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "seq_basis": basis,
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
+        "assembler_basis": asm_basis,
         "assembler_group": assembler_group(names, other, mapping_tools(am_raw)),
         "assembly_other": "; ".join(other),
         "genome_coverage": asm.get("Genome Coverage", ""),

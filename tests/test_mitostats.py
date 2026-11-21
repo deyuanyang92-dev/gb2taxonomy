@@ -317,3 +317,18 @@ def test_sequencing_inferred_without_assembly_data(cat, date, titles, out):
 )
 def test_sequencing_from_comment_and_dblink(comment, dblinks, out):
     assert ms.infer_sequencing("Unknown", "2024-01-01", [], comment, dblinks)[0] == out
+
+
+ATLASEA = (
+    "The assembly of Halla parthenopeia is based on 37X PacBio data. The assembly process\n"
+    "included: initial PacBio assembly generation with Hifiasm, removal of haplotypic\n"
+    "duplications using purge_dups, and scaffolding with YaHS. Mitochondrial\n"
+    "genome was assembled using OATK. Finally, the primary assembly was improved using Pretext."
+)
+
+
+def test_assembler_from_free_text_comment_mito_sentence_only():
+    # the nuclear-genome assembler (Hifiasm) must not be credited, the mitogenome one (OATK) must
+    assert ms.assemblers_from_comment(ATLASEA) == ["Oatk"]
+    assert ms.assemblers_from_comment("Assembled with Hifiasm. Scaffolded with YaHS.") == []
+    assert ms.assemblers_from_comment("") == []

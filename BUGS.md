@@ -4,6 +4,19 @@
 
 ---
 
+## 组装方法只认 Assembly-Data 块 (2026-11-22)
+
+**现象**: OZ495698.1 (Halla parthenopeia, ATLASea) 没有 `##Assembly-Data##` 块, COMMENT 自由文本写明
+"Mitochondrial genome was assembled using OATK", 但 `assembler_group` 为 "Not stated"。测序平台早已有自由文本回退, 组装软件没有。
+
+**修复**: `mitostats.assemblers_from_comment()`: Assembly Method 没识别出软件时, 只扫描 COMMENT 中提到
+mito / organelle 的句子 (同一 COMMENT 里核基因组的 Hifiasm / purge_dups / YaHS 不算)。新列 `assembler_basis`
+标明依据 (Assembly-Data comment / free-text COMMENT names the mitogenome assembler)。
+
+**仍未覆盖**: 组装软件写在论文正文而非 GenBank 记录里的情况。
+
+---
+
 ## 未匹配序列分析 (2026-05-12)
 
 **功能**: g2t 现在会自动生成未匹配序列报告，帮助用户了解哪些序列未被分类。
