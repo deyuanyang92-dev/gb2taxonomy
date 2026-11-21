@@ -149,3 +149,25 @@ def test_species_of_ignores_open_names():
     for n in ("Perinereis sp.", "Nereis aff. zonata MALT-2022", "Nereididae environmental sample",
               "Nereis cf. zonata", "Nereididae"):
         assert bc.species_of(n) == ""
+
+
+def test_discarded_hit_cannot_unlock_species_conflict():
+    # two voting hits of O. limacina at 92%; a short 99% alignment of another species scores low and is outside TOP
+    h = hits([("AB000001.1", 92.0, 1), ("AC009000.1", 92.0, 1), ("AD000001.1", 99.0, 2)])
+    h.loc[2, "bitscore"] = 400.0
+    r = bc.check_query("HM746718.1", h, DECL, "coi", FakeTax())
+    assert r.best_pident == 92.0
+    assert r.conflict_rank != "species"
+
+
+def test_family_agreement_is_not_a_resolved_name():
+    # declared species O. neglecta, only O. limacina references at 92%: genus agrees, species is unresolved
+    r = run([("AB000001.1", 92.0, 1), ("AC009000.1", 91.8, 2)])
+    assert r.agrees and r.confirmed_rank == "genus" and r.declared_rank == "species" and not r.resolved
+
+
+def test_declared_genus_confirmed_is_resolved_and_conserved_markers_need_no_species():
+    decl = {k: v for k, v in DECL.items() if k != "species"}
+    assert run([("AB000001.1", 92.0, 1), ("AC009000.1", 91.8, 2)], declared=decl).resolved
+    r = run([("AB000001.1", 99.5, 1), ("AC009000.1", 99.4, 2)], gene="18s")
+    assert r.agrees and r.declared_rank == "family" and r.resolved

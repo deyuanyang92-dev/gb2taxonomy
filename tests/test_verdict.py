@@ -29,3 +29,41 @@ def test_single_layer_suspect_and_numt_and_clean():
     assert v.verdict.tolist() == ["clean"]
     v = combine(blast=_df(accession="D.1", gene="coi", conflict_rank="", gate="no_close_reference", lca_rank=""))
     assert v.verdict.tolist() == ["unchecked"]
+
+
+def test_genes_are_not_pooled():
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="remote"),
+                tree=_df(accession="A.1", gene="16s", organism="x", flag="inside_other_genus"))
+    assert sorted(zip(v.gene, v.verdict)) == [("16s", "suspect"), ("coi", "suspect")]
+
+
+def test_kmer_and_tree_are_one_family():
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="remote"),
+                tree=_df(accession="A.1", gene="coi", organism="x", flag="outside_family"))
+    assert v.verdict.tolist() == ["suspect"]
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="remote"),
+                tree=_df(accession="A.1", gene="coi", organism="x", flag="outside_family"), strict=False)
+    assert v.verdict.tolist() == ["likely_contaminant"]
+
+
+def test_far_tree_vs_near_blast_disagree():
+    v = combine(tree=_df(accession="A.1", gene="coi", organism="x", flag="outside_family"),
+                blast=_df(accession="A.1", gene="coi", conflict_rank="species", gate="actionable"))
+    assert v.verdict.tolist() == ["suspect"]
+    assert "layers_disagree" in v.reasons[0]
+
+
+def test_geneless_evidence_applies_to_all_markers():
+    v = combine(kmer=_df(accession="A.1", gene="", organism="x", flag="near_other_genus"),
+                blast=pd.DataFrame([dict(accession="A.1", gene=g, conflict_rank="genus", gate="actionable")
+                                    for g in ("coi", "16s")]))
+    assert v.verdict.tolist() == ["likely_misidentified"] * 2
+
+
+def test_family_agreement_is_not_clean():
+    v = combine(blast=_df(accession="E.1", gene="16s", conflict_rank="", gate="actionable", agrees=True,
+                          resolved=False, confirmed_rank="family"))
+    assert v.verdict.tolist() == ["coarse_agree"] and v.confirmed_rank.tolist() == ["family"]
+    v = combine(blast=_df(accession="E.1", gene="16s", conflict_rank="", gate="actionable", agrees=True,
+                          resolved=True, confirmed_rank="species"))
+    assert v.verdict.tolist() == ["clean"]

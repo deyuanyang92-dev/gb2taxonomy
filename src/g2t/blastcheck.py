@@ -150,6 +150,9 @@ class Result:
     other_best: float = 0.0
     same_batch_hit: bool = False
     agrees: bool = False  # consensus matches the declared lineage (positive evidence)
+    confirmed_rank: str = ""  # finest rank at which the consensus equals the declared lineage
+    declared_rank: str = ""  # finest of species / genus / family the record declares
+    resolved: bool = False  # confirmed_rank reaches the declared rank: the name itself is confirmed
     reverse: bool = False  # best hit is on the minus strand: the record is probably reverse-complemented
     note: str = ""
     units: list = field(default_factory=list, repr=False)
@@ -179,7 +182,10 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         return res
     limits, lowest = limits_for(gene)
     best = h["bitscore"].max()
-    res.best_pident = float(h["pident"].max())
+    # only the hits that vote (bitscore within TOP of the best) count for identity: a shorter, lower-scoring
+    # 99% alignment must not unlock a fine rank that the voting references do not support
+    voters = h[h["bitscore"] >= TOP * best]
+    res.best_pident = float(voters["pident"].max())
     top = h.loc[h["bitscore"].idxmax()]
     res.reverse = bool("sstart" in top and top["sstart"] > top["send"])
     if res.best_pident < lowest:
@@ -271,6 +277,12 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         # positive evidence: consensus reaches family or finer and agrees with the declared lineage
         both = [rk for rk in consensus if declared.get(rk)]
         res.agrees = any(RANKS.index(rk) >= RANKS.index("family") for rk in both) and not res.note
+        agreeing = [rk for rk in both if consensus[rk] == declared[rk]]
+        res.confirmed_rank = agreeing[-1] if agreeing else ""
+        # a rank this marker can never resolve (conserved rRNA / histone at species level) is not demanded
+        fine = [rk for rk in ("family", "genus", "species") if declared.get(rk) and limits[rk] <= 100]
+        res.declared_rank = fine[-1] if fine else ""
+        res.resolved = bool(res.agrees and res.declared_rank and res.confirmed_rank == res.declared_rank)
     return res
 
 
@@ -345,5 +357,6 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                         "lca_rank": x.lca_rank, "lca_taxon": x.lca_taxon, "best_pident": x.best_pident,
                         "n_units": x.n_units, "conflict_rank": x.conflict_rank, "own_best": x.own_best,
                         "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "agrees": x.agrees,
-                        "reverse": x.reverse, "note": x.note})
+                        "reverse": x.reverse, "note": x.note, "confirmed_rank": x.confirmed_rank,
+                        "declared_rank": x.declared_rank, "resolved": x.resolved})
     return pd.DataFrame(out)

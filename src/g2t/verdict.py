@@ -6,98 +6,136 @@ Evidence layers (all optional DataFrames keyed by ``accession`` + ``gene``):
   blast  blastcheck rows (conflict_rank, note, gate)
   trans  translate_check rows (flag == numt_suspect)
 
-Classes: likely_contaminant (>= 2 independent layers say 'another family / phylum'), likely_misidentified (>= 2 layers
-say 'another genus / family' of the same phylum), numt_suspect, suspect (one layer), taxon_question (whole-genus
-notes), clean (no flag and a positive BLAST / tree confirmation), unchecked (no positive evidence).
+One row per (accession, gene): evidence from different markers of one record is never pooled, because a COI and a
+16S result are different observations, not corroboration. Evidence without a gene applies to every marker of the
+accession.
+
+Independence: the tree flag already requires a k-mer distance check, so k-mer and tree are ONE family of evidence
+('intrinsic': the record against the rest of the dataset); BLAST against the reference database is the other
+('reference'). Two families are needed to escalate, and they must say the same kind of thing: both 'another family /
+phylum' -> likely_contaminant; both 'another genus / species' -> likely_misidentified; one far and one near
+-> suspect (reason layers_disagree). ``strict=False`` restores the older count of method names.
+
+Classes: likely_contaminant, likely_misidentified, numt_suspect, suspect (one family, or disagreeing families),
+clean (no flag and BLAST confirms the declared name at the finest rank the record declares and the marker can
+resolve), coarse_agree (BLAST agrees only at a coarser rank, e.g. family while a species is declared; see
+confirmed_rank), unchecked (no positive evidence).
 """
 
 from __future__ import annotations
 
 import pandas as pd
 
-COLS = ["accession", "gene", "organism", "verdict", "layers", "reasons"]
+COLS = ["accession", "gene", "organism", "verdict", "layers", "reasons", "confirmed_rank"]
+
+FAR_RANKS = ("phylum", "class", "order", "family")
+FAMILY_OF = {"kmer": "intrinsic", "tree": "intrinsic", "blast": "reference"}
 
 
 def _key(a: str) -> str:
     return str(a).split(".")[0]
 
 
-def _by_acc(df: pd.DataFrame | None) -> dict[str, list[dict]]:
-    out: dict[str, list[dict]] = {}
+def _by_acc_gene(df: pd.DataFrame | None) -> dict[tuple[str, str], list[dict]]:
+    out: dict[tuple[str, str], list[dict]] = {}
     if df is None or df.empty:
         return out
     for r in df.fillna("").to_dict("records"):
-        out.setdefault(_key(r["accession"]), []).append(r)
+        out.setdefault((_key(r["accession"]), str(r.get("gene", "") or "")), []).append(r)
     return out
 
 
-def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, str] | None = None) -> pd.DataFrame:
-    k, t, b, n = _by_acc(kmer), _by_acc(tree), _by_acc(blast), _by_acc(trans)
+def _true(x) -> bool:
+    return x in (True, "True", "true", 1)
+
+
+class _Ev:
+    """Evidence collected for one (accession, gene): method names, reasons, and the families saying far / near."""
+
+    def __init__(self, strict: bool):
+        self.strict, self.layers, self.reasons = strict, [], []
+        self.far_f: set[str] = set()
+        self.near_f: set[str] = set()
+
+
+def _flag(ev: _Ev, layer: str, reason: str, far: bool) -> None:
+    ev.layers.append(layer)
+    ev.reasons.append(f"{layer}:{reason}")
+    (ev.far_f if far else ev.near_f).add(FAMILY_OF[layer] if ev.strict else layer)
+
+
+def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, str] | None = None,
+            strict: bool = True) -> pd.DataFrame:
+    k, t, b, n = (_by_acc_gene(x) for x in (kmer, tree, blast, trans))
     organisms = organisms or {}
-    accs = sorted(set(k) | set(t) | set(b) | set(n))
-    rows = []
-    for a in accs:
-        layers, reasons, far, near = [], [], 0, 0
-        gene = ""
+    keys = set(k) | set(t) | set(b) | set(n)
+    genes_of: dict[str, set[str]] = {}
+    for a, g in keys:
+        if g:
+            genes_of.setdefault(a, set()).add(g)
+    # evidence without a gene belongs to every marker of the accession (or to ("acc", "") when there is none)
+    targets = {(a, g) for a, g in keys if g} | {(a, "") for a, g in keys if not g and a not in genes_of}
+
+    def rows_for(d, a, g):
+        rs = list(d.get((a, g), []))
+        if g:
+            rs += d.get((a, ""), [])
+        return rs
+
+    out = []
+    for a, g in sorted(targets):
+        ev = _Ev(strict)
+        reasons, layers, far_f, near_f = ev.reasons, ev.layers, ev.far_f, ev.near_f
+
         org = organisms.get(a, "")
-        for r in k.get(a, []):
-            gene = gene or r.get("gene", "")
+        for r in rows_for(k, a, g):
             org = org or r.get("organism", "")
-            if r["flag"] in ("near_other_genus", "remote"):
-                layers.append("kmer")
-                reasons.append(f"kmer:{r['flag']}")
-                far += r["flag"] == "remote"
-                near += r["flag"] == "near_other_genus"
-            elif r["flag"] == "same_species_far":
-                layers.append("kmer")
-                reasons.append("kmer:same_species_far")
-                near += 1
-        for r in t.get(a, []):
-            gene = gene or r.get("gene", "")
+            if r["flag"] in ("near_other_genus", "remote", "same_species_far"):
+                _flag(ev, "kmer", r["flag"], r["flag"] == "remote")
+        for r in rows_for(t, a, g):
             org = org or r.get("organism", "")
             if r["flag"] in ("outside_family", "inside_other_family"):
-                far += 1
-                layers.append("tree")
-                reasons.append(f"tree:{r['flag']}")
+                _flag(ev, "tree", r["flag"], True)
             elif r["flag"].startswith("inside_other_genus"):
-                near += 1
-                layers.append("tree")
-                reasons.append(f"tree:{r['flag']}")
-        for r in b.get(a, []):
-            gene = gene or r.get("gene", "")
+                _flag(ev, "tree", r["flag"], False)
+        bl = rows_for(b, a, g)
+        for r in bl:
             org = org or r.get("organism", "")
             cr = r.get("conflict_rank", "")
             if cr:
-                layers.append("blast")
-                reasons.append(f"blast:{cr}")
-                if cr in ("phylum", "class", "order", "family"):
-                    far += 1
-                else:
-                    near += 1
-        for r in b.get(a, []):
-            if r.get("reverse") in (True, "True"):
+                _flag(ev, "blast", cr, cr in FAR_RANKS)
+            if _true(r.get("reverse")):
                 reasons.append("blast:reverse_complement")
-        numt = any(r.get("flag") == "numt_suspect" for r in n.get(a, []))
+        numt = any(r.get("flag") == "numt_suspect" for r in rows_for(n, a, g))
         if numt:
-            layers.append("translation")
             reasons.append("translation:numt_suspect")
         uniq = list(dict.fromkeys(layers))
-        positive = any(r.get("gate") == "actionable" and not r.get("conflict_rank")
-                       and r.get("agrees") in (True, "True")
-                       for r in b.get(a, []))
-        independent = [x for x in uniq if x != "translation"]
-        if far and len(independent) >= 2:
-            v = "likely_contaminant"
-        elif (far or near) and len(independent) >= 2:
-            v = "likely_misidentified"
-        elif numt and not independent:
-            v = "numt_suspect"
-        elif independent:
+        fams = far_f | near_f
+        agreeing = [r for r in bl if r.get("gate") == "actionable" and not r.get("conflict_rank")
+                    and _true(r.get("agrees"))]
+        # older blastcheck files have no 'resolved' column: agreement then counts as confirmation
+        resolved = any(_true(r.get("resolved", r.get("agrees"))) for r in agreeing)
+        confirmed = next((r.get("confirmed_rank", "") for r in agreeing if r.get("confirmed_rank")), "")
+        if len(fams) >= 2:
+            if not near_f:
+                v = "likely_contaminant"
+            elif not far_f:
+                v = "likely_misidentified"
+            else:
+                v = "suspect"
+                reasons.append("layers_disagree: one says another family, the other another genus / species")
+        elif fams:
             v = "suspect"
-        elif positive:
+        elif numt:
+            v = "numt_suspect"
+        elif resolved:
             v = "clean"
+        elif agreeing:
+            v = "coarse_agree"
         else:
             v = "unchecked"
-        rows.append(dict(accession=a, gene=gene, organism=org, verdict=v, layers=";".join(uniq),
-                         reasons="; ".join(reasons)))
-    return pd.DataFrame(rows, columns=COLS)
+        if not strict and len(fams) >= 2:  # old rule: any two layers, far and near pooled
+            v = "likely_contaminant" if far_f else "likely_misidentified"
+        out.append(dict(accession=a, gene=g, organism=org, verdict=v, layers=";".join(uniq),
+                        reasons="; ".join(reasons), confirmed_rank=confirmed))
+    return pd.DataFrame(out, columns=COLS)

@@ -232,3 +232,13 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 
 ## read_hits 新格式（13 列）重复列名（2026-11-21，已修）
 原因：`COLS` 已含 qseqid，`read_hits` 又在 names 前加了一次 → `ValueError: Duplicate names are not allowed`。T3 重测时发现；修复 + `test_read_hits_old_and_new_format`。
+
+
+## verdict 判定逻辑修正（2026-11-21，Codex deep 评审后，已修）
+评审：`~/.cache/second-opinion/20261121-133724.xtgx/review.md`。已逐条对照代码，采纳 1、2、3、5（其余未改，见下）。
+1. **不同基因被合并**：`_by_acc` 丢掉 gene，COI 的 remote + 16S 的 inside_other_genus 合成 likely_contaminant。改为按 (accession, gene) 一行；无 gene 的证据适用于该登录号全部标记。
+2. **科级一致就判 clean**：OQ729919（声明 P. fayedensis，16S 仅属级 92%、12S 仅科级 84%）曾是 clean。blastcheck 新增 `confirmed_rank` / `declared_rank` / `resolved`；只有确认到声明的最细等级（保守标记如 18S 不要求种）才是 `clean`，否则新类别 `coarse_agree`。
+3. **「≥2 层独立」只数方法名**：树的标记本来就要过 k-mer 距离复核，k-mer + 树算一个证据族（intrinsic），BLAST 一族（reference）；两族都说「远」→ likely_contaminant，都说「近」→ likely_misidentified，一远一近 → suspect + `layers_disagree`。`combine(strict=False)` 保留旧规则。
+5. **被丢弃的命中解锁种级冲突**：`best_pident` 取了所有命中的最大值；现只取 bitscore ≥ 0.95×最佳（投票命中）的最大值。
+**未改（待用户决定）**：4 重复污染序列使树/k-mer 证据消失；6 异名造成假种级冲突；7 `ncbi_unverified` 被丢弃；8 树「resolved」假确认；9 登录号分箱 ≠ 独立提交；10–13 翻译侧翼、ND/ATP/COX2-3 未进翻译与 BLAST、未评估记录消失、重跑混入旧树。
+**影响**（沙蚕科，缓存命中重算，`recombine_verdict_v2.py`，行单位改为 登录号×基因，故总数不可直接比）：clean 5602→4820、新增 coarse_agree 869、likely_contaminant 4→2、likely_misidentified 20→16、suspect 98→136；OQ729919 不再是 clean。

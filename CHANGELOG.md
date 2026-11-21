@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- **verdict 判定修正：** 按 (登录号, 基因) 一行，不再跨基因合并；k-mer 与树算同一证据族，需 BLAST 另一族一致才升级，一远一近只报 `suspect`；新增 `coarse_agree`（只在更粗等级一致）与列 `confirmed_rank`，`clean` 须确认到声明的最细等级；BLAST 的最佳相似度只取投票命中。`combine(strict=False)` 保留旧规则。详见 `BUGS.md`。
+
 - **污染 / 鉴定错误检查的 BLAST 层与统一判定（`g2t-screen --blast --blast-db DB`）。**
   - **BLAST 共识（`blastcheck.py`）：** 去掉序列自身的命中；同一物种、同一提交批次的命中合并为一个独立单元；取 bitscore 在最佳 95% 以内、覆盖 ≥ 50% 的命中，各等级 ≥ 80% 单元一致才采纳；最佳命中的相似度限制可判到哪个等级（COI 78% 判不了属），不够近只报 `no_close_reference`；冲突需要外来类群比声明的属 / 科高 2 个百分点以上，且有 ≥ 2 个独立单元（或来自同一批次）。
   - **翻译检查（`translate_check.py`）：** 蛋白编码标记（COI、cob 等）按无脊椎线粒体密码（表 5）六框翻译，所有读框都有内部终止密码子 → `numt_suspect`。
