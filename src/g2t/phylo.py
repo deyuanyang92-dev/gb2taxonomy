@@ -35,6 +35,7 @@ OQ417162 "Polyophthalmus pictus" COI in Armandia (1.00). See docs/evaluation/phy
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -97,16 +98,34 @@ class Tools:
 
 
 def orient(seqs: dict[str, str], n_ref: int = 5) -> tuple[dict[str, str], list[str]]:
-    """Put every sequence on the strand of the ``n_ref`` longest ones (shared 11-mers)."""
+    """Put every sequence on one strand, set by the ``n_ref`` longest ones. The references are first put on a
+    common strand themselves (longest first, each against those already placed), so a reverse-complemented
+    reference cannot flip the batch."""
+    def wins(x: str) -> tuple[np.ndarray, np.ndarray]:
+        f, r = sc._windows(x, 11)
+        return np.unique(f), np.unique(r)
+
+    def flips(x: str, ref: np.ndarray) -> bool:
+        f, r = sc._windows(x, 11)
+        return np.intersect1d(r, ref).size > np.intersect1d(f, ref).size
+
     refs = sorted(seqs, key=lambda k: len(seqs[k]), reverse=True)[:n_ref + 1]
-    fwd = {k: np.unique(sc._windows(seqs[k], 11)[0]) for k in refs}
+    placed: dict[str, np.ndarray] = {}
+    strand: dict[str, str] = {}
+    for k in refs:
+        s = seqs[k]
+        if placed:
+            s = s.translate(_COMP)[::-1] if flips(s, np.unique(np.concatenate(list(placed.values())))) else s
+        strand[k] = s
+        placed[k] = wins(s)[0]
     out, flipped = {}, []
     for k, s in seqs.items():
-        own = [fwd[x] for x in refs if x != k][:n_ref]  # never the sequence itself
-        ref = np.unique(np.concatenate(own)) if own else np.zeros(0, np.uint64)
-        f, r = sc._windows(s, 11)
-        if np.intersect1d(r, ref).size > np.intersect1d(f, ref).size:
-            s = s.translate(_COMP)[::-1]
+        if k in strand:
+            s = strand[k]
+        else:
+            ref = np.unique(np.concatenate(list(placed.values())))
+            s = s.translate(_COMP)[::-1] if flips(s, ref) else s
+        if s != seqs[k]:
             flipped.append(k)
         out[k] = s
     return out, flipped
@@ -135,8 +154,9 @@ def build_tree(seqs: dict[str, str], tools: Tools, work: Path, threads: int = 0,
         subprocess.run([tools.aligner, "-t", str(threads), str(fa), str(aln)], check=True, capture_output=True)
     else:
         with open(aln, "w") as fh:
-            subprocess.run([tools.aligner, "--auto", "--thread", str(threads), "--quiet", str(fa)], stdout=fh,
-                           check=True)
+            # --threadit 0: MAFFT's multithreaded iterative refinement is otherwise not reproducible
+            subprocess.run([tools.aligner, "--auto", "--thread", str(threads), "--threadit", "0", "--quiet", str(fa)],
+                           stdout=fh, check=True)
     a = _read_fasta(aln)
     m = np.array([list(a[t]) for t in names])
     keep = (m == "-").mean(axis=0) < max_gap
@@ -172,6 +192,16 @@ def build_tree(seqs: dict[str, str], tools: Tools, work: Path, threads: int = 0,
 # ------------------------------------------------------------------ splits and decisions
 
 
+SUPPORT_DEFAULT = {"fasttree": 0.90, "iqtree": 0.95}  # FastTree local support >= 0.9; IQ-TREE UFBoot >= 95 (convention)
+
+
+def resolve_support(support: float | None, tree_kind: str) -> float:
+    """Support threshold on a 0-1 scale: the tool's usual default when unset; a value above 1 is a percentage."""
+    if support is None:
+        return SUPPORT_DEFAULT.get(tree_kind, 0.9)
+    return support / 100 if support > 1 else support
+
+
 def splits(newick: str) -> tuple[list[str], list[tuple[int, float]]]:
     """Tip names and the tree's splits as (bitmask of tips on one side, support 0-1)."""
     from io import StringIO
@@ -181,15 +211,16 @@ def splits(newick: str) -> tuple[list[str], list[tuple[int, float]]]:
     tree = Phylo.read(StringIO(newick), "newick")
     tips = [c.name for c in tree.get_terminals()]
     idx = {n: i for i, n in enumerate(tips)}
+    inner = [c for c in tree.get_nonterminals() if c is not tree.root]
+    # one scale for the whole tree: FastTree gives 0-1, IQ-TREE UFBoot 0-100. Judging per node would read a
+    # UFBoot of 1 (%) as 1.0 = perfect support.
+    scale = 100.0 if max((c.confidence or 0.0 for c in inner), default=0.0) > 1 else 1.0
     out = []
-    for cl in tree.get_nonterminals():
-        if cl is tree.root:
-            continue
+    for cl in inner:
         mask = 0
         for t in cl.get_terminals():
             mask |= 1 << idx[t.name]
-        sup = cl.confidence if cl.confidence is not None else 0.0
-        out.append((mask, sup / 100 if sup > 1 else sup))
+        out.append((mask, (cl.confidence if cl.confidence is not None else 0.0) / scale))
     return tips, out
 
 
@@ -209,6 +240,29 @@ def neighbours(i: int, n: int, parts: list[tuple[int, float]], usable: int, supp
         if k >= min_others and size < best_size:
             best, best_sup, best_size = others, sup, size
     return best, best_sup
+
+
+def resolved_tips(tips: list[Tip], parts: list[tuple[int, float]], cover: dict[str, float],
+                  support: float = 0.9, min_cover: float = 0.5) -> set[str]:
+    """Study tips whose position the tree settles *and agrees with their name* (a supported split with >= 2
+    usable others, all of the tip's family, >= 1 of its genus). Anything else is *not judged*: it is no
+    positive evidence for specimen_check."""
+    n = len(tips)
+    usable = sum(1 << i for i, t in enumerate(tips) if cover.get(t.name, 0) >= min_cover)
+    ok = set()
+    for i, t in enumerate(tips):
+        if not (t.study and usable >> i & 1):
+            continue
+        others = neighbours(i, n, parts, usable, support)[0]
+        if not others:
+            continue
+        nb = [tips[j] for j in range(n) if others >> j & 1]
+        # positive evidence only when the neighbourhood agrees with the name: every neighbour in the same
+        # family and at least one in the same genus (a mixed or foreign neighbourhood, a taxon question or
+        # a lone genus is not confirmation; Codex review 2026-11-21 #8)
+        if t.genus and all(x.family == t.family for x in nb) and any(x.genus == t.genus for x in nb):
+            ok.add(t.name)
+    return ok
 
 
 @dataclass
@@ -316,6 +370,18 @@ def marker_sets(inputs: Iterable[str], g2t_dir: str | Path, study: bool,
     return out
 
 
+def study_fingerprint(inputs: Iterable[str], g2t_dir: str | Path) -> str:
+    """Hash of the study sequences (gene, accession.version, sequence): a tree result is reusable only for the
+    same sequences. Lets a later verdict run reject stale trees (Codex review 2026-11-21 #13)."""
+    import hashlib
+
+    h = hashlib.sha1()
+    for gene, e in sorted(marker_sets(inputs, g2t_dir, True, "").items()):
+        for acc, (seq, _t) in sorted(e.items()):
+            h.update(f"{gene}\t{acc}\t{hashlib.sha1(seq.encode()).hexdigest()}\n".encode())
+    return h.hexdigest()
+
+
 def sample(entries: dict[str, tuple[str, Tip]], per_family: int) -> dict[str, tuple[str, Tip]]:
     """Background: the longest sequence of each species, at most ``per_family`` per family."""
     best: dict[str, tuple[str, str, Tip]] = {}
@@ -341,7 +407,7 @@ def representatives(entries: dict[str, tuple[str, Tip]], cap: int, keep: set[str
         if t.organism not in best or len(s) > len(entries[best[t.organism]][0]):
             best[t.organism] = acc
     chosen = set(best.values()) | (keep & set(entries))
-    return {a: entries[a] for a in chosen}
+    return {a: entries[a] for a in entries if a in chosen}  # input order: a set order would change the tree
 
 
 def intermixed_genera(rows: list[dict], notes: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -350,17 +416,30 @@ def intermixed_genera(rows: list[dict], notes: list[dict]) -> tuple[list[dict], 
     def gen(r: dict) -> str:
         return sc.genus_of(r["organism"])
 
-    pairs = {(gen(r), w) for r in rows if r["flag"] == "inside_other_genus" for w in r["note"].split(" (")[0]
-             .removeprefix("sits in ").split("/")}
+    def where_of(r: dict) -> list[str]:
+        return r["note"].split(" (")[0].removeprefix("sits in ").split("/")
+
+    # distinct records, not rows: one swapped specimen flagged on COI and 16S must not look like two records
+    seen: dict[tuple[str, str], set[str]] = {}
+    for r in rows:
+        if r["flag"] == "inside_other_genus":
+            for w in where_of(r):
+                seen.setdefault((gen(r), w), set()).add(r["accession"].split(".")[0])
+    count = {k: len(v) for k, v in seen.items()}
     keep = []
     for r in rows:
-        where = r["note"].split(" (")[0].removeprefix("sits in ").split("/")
-        if r["flag"] == "inside_other_genus" and any((w, gen(r)) in pairs for w in where):
+        where = where_of(r)
+        both = r["flag"] == "inside_other_genus" and any((w, gen(r)) in count for w in where)
+        # >= 2 records each way: one lineage under two names. One each way may be two swapped samples:
+        # keep the record flags and add the note.
+        synonyms = both and any(count[(gen(r), w)] >= 2 and count.get((w, gen(r)), 0) >= 2 for w in where)
+        if both:
             notes.append({"gene": r["gene"], "genus": gen(r), "organism": r["organism"], "accession": r["accession"],
                           "level": "genus", "where": "/".join(where), "support": r["support"],
-                          "why": "genera intermixed: synonyms or unsettled genus limits",
+                          "why": "genera intermixed: synonyms or unsettled genus limits" if synonyms else
+                                 "genera intermixed, one record each way: synonyms or two swapped samples",
                           "group_distance": r.get("group_distance")})
-        else:
+        if not synonyms:
             keep.append(r)
     return keep, notes
 
@@ -488,10 +567,11 @@ def specimen_check(flags: pd.DataFrame, judged: dict[str, str], matrix: Path) ->
 
 def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[list[str], str]],
                  family: str = "", markers: Iterable[str] = MARKERS, out_dir: str | Path | None = None,
-                 iqtree: bool = False, threads: int = 0, support: float = 0.9, min_cover: float = 0.5,
+                 iqtree: bool = False, threads: int = 0, support: float | None = None, min_cover: float = 0.5,
                  cap: int = 800, bg_per_family: int = 12) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Record flags and taxon notes for every marker with background sequences."""
     tools = Tools.find(iqtree)
+    support = resolve_support(support, tools.tree_kind)
     family = family or study_family(g2t_dir)
     study = marker_sets(inputs, g2t_dir, True, family)
     bg: dict[str, dict[str, tuple[str, Tip]]] = {}
@@ -532,10 +612,10 @@ def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[
                                   "from it; only sequence of its genus"})
         nt = [x for x in nt if x["accession"] not in {y["accession"] for y in r}]
         flagged = {x["accession"] for x in r}
+        placed = resolved_tips(tips, parts, cover, support, min_cover)
         for t in tips:
             if t.study:
-                judged[t.name] = ("flagged" if t.name in flagged else "ok" if cover.get(t.name, 0) >= min_cover
-                                  else "not judged")
+                judged[t.name] = "flagged" if t.name in flagged else "ok" if t.name in placed else "not judged"
         for x in r:
             x["gene"] = gene
         for x in nt:
@@ -550,6 +630,9 @@ def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[
     flags = specimen_check(pd.DataFrame(rows, columns=cols), judged,
                            Path(g2t_dir) / "organized_genes" / "organized_species_voucher.csv")
     flags.to_csv(out / "phylo_flags.csv", index=False)
+    (out / "phylo_stamp.json").write_text(json.dumps(
+        {"fingerprint": study_fingerprint(inputs, g2t_dir), "support": support, "iqtree": iqtree,
+         "tree_tool": tools.tree_kind}))
     tn = pd.DataFrame(notes, columns=["gene", "genus", "organism", "accession", "level", "where", "why", "support",
                                       "group_distance"])
     tn.to_csv(out / "phylo_taxon_notes.csv", index=False)

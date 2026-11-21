@@ -75,17 +75,40 @@ def test_genera_not_judged_on_conserved_markers():
     assert ph.judge(tips, parts, dict.fromkeys(names, 1.0), "Opheliidae", fast=False)[0] == []  # 18S / 28S
 
 
+def _intermixed_rows(n_each: int) -> list[dict]:
+    rows = []
+    for i in range(n_each):
+        rows.append({"gene": "16s", "accession": f"A{i}.1", "organism": "Ophiodromus sp.",
+                     "flag": "inside_other_genus",
+                     "note": "sits in Oxydromus (support 1.0); 5 other Ophiodromus sequences elsewhere",
+                     "support": 1.0})
+        rows.append({"gene": "16s", "accession": f"B{i}.1", "organism": "Oxydromus microantennatus",
+                     "flag": "inside_other_genus", "note": "sits in Ophiodromus (support 0.91); 51 other ...",
+                     "support": 0.91})
+    rows.append({"gene": "16s", "accession": "DQ442575.1", "organism": "Leocrates chinensis",
+                 "flag": "inside_other_genus", "note": "sits in Dalhousiella/Leocratides (support 0.93); ...",
+                 "support": 0.93})
+    return rows
+
+
 def test_intermixed_genera_become_a_note():
-    rows = [{"gene": "16s", "accession": "PP228861.1", "organism": "Ophiodromus sp.", "flag": "inside_other_genus",
-             "note": "sits in Oxydromus (support 1.0); 5 other Ophiodromus sequences elsewhere", "support": 1.0},
-            {"gene": "16s", "accession": "KJ855067.1", "organism": "Oxydromus microantennatus",
-             "flag": "inside_other_genus", "note": "sits in Ophiodromus (support 0.91); 51 other ...", "support": 0.91},
-            {"gene": "16s", "accession": "DQ442575.1", "organism": "Leocrates chinensis",
-             "flag": "inside_other_genus", "note": "sits in Dalhousiella/Leocratides (support 0.93); ...",
-             "support": 0.93}]
-    keep, notes = ph.intermixed_genera(rows, [])
+    keep, notes = ph.intermixed_genera(_intermixed_rows(2), [])
     assert [r["accession"] for r in keep] == ["DQ442575.1"]
-    assert {n["accession"] for n in notes} == {"PP228861.1", "KJ855067.1"}
+    assert {n["accession"] for n in notes} == {"A0.1", "A1.1", "B0.1", "B1.1"}
+
+
+def test_one_record_each_way_may_be_a_swap_and_stays_flagged():
+    keep, notes = ph.intermixed_genera(_intermixed_rows(1), [])
+    assert {r["accession"] for r in keep} == {"A0.1", "B0.1", "DQ442575.1"}  # not hidden
+    assert {n["accession"] for n in notes} == {"A0.1", "B0.1"}
+
+
+def test_unresolved_tip_is_not_positive_evidence():
+    names = ["P1", "P2", "O1", "O2", "O3"]
+    tips = [Tip(n, "x", "G", "Opheliidae", True) for n in names[:2]] + \
+           [Tip(n, "y", "H", "Other", False) for n in names[2:]]
+    cover = dict.fromkeys(names, 1.0)
+    assert ph.resolved_tips(tips, [], cover) == set()  # no supported split: unresolved
 
 
 def _mut(s, p, rng):
@@ -115,6 +138,15 @@ def test_orient_reverses_reversed_records():
     assert flipped == ["c"] and out["c"] in s
 
 
+def test_orient_reversed_longest_reference_does_not_flip_the_batch():
+    rng = random.Random(4)
+    s = "".join(rng.choice("ACGT") for _ in range(900))
+    rc = s.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+    seqs = {"long_rc": rc, "b": s[:700], "c": s[100:800], "d": s[200:850], "e": s[50:600], "f": s[:400]}
+    out, _ = ph.orient(seqs)
+    assert all(v in s for v in out.values()) or all(v in rc for v in out.values())  # one common strand
+
+
 @pytest.mark.skipif(not (ph.find_tool("famsa", "mafft") and ph.find_tool("FastTree", "fasttree", "iqtree3",
                                                                             "iqtree2", "iqtree")),
                     reason="FAMSA/MAFFT and FastTree/IQ-TREE not installed")
@@ -130,3 +162,52 @@ def test_build_tree_end_to_end(tmp_path):
 def test_find_tool_missing():
     assert ph.find_tool("no-such-program-g2t") is None
     assert importlib.util.find_spec("Bio.Phylo") is not None
+
+
+def test_resolved_needs_neighbourhood_that_agrees_with_name():
+    # P1's supported neighbours are another family: settled, but it contradicts the name -> not confirmation
+    names = ["P1", "P2", "O1", "O2", "O3"]
+    tips = [Tip("P1", "x", "G", "Opheliidae", True), Tip("P2", "x", "H", "Opheliidae", True)] + \
+           [Tip(n, "y", "K", "Other", False) for n in names[2:]]
+    cover = dict.fromkeys(names, 1.0)
+    parts = [(0b00111, 1.0)]  # P1, P2, O1 | O2, O3 ... P1's small side holds foreign O1
+    assert "P1" not in ph.resolved_tips(tips, parts, cover)
+
+
+def test_resolved_when_same_genus_neighbours():
+    tips = [Tip(f"P{i}", "x", "G", "Opheliidae", True) for i in range(3)] + \
+           [Tip(f"O{i}", "y", "K", "Other", False) for i in range(3)]
+    cover = {t.name: 1.0 for t in tips}
+    assert {"P0", "P1", "P2"} <= ph.resolved_tips(tips, [(0b000111, 1.0)], cover)
+
+
+def test_representatives_keep_input_order():
+    entries = {f"A{i:03d}": ("ACGT" * (i + 1), Tip(f"A{i:03d}", f"sp{i}", "G", "F", True)) for i in range(50)}
+    out = ph.representatives(entries, cap=10, keep=set())
+    assert list(out) == list(entries)
+
+
+def test_support_scale_is_per_tree_not_per_node():
+    # IQ-TREE UFBoot is 0-100: a node with 1 means 1 %, not 1.0
+    names, parts = ph.splits("((a:1,b:1)1:1,(c:1,d:1)99:1,e:1);")
+    assert sorted(s for _, s in parts) == [0.01, 0.99]
+    names, parts = ph.splits("((a:1,b:1)0.3:1,(c:1,d:1)0.99:1,e:1);")
+    assert sorted(s for _, s in parts) == [0.3, 0.99]
+
+
+def test_resolve_support_defaults_by_tool():
+    assert ph.resolve_support(None, "fasttree") == 0.90
+    assert ph.resolve_support(None, "iqtree") == 0.95
+    assert ph.resolve_support(95, "fasttree") == 0.95
+    assert ph.resolve_support(0.8, "iqtree") == 0.8
+
+
+def test_one_swapped_specimen_on_two_markers_is_not_synonymy():
+    def row(gene, acc, org, where):
+        return {"gene": gene, "accession": acc, "organism": org, "flag": "inside_other_genus",
+                "note": f"sits in {where} (support 1.0)", "support": 1.0}
+
+    rows = [row("coi", "A1.1", "Alpha x", "Beta"), row("16s", "A1.1", "Alpha x", "Beta"),
+            row("coi", "B1.1", "Beta y", "Alpha"), row("16s", "B1.1", "Beta y", "Alpha")]
+    keep, _ = ph.intermixed_genera(rows, [])
+    assert len(keep) == 4  # two records, one each way: swapped samples, flags stay

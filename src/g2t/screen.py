@@ -43,8 +43,10 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import logging
 import re
+import shutil
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -366,7 +368,13 @@ def main(argv: list[str] | None = None) -> int:
     t_.add_argument("--background", help="related families, comma separated (default: chosen from NCBI Taxonomy)")
     t_.add_argument("--background-n", type=int, default=6, help="number of related families (default 6)")
     t_.add_argument("--iqtree", action="store_true", help="IQ-TREE with 1,000 ultrafast bootstraps (slower)")
-    t_.add_argument("--support", type=float, default=0.9, help="branch support needed (default 0.9)")
+    t_.add_argument("--support", type=float, default=None,
+                    help="branch support needed, 0-1 or percent (default: 0.90 FastTree, 0.95 IQ-TREE UFBoot)")
+    b_ = p.add_argument_group("BLAST consensus + translation check + unified verdict.csv")
+    b_.add_argument("--blast", action="store_true", help="BLAST every marker, compare the consensus with the name")
+    b_.add_argument("--blast-db", metavar="DB", help="nucleotide BLAST database with taxids (e.g. metazoa_marker)")
+    b_.add_argument("--blastn", default="blastn", help="blastn executable")
+    b_.add_argument("--threads", type=int, default=16, help="BLAST threads (default 16)")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     t = screen(a.input, a.g2t)
@@ -389,7 +397,71 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(notes)} taxon notes; {d}/phylo_flags.csv, phylo_taxon_notes.csv, <gene>.tre")
         if len(flags):
             print(flags[["gene", "accession", "organism", "flag", "note", "evidence"]].to_string(index=False))
+    _verdict(a, t, a.blast or bool(a.blast_db))
     return 0
+
+
+def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
+    """Merge k-mer, tree, BLAST and translation evidence into organized_genes/verdict.csv."""
+    from g2t import blastcheck, phylo, translate_check, verdict
+
+    d = Path(a.g2t) / "organized_genes"
+    tree = None
+    pf = d / "phylo" / "phylo_flags.csv"
+    if pf.exists():
+        stamp = d / "phylo" / "phylo_stamp.json"
+        try:
+            fp = json.loads(stamp.read_text()).get("fingerprint")
+        except (OSError, ValueError):
+            fp = None
+        if fp == phylo.study_fingerprint(a.input, a.g2t):
+            tree = pd.read_csv(pf, dtype=str, keep_default_na=False)
+        else:
+            print("WARNING: organized_genes/phylo/phylo_flags.csv is stale or unstamped (sequences changed or "
+                  "made by an older g2t): tree evidence NOT used; rerun with --tree")
+    blast = None
+    if do_blast:
+        if not a.blast_db:
+            raise SystemExit("--blast needs --blast-db")
+        if not Path(a.blast_db + ".nin").exists() and not Path(a.blast_db + ".00.nin").exists():
+            raise SystemExit(f"BLAST database not found: {a.blast_db} (.nin missing)")
+        if shutil.which(a.blastn) is None:
+            raise SystemExit(f"{a.blastn} not found on PATH")
+        blast = blastcheck.run_blastcheck(a.input, a.g2t, a.blast_db, threads=a.threads, blastn=a.blastn)
+        blast.to_csv(d / "blastcheck.csv", index=False)
+    rows = []
+    for g, entries in phylo.marker_sets(list(a.input), a.g2t, True, "").items():
+        for acc, (seq, _tip) in entries.items():
+            r = translate_check.check_translation(seq, g)
+            if r.flag == "numt_suspect":
+                rows.append({"accession": acc, "gene": g, "flag": r.flag, "note": r.note})
+    trans = pd.DataFrame(rows, columns=["accession", "gene", "flag", "note"])
+    trans.to_csv(d / "translation_flags.csv", index=False)
+    tab = phylo._table(a.g2t)
+    det = {str(r["ACCESSION"]): r for _, r in tab.iterrows()}
+    inv = [{"accession": acc, "gene": g, "organism": _tip.organism,
+            "family": str(det.get(acc.split(".")[0], {}).get("Family", "")),
+            "taxonomy": str(det.get(acc.split(".")[0], {}).get("Taxonomy", ""))}
+           for g, entries in phylo.marker_sets(list(a.input), a.g2t, True, "").items()
+           for acc, (_s, _tip) in entries.items()]
+    taxon = getattr(a, "taxon", None) or phylo.study_family(a.g2t)
+    ran = tuple(n for n, x in (("blast", blast), ("tree", tree)) if x is not None)
+    v = verdict.combine(kmer=kmer, tree=tree, blast=blast, trans=trans, inventory=pd.DataFrame(inv),
+                        taxon=taxon, ran=ran)
+    v.to_csv(d / "verdict.csv", index=False)
+    layers = [n for n, x in (("kmer", kmer), ("tree", tree), ("blast", blast), ("translation", trans))
+              if x is not None]
+    print(f"\nverdict layers used: {', '.join(layers)}")
+    print(f"verdict: {v.verdict.value_counts().to_dict()}; {d}/verdict.csv")
+    c = v["flag"].value_counts().to_dict()
+    print(f"\nCHECK {c.get('CHECK', 0)} | OK {c.get('OK', 0)} | NA {c.get('NA', 0)}  (CHECK = 请人工查看, 不等于确认污染)")
+    if "blast" not in ran:
+        print("提示: 未运行 BLAST (--blast-db), 微生物 / 非目标序列只能由声明的分类间接判断")
+    else:
+        print("提示: BLAST 库若不含非动物序列, 微生物只能由「无命中 / 无相近参考」间接判断")
+    top = v[v["flag"] == "CHECK"].head(10)
+    if len(top):
+        print(top[["accession", "gene", "organism", "why"]].to_string(index=False, max_colwidth=90))
 
 
 if __name__ == "__main__":

@@ -219,3 +219,53 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 ## classify：超长记录通过全局长度过滤后报 "cannot reindex on an axis with duplicate labels"（2026-10-09 发现，未修）
 - 复现：两条 61,000 bp 记录（一条 `organelle=mitochondrion`、definition "genome assembly, organelle: mitochondrion"，一条 "chromosome 3, partial"），`MatchConfig(global_length_range="1:1000000")` → `Classify failed: cannot reindex on an axis with duplicate labels`。默认 150:50000 时两条都被过滤，不触发。
 - 影响：>50 kb 的线粒体基因组（环节动物最大约 47.5 kb，植物常 >100 kb）只能留在 filtered_records.csv，放宽 `--length_range2_all` 会使 classify 失败。
+
+## blastcheck：LCA 在缺少某个等级时提前结束（2026-11-21 发现，已修）
+- 现象：NCBI 环节动物谱系没有 order 等级，"Polychaeta sp." 没有 family；共识循环在第一个无票等级就 `break`，导致 genus / family 级冲突被漏掉（OQ417162）。
+- 修复：缺少该等级的命中弃权，继续判下一等级；测试 `test_missing_order_rank`、`test_unclassified_hit_abstains`。
+- 相关：低相似度（< 85%）的门 / 纲冲突（Polyophthalmus COI 对软体动物 78%）只能说明没有近缘参考，不当冲突报（`DISTANT`）。
+
+## 尚未解决：BLAST 查不到的污染（2026-11-21）
+- PX620130、HM746718 在参考库里只有 1 个 80% 命中或只有未分类命中，BLAST 层看不出来，只有基因树能发现。各层互补，所以判定需要多层合并。
+- rRNA HMM 本体检查、目标等级自动推断：暂不做（没有真值），记录在 `PLAN_decontam.md`。
+
+
+## read_hits 新格式（13 列）重复列名（2026-11-21，已修）
+原因：`COLS` 已含 qseqid，`read_hits` 又在 names 前加了一次 → `ValueError: Duplicate names are not allowed`。T3 重测时发现；修复 + `test_read_hits_old_and_new_format`。
+
+
+## verdict 判定逻辑修正（2026-11-21，Codex deep 评审后，已修）
+评审：`~/.cache/second-opinion/20261121-133724.xtgx/review.md`。已逐条对照代码，采纳 1、2、3、5（其余未改，见下）。
+1. **不同基因被合并**：`_by_acc` 丢掉 gene，COI 的 remote + 16S 的 inside_other_genus 合成 likely_contaminant。改为按 (accession, gene) 一行；无 gene 的证据适用于该登录号全部标记。
+2. **科级一致就判 clean**：OQ729919（声明 P. fayedensis，16S 仅属级 92%、12S 仅科级 84%）曾是 clean。blastcheck 新增 `confirmed_rank` / `declared_rank` / `resolved`；只有确认到声明的最细等级（保守标记如 18S 不要求种）才是 `clean`，否则新类别 `coarse_agree`。
+3. **「≥2 层独立」只数方法名**：树的标记本来就要过 k-mer 距离复核，k-mer + 树算一个证据族（intrinsic），BLAST 一族（reference）；两族都说「远」→ likely_contaminant，都说「近」→ likely_misidentified，一远一近 → suspect + `layers_disagree`。`combine(strict=False)` 保留旧规则。
+5. **被丢弃的命中解锁种级冲突**：`best_pident` 取了所有命中的最大值；现只取 bitscore ≥ 0.95×最佳（投票命中）的最大值。
+**未改（待用户决定）**：4 重复污染序列使树/k-mer 证据消失；6 异名造成假种级冲突；7 `ncbi_unverified` 被丢弃；8 树「resolved」假确认；9 登录号分箱 ≠ 独立提交；10–13 翻译侧翼、ND/ATP/COX2-3 未进翻译与 BLAST、未评估记录消失、重跑混入旧树。
+**影响**（沙蚕科，缓存命中重算，`recombine_verdict_v2.py`，行单位改为 登录号×基因，故总数不可直接比）：clean 5602→4820、新增 coarse_agree 869、likely_contaminant 4→2、likely_misidentified 20→16、suspect 98→136；OQ729919 不再是 clean。
+
+**第 6 条（异名造成假种级冲突）已修（2026-11-21）：** 声明种若是 NCBI 异名（synonym 表）或旧 taxid（merged 表），先换成接受名及其完整谱系再与 BLAST 共识比较；`blastcheck.csv` 新增列 `synonym`（如 `Nereis diversicolor = Hediste diversicolor`）；一个名字对应多个 taxid 时不解析（保持原样）。测试 `test_accepted_name_resolves_synonym_and_merged_taxid`。
+**局限：** 只认 NCBI 的异名。沙蚕科的 58 条种级冲突（P. beaucoudrayi→cultrifera 等）在 NCBI 里是各自独立的接受种，本修复对它们**没有**改变；这类需要 WoRMS 等外部异名表（可加 `--synonyms` 用户表，待用户决定）。
+
+
+## 2026-11-21: Codex 第 8、13 条（树证据）
+
+- **#8 树“resolved”假确认：** `resolved_tips` 只看有无受支持邻居，不看是否与声明一致，混科或分类问题位置也算 `ok`，进而让 `specimen_check` 断言同一标本另一序列有误。修：邻居须全在本科且至少一个同属，否则 `not judged`。
+- **#13 重跑混入旧树：** `_verdict` 读任何已存在的 `phylo_flags.csv`。修：树输出带序列指纹（`phylo_stamp.json`），不一致或无戳则警告并弃用；旧目录需重跑 `--tree`（或补戳）。
+- **树标记两次运行不一致（同输入、同代码）：** 实测沙蚕科 18 条树标记中 6 条（支持度 0.90–0.91，贴着阈值）在重跑间出现/消失。两个原因：(1) `representatives()` 用 set，序列顺序随 PYTHONHASHSEED 变；(2) MAFFT `--auto` 多线程迭代精修本身不可复现（同输入同线程数两次比对也不同）。修：`representatives` 保持输入顺序；MAFFT 加 `--threadit 0`（不同线程数、不同 hash seed 下比对与树逐字节一致）。教训：贴阈值（≤0.91）的树标记即使可复现也只是边缘证据。
+- 未改：树与 BLAST 来源类群是否一致的比较仍留白。
+
+
+## 2026-11-21: Codex #4（树放置：没有显著性间隔）——实测后不改
+
+**Codex 的担心：** 长枝、未解析的查询挨着受支持的同属支，只要外来近邻的 k-mer 距离略小就保留树标记，没有间隔；真实并系/旁系同源可满足此规则。
+**实测（海蛹科注入基准，`tree.csv` 的 group_distance / own_genus_distance 离线重算）：** 要求 `group_d < m × own_d`，m=1.0/0.9/0.8/0.5：召回（跨科 5/3/3/3，批次 5/4/3/2，其余类别不变）只降不升；基线 297 条里树的唯一标记（OQ417162 *Polyophthalmus pictus* COI 落在 *Armandia*，距离 0.25% vs 本属 22%）是已知真错标，任何 m 都留着。**没有假阳性可被间隔去掉，只会损失真阳性**，所以不加间隔。
+**未做：** 放置稳定性（换建树方法/重采样看同属归位是否一致，iqtree3 备选树当前失败）、同源重叠与 patristic 比。基准只有一个科的 COI，换科或标记再测（Nereididae、16S、合法并系对照）后再定。
+
+
+## 2026-11-22: BLAST 只给“无近缘参考”时的判断（LCA + 数据集内比对）
+
+- **现象：** 海蛹科 *Polyophthalmus* 的 COI（PP652280/82/83、PX640826–29 等）在外部库里最佳命中只有 76–81%（藤壶 *Verruca*、乌贼、螺 *Phymorhynchus*），LCA 落在门或 `mixed`。
+- **第一版错误：** 只看 LCA 落在哪一级就标 CHECK，没看相似度，把“库里没有近缘参考”当成“BLAST 指出异源”。修：LCA 的门 / `mixed` 只在最佳命中 ≥85% 时标 CHECK（与 `DISTANT` 一致）。
+- **证据（不是污染）：** 这些序列翻译无终止密码子（无脊椎线粒体密码表）；建树嵌在同属 *Polyophthalmus* 序列中，根到尖端距离约 1.0（全树中位 0.89）；同一支的 PZ235364 命中 *Polychaeta* sp. 79.6%。
+- **改进：** 新增数据集内 BLAST（每个基因的序列自己建库、去掉自身命中），`ds_*` 列。Opheliidae 上这几条在数据集里都有 99–100% 的同属记录，`ds_family_conflict` 为 0。
+- **仍未解决：** 一个类群所有记录都不在外部库、数据集里也只有它自己（单条序列的属）时，两层都无证据，只能靠建树和人工；PP652283 所在大支支持值只有 0.46。
