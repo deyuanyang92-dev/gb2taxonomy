@@ -220,7 +220,7 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         ok_margin = res.other_best - res.own_best >= MARGIN
         ok_units = len(foreign) >= 2 or res.same_batch_hit
         if res.conflict_rank in ("phylum", "class") and res.best_pident < DISTANT:
-            res.note = "distant_hit_only: best hit below %.0f%%, a new lineage cannot be told from a stranger" % DISTANT
+            res.note = f"distant_hit_only: best hit below {DISTANT:.0f}%, a new lineage cannot be told from a stranger"
             res.conflict_rank = ""
         elif not (ok_margin and ok_units):
             res.note = "discordant but not independent / not clearly better than declared taxon"
