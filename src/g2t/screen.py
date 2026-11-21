@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import logging
 import re
 import sys
@@ -407,7 +408,16 @@ def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
     tree = None
     pf = d / "phylo" / "phylo_flags.csv"
     if pf.exists():
-        tree = pd.read_csv(pf, dtype=str, keep_default_na=False)
+        stamp = d / "phylo" / "phylo_stamp.json"
+        try:
+            fp = json.loads(stamp.read_text()).get("fingerprint")
+        except (OSError, ValueError):
+            fp = None
+        if fp == phylo.study_fingerprint(a.input, a.g2t):
+            tree = pd.read_csv(pf, dtype=str, keep_default_na=False)
+        else:
+            print("WARNING: organized_genes/phylo/phylo_flags.csv is stale or unstamped (sequences changed or "
+                  "made by an older g2t): tree evidence NOT used; rerun with --tree")
     blast = None
     if do_blast:
         if not a.blast_db:
@@ -424,7 +434,10 @@ def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
     trans.to_csv(d / "translation_flags.csv", index=False)
     v = verdict.combine(kmer=kmer, tree=tree, blast=blast, trans=trans)
     v.to_csv(d / "verdict.csv", index=False)
-    print(f"\nverdict: {v.verdict.value_counts().to_dict()}; {d}/verdict.csv")
+    layers = [n for n, x in (("kmer", kmer), ("tree", tree), ("blast", blast), ("translation", trans))
+              if x is not None]
+    print(f"\nverdict layers used: {', '.join(layers)}")
+    print(f"verdict: {v.verdict.value_counts().to_dict()}; {d}/verdict.csv")
 
 
 if __name__ == "__main__":

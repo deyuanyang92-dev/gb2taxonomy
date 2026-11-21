@@ -245,3 +245,10 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 
 **第 6 条（异名造成假种级冲突）已修（2026-11-21）：** 声明种若是 NCBI 异名（synonym 表）或旧 taxid（merged 表），先换成接受名及其完整谱系再与 BLAST 共识比较；`blastcheck.csv` 新增列 `synonym`（如 `Nereis diversicolor = Hediste diversicolor`）；一个名字对应多个 taxid 时不解析（保持原样）。测试 `test_accepted_name_resolves_synonym_and_merged_taxid`。
 **局限：** 只认 NCBI 的异名。沙蚕科的 58 条种级冲突（P. beaucoudrayi→cultrifera 等）在 NCBI 里是各自独立的接受种，本修复对它们**没有**改变；这类需要 WoRMS 等外部异名表（可加 `--synonyms` 用户表，待用户决定）。
+
+
+## 2026-11-21: Codex 第 8、13 条（树证据）
+
+- **#8 树“resolved”假确认：** `resolved_tips` 只看有无受支持邻居，不看是否与声明一致，混科或分类问题位置也算 `ok`，进而让 `specimen_check` 断言同一标本另一序列有误。修：邻居须全在本科且至少一个同属，否则 `not judged`。
+- **#13 重跑混入旧树：** `_verdict` 读任何已存在的 `phylo_flags.csv`。修：树输出带序列指纹（`phylo_stamp.json`），不一致或无戳则警告并弃用；旧目录需重跑 `--tree`（或补戳）。
+- 未改：树与 BLAST 来源类群是否一致的比较仍留白。

@@ -35,6 +35,7 @@ OQ417162 "Polyophthalmus pictus" COI in Armandia (1.00). See docs/evaluation/phy
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -231,12 +232,25 @@ def neighbours(i: int, n: int, parts: list[tuple[int, float]], usable: int, supp
 
 def resolved_tips(tips: list[Tip], parts: list[tuple[int, float]], cover: dict[str, float],
                   support: float = 0.9, min_cover: float = 0.5) -> set[str]:
-    """Study tips whose position the tree settles (a supported split with >= 2 usable others). A tip that is
-    covered but unresolved is *not judged*: it is no positive evidence for specimen_check."""
+    """Study tips whose position the tree settles *and agrees with their name* (a supported split with >= 2
+    usable others, all of the tip's family, >= 1 of its genus). Anything else is *not judged*: it is no
+    positive evidence for specimen_check."""
     n = len(tips)
     usable = sum(1 << i for i, t in enumerate(tips) if cover.get(t.name, 0) >= min_cover)
-    return {t.name for i, t in enumerate(tips)
-            if t.study and usable >> i & 1 and neighbours(i, n, parts, usable, support)[0]}
+    ok = set()
+    for i, t in enumerate(tips):
+        if not (t.study and usable >> i & 1):
+            continue
+        others = neighbours(i, n, parts, usable, support)[0]
+        if not others:
+            continue
+        nb = [tips[j] for j in range(n) if others >> j & 1]
+        # positive evidence only when the neighbourhood agrees with the name: every neighbour in the same
+        # family and at least one in the same genus (a mixed or foreign neighbourhood, a taxon question or
+        # a lone genus is not confirmation; Codex review 2026-11-21 #8)
+        if t.genus and all(x.family == t.family for x in nb) and any(x.genus == t.genus for x in nb):
+            ok.add(t.name)
+    return ok
 
 
 @dataclass
@@ -342,6 +356,18 @@ def marker_sets(inputs: Iterable[str], g2t_dir: str | Path, study: bool,
             if gene in MARKERS:
                 out.setdefault(gene, {})[acc] = (s, tip(rows[acc.split(".")[0]], acc))
     return out
+
+
+def study_fingerprint(inputs: Iterable[str], g2t_dir: str | Path) -> str:
+    """Hash of the study sequences (gene, accession.version, sequence): a tree result is reusable only for the
+    same sequences. Lets a later verdict run reject stale trees (Codex review 2026-11-21 #13)."""
+    import hashlib
+
+    h = hashlib.sha1()
+    for gene, e in sorted(marker_sets(inputs, g2t_dir, True, "").items()):
+        for acc, (seq, _t) in sorted(e.items()):
+            h.update(f"{gene}\t{acc}\t{hashlib.sha1(seq.encode()).hexdigest()}\n".encode())
+    return h.hexdigest()
 
 
 def sample(entries: dict[str, tuple[str, Tip]], per_family: int) -> dict[str, tuple[str, Tip]]:
@@ -589,6 +615,9 @@ def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[
     flags = specimen_check(pd.DataFrame(rows, columns=cols), judged,
                            Path(g2t_dir) / "organized_genes" / "organized_species_voucher.csv")
     flags.to_csv(out / "phylo_flags.csv", index=False)
+    (out / "phylo_stamp.json").write_text(json.dumps(
+        {"fingerprint": study_fingerprint(inputs, g2t_dir), "support": support, "iqtree": iqtree,
+         "tree_tool": tools.tree_kind}))
     tn = pd.DataFrame(notes, columns=["gene", "genus", "organism", "accession", "level", "where", "why", "support",
                                       "group_distance"])
     tn.to_csv(out / "phylo_taxon_notes.csv", index=False)

@@ -162,3 +162,20 @@ def test_build_tree_end_to_end(tmp_path):
 def test_find_tool_missing():
     assert ph.find_tool("no-such-program-g2t") is None
     assert importlib.util.find_spec("Bio.Phylo") is not None
+
+
+def test_resolved_needs_neighbourhood_that_agrees_with_name():
+    # P1's supported neighbours are another family: settled, but it contradicts the name -> not confirmation
+    names = ["P1", "P2", "O1", "O2", "O3"]
+    tips = [Tip("P1", "x", "G", "Opheliidae", True), Tip("P2", "x", "H", "Opheliidae", True)] + \
+           [Tip(n, "y", "K", "Other", False) for n in names[2:]]
+    cover = dict.fromkeys(names, 1.0)
+    parts = [(0b00111, 1.0)]  # P1, P2, O1 | O2, O3 ... P1's small side holds foreign O1
+    assert "P1" not in ph.resolved_tips(tips, parts, cover)
+
+
+def test_resolved_when_same_genus_neighbours():
+    tips = [Tip(f"P{i}", "x", "G", "Opheliidae", True) for i in range(3)] + \
+           [Tip(f"O{i}", "y", "K", "Other", False) for i in range(3)]
+    cover = {t.name: 1.0 for t in tips}
+    assert {"P0", "P1", "P2"} <= ph.resolved_tips(tips, [(0b000111, 1.0)], cover)
