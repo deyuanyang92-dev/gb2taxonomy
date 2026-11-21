@@ -50,6 +50,9 @@ def _get(url: str, retries: int = 4) -> bytes:
     return b""
 
 
+SEARCH_TTL = 30 * 86400  # Europe PMC search hits are re-queried after 30 days
+
+
 class Cache:
     """JSON file cache so reruns do not query Europe PMC again; written atomically, a damaged file is ignored."""
 
@@ -62,10 +65,14 @@ class Cache:
             except ValueError:
                 print(f"warning: cache {path} is damaged, starting empty")
 
-    def get(self, key: str, fn):
+    def get(self, key: str, fn, ttl: float | None = None):
+        """Cached fn(); with ttl (seconds) an entry older than that is fetched again (search results go stale:
+        a paper may be indexed later)."""
         key = f"{CACHE_VERSION}:{key}" if not key.startswith("x:") else key
-        if key not in self.d:
+        ts = self.d.setdefault("_ts", {})
+        if key not in self.d or (ttl is not None and time.time() - ts.get(key, 0) > ttl):
             self.d[key] = fn()
+            ts[key] = time.time()
             tmp = self.path.with_name(self.path.name + ".tmp")
             tmp.write_text(json.dumps(self.d, ensure_ascii=False))
             os.replace(tmp, self.path)
@@ -127,6 +134,20 @@ def article_sections(xml: str) -> tuple[str, str, bool]:
     return (" ".join(meth), whole, True) if meth else (whole, whole, False)
 
 
+def role_text(xml: str) -> str:
+    """Whole article text for the reports-vs-cited decision: only the reference list is dropped, so deposits stated in
+    back matter (data availability), tables or figure captions are still seen."""
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return article_sections(xml)[1]
+    for parent in root.iter():
+        for ch in list(parent):
+            if ch.tag == "ref-list":
+                parent.remove(ch)
+    return _text(root)
+
+
 def accession_re(acc: str) -> re.Pattern:
     """Exact accession token: AB123456 matches AB123456 / AB123456.1, never AB1234567 or XAB123456."""
     return re.compile(r"(?<![A-Za-z0-9])" + re.escape(acc.split(".")[0]) + r"(?:\.\d+)?(?![A-Za-z0-9])")
@@ -136,7 +157,7 @@ _SENT = re.compile(r"(?<=[.;])\s+(?=[A-Z(])")
 _DEPOSIT = re.compile(r"submitted|deposit|accession (?:no|number)|registered|available (?:in|at|from|under)|GenBank under|"
                       r"under (?:the )?accession|has been (?:uploaded|released)|were? (?:uploaded|released)", re.I)
 _REUSE = re.compile(r"download|retriev|obtain\w* from|taken from|sequences? (?:of|from) (?:other|related)|"
-                    r"outgroup|used in (?:the )?(?:phylogen|analys)|previously|reference sequence|et al", re.I)
+                    r"outgroup|used in (?:the )?(?:phylogen|analys)|reference sequence", re.I)
 
 
 def accession_role(body: str, acc: str) -> tuple[str, str]:
@@ -199,6 +220,23 @@ def ena_runs(runs: list[str], cache: Cache) -> dict[str, dict[str, str]]:
     return {r: cache.d[f"{CACHE_VERSION}:r:{r}"] for r in runs if f"{CACHE_VERSION}:r:{r}" in cache.d}
 
 
+def ena_sample_runs(samples: list[str], cache: Cache) -> list[str]:
+    """Run accessions ENA holds for BioSamples (the specimen the mitogenome came from; a study / BioProject would mix
+    specimens and is not used). Found runs are cached with their instrument fields."""
+    runs: list[str] = []
+    for smp in samples:
+        def fetch(smp=smp):
+            q = urllib.parse.quote(f"sample_accession={smp} OR secondary_sample_accession={smp}")
+            url = (f"{ENA}/search?result=read_run&query={q}&fields=run_accession,instrument_platform,instrument_model,"
+                   "library_strategy&format=tsv&limit=0")
+            lines = _get(url).decode().splitlines()[1:]
+            return [ln.split("\t") + [""] * 4 for ln in lines if ln.strip()]
+        for f in cache.get(f"b:{smp}", fetch, ttl=SEARCH_TTL):
+            cache.get(f"r:{f[0]}", lambda f=f: {"platform": f[1], "model": f[2], "strategy": f[3]})
+            runs.append(f[0])
+    return list(dict.fromkeys(runs))
+
+
 def sra_methods(runs: list[str], cache: Cache) -> dict[str, str]:
     """Sequencing platform of a record from its raw-read runs (instrument fields, no text matching). Only runs whose
     library strategy is positively genomic (WGS / WGA / WXS) count; Hi-C, RNA-seq and ambiguous ones (OTHER, empty)
@@ -226,7 +264,7 @@ def needs_lookup(row: pd.Series) -> bool:
     # a platform already named in the record (COMMENT, Assembly-Data) is not overridden: only unknown or the bare "NGS"
     # category (SRA link without instrument) is looked up in ENA
     no_platform = row.get("seq_category", "") in ("", "Unknown") or (
-        row.get("sra_runs", "") and row.get("seq_category", "") == "NGS" and not row.get("seq_platforms", ""))
+        (row.get("sra_runs", "") or row.get("biosample", "")) and row.get("seq_category", "") == "NGS" and not row.get("seq_platforms", ""))
     return bool(no_platform) or row.get("assembler_group", "") in _MISSING_ASM
 
 
@@ -240,16 +278,22 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
     for _, r in todo.iterrows():
         acc = str(r["accession"])
         base = {"accession": acc, "organism": r.get("organism", "")}
-        if r.get("sra_runs") and r.get("seq_category", "") in ("", "Unknown", "NGS") and not r.get("seq_platforms", ""):
+        if (r.get("sra_runs") or r.get("biosample")) and r.get("seq_category", "") in ("", "Unknown", "NGS") \
+                and not r.get("seq_platforms", ""):
             try:
-                base.update(sra_methods(r["sra_runs"].split("; "), cache))
+                runs = r["sra_runs"].split("; ") if r.get("sra_runs") else []
+                via = "ENA read_run instrument fields"
+                if not runs:
+                    runs = ena_sample_runs(r["biosample"].split("; "), cache)
+                    via = "ENA read_run of the record's BioSample"
+                if runs:
+                    base.update(sra_methods(runs, cache))
                 if base.get("sra_seq_platforms"):
-                    base["method_source"] = "ENA read_run instrument fields" + (
-                        "" if base.get("sra_complete") == "yes" else " (partial run set)")
+                    base["method_source"] = via + ("" if base.get("sra_complete") == "yes" else " (partial run set)")
             except Exception as e:
                 base["sra_note"] = f"ENA read_run failed: {e}"
         try:
-            hits = cache.get("s:" + acc, lambda a=acc: search_accession(a))
+            hits = cache.get("s:" + acc, lambda a=acc: search_accession(a), ttl=SEARCH_TTL)
         except Exception as e:  # network failure must not stop the batch
             rows.append({**base, "lit_note": f"search failed: {e}"})
             continue
@@ -263,13 +307,13 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                        f"https://doi.org/{h['doi']}" if h["doi"] else "",
                        f"https://pubmed.ncbi.nlm.nih.gov/{h['pmid']}/" if h["pmid"] else "",
                        f"https://europepmc.org/article/MED/{h['pmid']}" if h["pmid"] else "",
-                       f"https://api.unpaywall.org/v2/{h['doi']}?email=YOUR_EMAIL" if h["doi"] else "") if x),
+                       ) if x),
                    "lit_note": "paper listed; full text not open access"}
             if h["pmcid"]:
                 try:
                     xml = cache.get("x:" + h["pmcid"], lambda p=h["pmcid"]: fetch_xml(p))
                     meth, whole, found = article_sections(xml)
-                    role, ev = accession_role(whole, acc)
+                    role, ev = accession_role(role_text(xml), acc)
                     row["lit_role"], row["lit_accession_sentence"] = role, ev
                     if role == "reports":
                         row.update(parse_methods(meth, mito_paper=bool(re.search("mito", h["title"], re.I))))

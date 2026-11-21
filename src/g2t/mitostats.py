@@ -184,6 +184,14 @@ def sra_runs(dbxrefs: Iterable[str], comment: str = "") -> list[str]:
     return list(dict.fromkeys(found))
 
 
+_BIOSAMPLE = re.compile(r"\bSAM[NED]A?\d+\b")
+
+
+def biosamples(dbxrefs: Iterable[str]) -> list[str]:
+    """BioSample accessions from DBLINK ("BioSample:SAMEA123"); g2t-litmethods asks ENA for that specimen's reads."""
+    return list(dict.fromkeys(_BIOSAMPLE.findall(" ".join(str(x) for x in dbxrefs))))
+
+
 def mapping_tools(raw: str) -> bool:
     """Does the Assembly Method name a reference-mapping / consensus-calling tool (BWA, MIA, GATK ...)?"""
     rx = _rules()["mapping"]
@@ -377,6 +385,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "assembler_basis": asm_basis,
         "assembler_group": assembler_group(names, other, mapping_tools(am_raw), no_info=not asm),
         "assembly_other": "; ".join(other),
+        "biosample": "; ".join(biosamples(rec.dbxrefs)),
         "sra_runs": "; ".join(sra_runs(rec.dbxrefs, str(rec.annotations.get("comment", "")))),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),

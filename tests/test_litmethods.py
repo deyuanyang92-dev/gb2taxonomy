@@ -79,3 +79,14 @@ def test_sra_partial_and_ambiguous(tmp_path, monkeypatch):
     assert f"{lm.CACHE_VERSION}:r:ERR9" not in c.d  # unknown runs are asked again next time
     row = {"seq_category": "Long-read", "seq_platforms": "", "sra_runs": "ERR1", "assembler_group": "OATK"}
     assert not lm.needs_lookup(row)  # platform named in COMMENT is not overridden
+
+
+def test_biosample_runs_via_ena(tmp_path, monkeypatch):
+    from g2t import mitostats as ms2
+    assert ms2.biosamples(["BioProject:PRJEB1", "BioSample:SAMEA112947850"]) == ["SAMEA112947850"]
+    monkeypatch.setattr(lm, "_get", lambda url: b"run_accession\tinstrument_platform\tinstrument_model\tlibrary_strategy\n"
+                        b"ERR1\tILLUMINA\tIllumina NovaSeq 6000\tWGS\n")
+    cache = lm.Cache(tmp_path / "c.json")
+    runs = lm.ena_sample_runs(["SAMEA112947850"], cache)
+    assert runs == ["ERR1"]
+    assert lm.sra_methods(runs, cache)["sra_seq_platforms"] == "Illumina"
