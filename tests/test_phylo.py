@@ -185,3 +185,18 @@ def test_representatives_keep_input_order():
     entries = {f"A{i:03d}": ("ACGT" * (i + 1), Tip(f"A{i:03d}", f"sp{i}", "G", "F", True)) for i in range(50)}
     out = ph.representatives(entries, cap=10, keep=set())
     assert list(out) == list(entries)
+
+
+def test_support_scale_is_per_tree_not_per_node():
+    # IQ-TREE UFBoot is 0-100: a node with 1 means 1 %, not 1.0
+    names, parts = ph.splits("((a:1,b:1)1:1,(c:1,d:1)99:1,e:1);")
+    assert sorted(s for _, s in parts) == [0.01, 0.99]
+    names, parts = ph.splits("((a:1,b:1)0.3:1,(c:1,d:1)0.99:1,e:1);")
+    assert sorted(s for _, s in parts) == [0.3, 0.99]
+
+
+def test_resolve_support_defaults_by_tool():
+    assert ph.resolve_support(None, "fasttree") == 0.90
+    assert ph.resolve_support(None, "iqtree") == 0.95
+    assert ph.resolve_support(95, "fasttree") == 0.95
+    assert ph.resolve_support(0.8, "iqtree") == 0.8

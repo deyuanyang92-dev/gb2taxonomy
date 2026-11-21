@@ -367,7 +367,8 @@ def main(argv: list[str] | None = None) -> int:
     t_.add_argument("--background", help="related families, comma separated (default: chosen from NCBI Taxonomy)")
     t_.add_argument("--background-n", type=int, default=6, help="number of related families (default 6)")
     t_.add_argument("--iqtree", action="store_true", help="IQ-TREE with 1,000 ultrafast bootstraps (slower)")
-    t_.add_argument("--support", type=float, default=0.9, help="branch support needed (default 0.9)")
+    t_.add_argument("--support", type=float, default=None,
+                    help="branch support needed, 0-1 or percent (default: 0.90 FastTree, 0.95 IQ-TREE UFBoot)")
     b_ = p.add_argument_group("BLAST consensus + translation check + unified verdict.csv")
     b_.add_argument("--blast", action="store_true", help="BLAST every marker, compare the consensus with the name")
     b_.add_argument("--blast-db", metavar="DB", help="nucleotide BLAST database with taxids (e.g. metazoa_marker)")

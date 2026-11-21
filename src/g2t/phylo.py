@@ -192,6 +192,16 @@ def build_tree(seqs: dict[str, str], tools: Tools, work: Path, threads: int = 0,
 # ------------------------------------------------------------------ splits and decisions
 
 
+SUPPORT_DEFAULT = {"fasttree": 0.90, "iqtree": 0.95}  # FastTree local support >= 0.9; IQ-TREE UFBoot >= 95 (convention)
+
+
+def resolve_support(support: float | None, tree_kind: str) -> float:
+    """Support threshold on a 0-1 scale: the tool's usual default when unset; a value above 1 is a percentage."""
+    if support is None:
+        return SUPPORT_DEFAULT.get(tree_kind, 0.9)
+    return support / 100 if support > 1 else support
+
+
 def splits(newick: str) -> tuple[list[str], list[tuple[int, float]]]:
     """Tip names and the tree's splits as (bitmask of tips on one side, support 0-1)."""
     from io import StringIO
@@ -201,15 +211,16 @@ def splits(newick: str) -> tuple[list[str], list[tuple[int, float]]]:
     tree = Phylo.read(StringIO(newick), "newick")
     tips = [c.name for c in tree.get_terminals()]
     idx = {n: i for i, n in enumerate(tips)}
+    inner = [c for c in tree.get_nonterminals() if c is not tree.root]
+    # one scale for the whole tree: FastTree gives 0-1, IQ-TREE UFBoot 0-100. Judging per node would read a
+    # UFBoot of 1 (%) as 1.0 = perfect support.
+    scale = 100.0 if max((c.confidence or 0.0 for c in inner), default=0.0) > 1 else 1.0
     out = []
-    for cl in tree.get_nonterminals():
-        if cl is tree.root:
-            continue
+    for cl in inner:
         mask = 0
         for t in cl.get_terminals():
             mask |= 1 << idx[t.name]
-        sup = cl.confidence if cl.confidence is not None else 0.0
-        out.append((mask, sup / 100 if sup > 1 else sup))
+        out.append((mask, (cl.confidence if cl.confidence is not None else 0.0) / scale))
     return tips, out
 
 
@@ -554,10 +565,11 @@ def specimen_check(flags: pd.DataFrame, judged: dict[str, str], matrix: Path) ->
 
 def phylo_screen(inputs: list[str], g2t_dir: str | Path, background: list[tuple[list[str], str]],
                  family: str = "", markers: Iterable[str] = MARKERS, out_dir: str | Path | None = None,
-                 iqtree: bool = False, threads: int = 0, support: float = 0.9, min_cover: float = 0.5,
+                 iqtree: bool = False, threads: int = 0, support: float | None = None, min_cover: float = 0.5,
                  cap: int = 800, bg_per_family: int = 12) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Record flags and taxon notes for every marker with background sequences."""
     tools = Tools.find(iqtree)
+    support = resolve_support(support, tools.tree_kind)
     family = family or study_family(g2t_dir)
     study = marker_sets(inputs, g2t_dir, True, family)
     bg: dict[str, dict[str, tuple[str, Tip]]] = {}
