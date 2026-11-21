@@ -174,6 +174,16 @@ def assemblers_from_comment(comment: str) -> list[str]:
     return names
 
 
+_RUN = re.compile(r"\b[SED]RR\d{6,}\b")
+
+
+def sra_runs(dbxrefs: Iterable[str], comment: str = "") -> list[str]:
+    """Run accessions behind a record: DBLINK "Sequence Read Archive:ERR1, ERR2,\\n ERR3" (wrapped lines arrive as
+    separate dbxrefs) and runs quoted in the COMMENT. Used by g2t-litmethods to ask ENA for the instrument."""
+    found = _RUN.findall(" ".join(str(x) for x in dbxrefs) + " " + (comment or ""))
+    return list(dict.fromkeys(found))
+
+
 def mapping_tools(raw: str) -> bool:
     """Does the Assembly Method name a reference-mapping / consensus-calling tool (BWA, MIA, GATK ...)?"""
     rx = _rules()["mapping"]
@@ -366,6 +376,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "assembler_basis": asm_basis,
         "assembler_group": assembler_group(names, other, mapping_tools(am_raw), no_info=not asm),
         "assembly_other": "; ".join(other),
+        "sra_runs": "; ".join(sra_runs(rec.dbxrefs, str(rec.annotations.get("comment", "")))),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),
         **pub,

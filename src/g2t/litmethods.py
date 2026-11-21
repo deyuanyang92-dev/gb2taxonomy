@@ -29,6 +29,7 @@ EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 _MISSING_ASM = {ms.NOT_STATED, "No assembly info in record"}
 CACHE_VERSION = "v2"  # bump when extraction rules change; raw XML stays cached, parsing reruns every time
 MAX_HITS = 100
+ENA = "https://www.ebi.ac.uk/ena/portal/api"
 
 
 def _get(url: str, retries: int = 4) -> bytes:
@@ -175,8 +176,49 @@ def parse_methods(text: str, mito_paper: bool = True) -> dict[str, str]:
     }
 
 
+_NOT_GENOMIC = {"hi-c", "rna-seq", "atac-seq", "chip-seq", "mirna-seq", "bisulfite-seq", "ssrna-seq", "est"}
+_PLATFORM_WORD = {"PACBIO_SMRT": "PacBio", "OXFORD_NANOPORE": "Nanopore", "LS454": "454", "ION_TORRENT": "Ion Torrent"}
+
+
+def ena_runs(runs: list[str], cache: Cache) -> dict[str, dict[str, str]]:
+    """ENA read_run metadata (instrument platform / model, library strategy) for run accessions; INSDC mirrors
+    NCBI SRA runs (SRR/DRR) too. Queried 50 at a time and cached per run."""
+    todo = [r for r in runs if f"{CACHE_VERSION}:r:{r}" not in cache.d]
+    for i in range(0, len(todo), 50):
+        part = todo[i:i + 50]
+        q = urllib.parse.quote(" OR ".join(f"run_accession={r}" for r in part))
+        url = (f"{ENA}/search?result=read_run&query={q}&fields=run_accession,instrument_platform,instrument_model,"
+               "library_strategy&format=tsv&limit=0")
+        got: dict[str, dict[str, str]] = {}
+        for line in _get(url).decode().splitlines()[1:]:
+            f = line.split("\t") + [""] * 4
+            got[f[0]] = {"platform": f[1], "model": f[2], "strategy": f[3]}
+        for r in part:  # runs ENA does not know are cached as empty, so they are not asked again
+            cache.get(f"r:{r}", lambda r=r: got.get(r, {}))
+    return {r: cache.d.get(f"{CACHE_VERSION}:r:{r}", {}) for r in runs}
+
+
+def sra_methods(runs: list[str], cache: Cache) -> dict[str, str]:
+    """Sequencing platform of a record from its raw-read runs (instrument fields, no text matching). Hi-C / RNA-seq
+    runs of the same project are ignored unless they are all there is."""
+    meta = {r: m for r, m in ena_runs(runs, cache).items() if m}
+    if not meta:
+        return {}
+    genomic = {r: m for r, m in meta.items() if m["strategy"].lower() not in _NOT_GENOMIC} or meta
+    text = " ".join(f"{_PLATFORM_WORD.get(m['platform'], m['platform'])} {m['model']}" for m in genomic.values())
+    plats = ms.sequencing_platforms(text)
+    models = sorted({m["model"] for m in genomic.values() if m["model"]})
+    return {
+        "sra_seq_category": ms.sequencing_category(text) if plats else "",
+        "sra_seq_platforms": "; ".join(plats),
+        "sra_instruments": "; ".join(models),
+        "sra_strategies": "; ".join(sorted({m["strategy"] for m in meta.values() if m["strategy"]})),
+    }
+
+
 def needs_lookup(row: pd.Series) -> bool:
-    return row.get("seq_category", "") in ("", "Unknown") or row.get("assembler_group", "") in _MISSING_ASM
+    no_platform = row.get("seq_category", "") in ("", "Unknown") or (row.get("sra_runs", "") and not row.get("seq_platforms", ""))
+    return bool(no_platform) or row.get("assembler_group", "") in _MISSING_ASM
 
 
 def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, delay: float = 0.3) -> pd.DataFrame:
@@ -188,17 +230,25 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
     rows = []
     for _, r in todo.iterrows():
         acc = str(r["accession"])
+        base = {"accession": acc, "organism": r.get("organism", "")}
+        if r.get("sra_runs") and not r.get("seq_platforms", ""):
+            try:
+                base.update(sra_methods(r["sra_runs"].split("; "), cache))
+                if base.get("sra_seq_platforms"):
+                    base["method_source"] = "ENA read_run instrument fields"
+            except Exception as e:
+                base["sra_note"] = f"ENA read_run failed: {e}"
         try:
             hits = cache.get("s:" + acc, lambda a=acc: search_accession(a))
         except Exception as e:  # network failure must not stop the batch
-            rows.append({"accession": acc, "organism": r.get("organism", ""), "lit_note": f"search failed: {e}"})
+            rows.append({**base, "lit_note": f"search failed: {e}"})
             continue
         time.sleep(delay)
         if not hits:
-            rows.append({"accession": acc, "organism": r.get("organism", ""), "lit_note": "no article mentions it"})
+            rows.append({**base, "lit_note": "no article mentions it"})
             continue
         for h in hits:
-            row = {"accession": acc, "organism": r.get("organism", ""), **{f"lit_{k}": v for k, v in h.items()},
+            row = {**base, **{f"lit_{k}": v for k, v in h.items()},
                    "lit_note": "paper listed; full text not open access"}
             if h["pmcid"]:
                 try:
@@ -208,6 +258,7 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                     row["lit_role"], row["lit_accession_sentence"] = role, ev
                     if role == "reports":
                         row.update(parse_methods(meth, mito_paper=bool(re.search("mito", h["title"], re.I))))
+                        row["method_source"] = row.get("method_source") or "literature Methods (Europe PMC)"
                         row["lit_note"] = ("parsed from Methods section" if found else
                                            "no Methods section found, whole text parsed") + "; confirm by hand"
                     else:

@@ -50,3 +50,16 @@ def test_damaged_cache_is_ignored(tmp_path):
     p.write_text("{broken")
     c = lm.Cache(p)
     assert c.get("k", lambda: 1) == 1 and json.loads(p.read_text())
+
+
+def test_sra_runs_and_instrument_platform(tmp_path, monkeypatch):
+    from g2t import litmethods as lm
+    from g2t import mitostats as ms
+
+    runs = ms.sra_runs(["BioProject:PRJEB1", "Sequence Read Archive:ERR1000001, ERR1000002,", "ERR1000003"], "reads SRR123456")
+    assert runs == ["ERR1000001", "ERR1000002", "ERR1000003", "SRR123456"]
+    tsv = ("run_accession\tinstrument_platform\tinstrument_model\tlibrary_strategy\n"
+           "ERR1000001\tPACBIO_SMRT\tRevio\tWGS\nERR1000002\tILLUMINA\tIllumina NovaSeq 6000\tHi-C\n")
+    monkeypatch.setattr(lm, "_get", lambda url: tsv.encode())
+    got = lm.sra_methods(["ERR1000001", "ERR1000002"], lm.Cache(tmp_path / "c.json"))
+    assert got["sra_seq_platforms"] == "PacBio" and got["sra_seq_category"] == "Long-read"  # Hi-C run ignored
