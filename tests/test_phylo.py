@@ -179,3 +179,9 @@ def test_resolved_when_same_genus_neighbours():
            [Tip(f"O{i}", "y", "K", "Other", False) for i in range(3)]
     cover = {t.name: 1.0 for t in tips}
     assert {"P0", "P1", "P2"} <= ph.resolved_tips(tips, [(0b000111, 1.0)], cover)
+
+
+def test_representatives_keep_input_order():
+    entries = {f"A{i:03d}": ("ACGT" * (i + 1), Tip(f"A{i:03d}", f"sp{i}", "G", "F", True)) for i in range(50)}
+    out = ph.representatives(entries, cap=10, keep=set())
+    assert list(out) == list(entries)

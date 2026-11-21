@@ -395,7 +395,7 @@ def representatives(entries: dict[str, tuple[str, Tip]], cap: int, keep: set[str
         if t.organism not in best or len(s) > len(entries[best[t.organism]][0]):
             best[t.organism] = acc
     chosen = set(best.values()) | (keep & set(entries))
-    return {a: entries[a] for a in chosen}
+    return {a: entries[a] for a in entries if a in chosen}  # input order: a set order would change the tree
 
 
 def intermixed_genera(rows: list[dict], notes: list[dict]) -> tuple[list[dict], list[dict]]:
