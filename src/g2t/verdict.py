@@ -14,9 +14,10 @@ Independence: the tree flag already requires a k-mer distance check, so k-mer an
 ('intrinsic': the record against the rest of the dataset); BLAST against the reference database is the other
 ('reference'). Two families are needed to escalate, and they must say the same kind of thing: both 'another family /
 phylum' -> likely_contaminant; both 'another genus / species' -> likely_misidentified; one far and one near
--> suspect (reason layers_disagree). ``strict=False`` restores the older count of method names.
+-> likely_misidentified (reason layers_disagree: the name is wrong either way; 0 of 297 baseline
+records, 23 of 23 in injections, benchmark 2026-11-21). ``strict=False`` restores the older count of method names.
 
-Classes: likely_contaminant, likely_misidentified, numt_suspect, suspect (one family, or disagreeing families),
+Classes: likely_contaminant, likely_misidentified, numt_suspect, suspect (one family),
 clean (no flag and BLAST confirms the declared name at the finest rank the record declares and the marker can
 resolve), coarse_agree (BLAST agrees only at a coarser rank, e.g. family while a species is declared; see
 confirmed_rank), unchecked (no positive evidence).
@@ -142,7 +143,7 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
             elif not far_f:
                 v = "likely_misidentified"
             else:
-                v = "suspect"
+                v = "likely_misidentified"  # both families say the name is wrong; they differ only in how far
                 reasons.append("layers_disagree: one says another family, the other another genus / species")
         elif fams or ev.weak:
             v = "suspect"

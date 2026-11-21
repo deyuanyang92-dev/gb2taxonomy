@@ -49,7 +49,7 @@ def test_kmer_and_tree_are_one_family():
 def test_far_tree_vs_near_blast_disagree():
     v = combine(tree=_df(accession="A.1", gene="coi", organism="x", flag="outside_family"),
                 blast=_df(accession="A.1", gene="coi", conflict_rank="species", gate="actionable"))
-    assert v.verdict.tolist() == ["suspect"]
+    assert v.verdict.tolist() == ["likely_misidentified"]
     assert "layers_disagree" in v.reasons[0]
 
 

@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- **两族一致但远近不同（layers_disagree）升 `likely_misidentified`：** 一族说“另一科”、另一族说“另一属/种”，名称错是确定的，只是不知多远。海蛹科注入基准（297 条、每类 30）：基线 0 条、注入 23 条（跨科 7、标签互换 11、批次 5）出现该情形，无一假阳性，故由 `suspect` 升为 `likely_misidentified`（去向不一致检查仍先于它）。
+
 - **Codex 评审（deep）采纳项：** ① `verdict`：两个证据族都说“名称错”但去向属不同（k-mer/树的最近属 vs BLAST 共识属）时不再升 `likely_misidentified`，改 `suspect` 并写 `destinations_disagree`。② BLAST 共识：属级投票的分母含只有科名的命中（1 个有属名 + 9 个仅科名不再给出属共识）；种级仅 1 个有名命中而其余为开放名（`sp. X`）时只能报冲突、不能确认名称（`species_thin`，`clean` → `coarse_agree`）。③ 声明类群在命中中完全缺席、只靠 1 条外来近缘参考的冲突标 `weak`，只记 `suspect`、不参与升级（缺参考 ≠ 反对声明名）。④ 无 BLAST 命中的序列写入 `blastcheck.csv`（`gate=no_hit`），verdict 为 `unchecked` 而不是从表里消失。海蛹科离线重算：clean 4819→4735（84 条降为 coarse_agree），likely_misidentified 15→9（6 条降为 suspect），其余不变；论文已知错误 KC833485/6、LC788351 仍为 suspect。
 
 - **支持度不再写死：** `--support` 默认按建树工具取值（FastTree 局部支持 0.90；IQ-TREE UFBoot 0.95），也可手填（0–1 或百分数，如 `95`）。刻度按整棵树判断（最大值 >1 即百分制），不再逐节点猜——此前 UFBoot 的 1(%) 会被当成 1.0 即满分。
