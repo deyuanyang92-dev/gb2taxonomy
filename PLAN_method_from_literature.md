@@ -16,5 +16,5 @@
 - 正则对 Ray / IVA 等需要锚定的规则会漏掉散文式提法。
 
 ## 待做
-- 报告 HTML 按 `method_source` 筛选；mitostats 表本身加 `method_source`。
-- 非开放获取论文输出手动查找链接。
+- 报告 HTML 按 `method_source` 筛选（表里已有 `method_source` 列；非开放获取论文已输出 `lit_links`）。
+

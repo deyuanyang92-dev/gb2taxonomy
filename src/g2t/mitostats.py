@@ -371,6 +371,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "seq_platforms": "; ".join(sequencing_platforms(st_raw)),
         "seq_category": category,
         "seq_basis": basis,
+        "method_source": "GenBank record (COMMENT / DBLINK)" if basis else "",
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
         "assembler_basis": asm_basis,

@@ -249,6 +249,11 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
             continue
         for h in hits:
             row = {**base, **{f"lit_{k}": v for k, v in h.items()},
+                   "lit_links": "; ".join(x for x in (
+                       f"https://doi.org/{h['doi']}" if h["doi"] else "",
+                       f"https://pubmed.ncbi.nlm.nih.gov/{h['pmid']}/" if h["pmid"] else "",
+                       f"https://europepmc.org/article/MED/{h['pmid']}" if h["pmid"] else "",
+                       f"https://api.unpaywall.org/v2/{h['doi']}?email=YOUR_EMAIL" if h["doi"] else "") if x),
                    "lit_note": "paper listed; full text not open access"}
             if h["pmcid"]:
                 try:
