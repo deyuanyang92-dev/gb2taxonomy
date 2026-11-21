@@ -179,7 +179,7 @@ def test_table_from_header_records(tmp_path):
     assert r["assemblers"] == "MitoZ; NOVOPlasty" and r["journal"] == "Mitochondrial DNA B Resour"
     assert r["year"] == 2020
     r2 = t.iloc[1]
-    assert r2["assembler_group"] == "Not stated"  # no Assembly-Data block, but a free-text comment
+    assert r2["assembler_group"] == "No assembly info in record"  # no block, comment names no assembler
     assert (r2["seq_category"], r2["seq_basis"]) == ("Sanger", "free-text COMMENT names the platform")
 
 
@@ -332,3 +332,11 @@ def test_assembler_from_free_text_comment_mito_sentence_only():
     assert ms.assemblers_from_comment(ATLASEA) == ["Oatk"]
     assert ms.assemblers_from_comment("Assembled with Hifiasm. Scaffolded with YaHS.") == []
     assert ms.assemblers_from_comment("") == []
+
+
+def test_group_no_info_vs_not_stated():
+    # an Assembly-Data block without a recognisable program stays "Not stated"; no block at all is "no info"
+    assert ms.assembler_group([], [], False) == "Not stated"
+    assert ms.assembler_group([], [], False, no_info=True) == "No assembly info in record"
+    assert ms.assembler_group([], ["x tool"], False, no_info=True) == "Other"
+    assert ms.assembler_group(["Oatk"], [], False, no_info=True) == "Oatk"

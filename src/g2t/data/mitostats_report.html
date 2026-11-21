@@ -189,7 +189,7 @@ __G2T_PLOTLY__
   R.forEach(r => (r.assemblers ? r.assemblers.split('; ') : []).forEach(a => asmCounts[a] = (asmCounts[a] || 0) + 1));
   $('asm').innerHTML += Object.entries(asmCounts).sort((a, b) => b[1] - a[1])
     .map(([k, v]) => `<option value="${esc(k)}">${esc(k)} (${v})</option>`).join('')
-    + '<option value="__none">Not stated</option>';
+    + '<option value="__none">Not stated / no info</option>';
   $('asm').onchange = e => { S.asm = e.target.value; draw(); };
   $('pub').onchange = e => { S.pub = e.target.value; draw(); };
   $('mode').querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -251,10 +251,11 @@ __G2T_PLOTLY__
       layout({ showlegend: false, margin: { l: 20, r: 20, t: 20, b: 20 },
         annotations: [{ text: `<b>${fmt(F.length)}</b><br>records`, showarrow: false, font: { size: 14, color: css('--ink') } }] }), CFG);
   }
+  const NOINFO = 'No assembly info in record';
   function drawSankey(F) {
     const asmCount = {}; F.forEach(r => asmCount[r.assembler_group] = (asmCount[r.assembler_group] || 0) + 1);
-    const top = Object.entries(asmCount).filter(([k]) => k !== 'Other' && k !== 'Not stated').sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
-    const grp = r => top.includes(r.assembler_group) ? r.assembler_group : (r.assembler_group === 'Not stated' ? 'Not stated' : 'Other');
+    const top = Object.entries(asmCount).filter(([k]) => k !== 'Other' && k !== 'Not stated' && k !== NOINFO).sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
+    const grp = r => top.includes(r.assembler_group) ? r.assembler_group : (['Not stated', NOINFO].includes(r.assembler_group) ? r.assembler_group : 'Other');
     // early years with few records are merged ("≤2013") so their labels stay legible
     const allY = [...new Set(F.map(r => r.year))].sort((a, b) => a - b);
     let cut = null, run = 0;
@@ -262,7 +263,7 @@ __G2T_PLOTLY__
     const yl = y => (cut !== null && y <= cut) ? '≤' + cut : String(y);
     const ys = [...new Set(allY.map(yl))];
     const cs = CATS.filter(c => F.some(r => r.seq_category === c));
-    const as = [...top.filter(a => F.some(r => grp(r) === a)), ...['Other', 'Not stated'].filter(a => F.some(r => grp(r) === a))];
+    const as = [...top.filter(a => F.some(r => grp(r) === a)), ...['Other', 'Not stated', NOINFO].filter(a => F.some(r => grp(r) === a))];
     const nodes = [...ys, ...cs, ...as.map(a => a + ' ')];
     const idx = {}; nodes.forEach((n, i) => idx[n] = i);
     const L = {};

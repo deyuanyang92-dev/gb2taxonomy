@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 CATEGORIES = ["Sanger", "NGS", "Long-read", "Unknown"]
 RANKS = ["phylum", "class", "order", "family", "genus"]
 NOT_STATED = "Not stated"
+NO_INFO = "No assembly info in record"  # no Assembly-Data block and no assembler in the COMMENT
 MULTI = "Multi-assembly"
 OTHER = "Other"
 MAPPING = "Reference mapping"
@@ -179,16 +180,19 @@ def mapping_tools(raw: str) -> bool:
     return bool(rx and rx.search(str(raw or "")))
 
 
-def assembler_group(names: list[str], other: list[str], mapped: bool = False) -> str:
+def assembler_group(names: list[str], other: list[str], mapped: bool = False, no_info: bool = False) -> str:
     """One label per record: the program, "Multi-assembly", "Reference mapping" (only mapping /
-    consensus tools named), "Other" or "Not stated"."""
+    consensus tools named), "Other", "Not stated" (an Assembly-Data block without a recognisable program) or
+    "No assembly info in record" (no Assembly-Data block, nothing in the COMMENT: ``no_info``)."""
     if len(names) > 1:
         return MULTI
     if names:
         return names[0]
     if mapped:
         return MAPPING
-    return OTHER if other else NOT_STATED
+    if other:
+        return OTHER
+    return NO_INFO if no_info else NOT_STATED
 
 
 # ------------------------------------------------------------------ references
@@ -360,7 +364,7 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
         "assembler_basis": asm_basis,
-        "assembler_group": assembler_group(names, other, mapping_tools(am_raw)),
+        "assembler_group": assembler_group(names, other, mapping_tools(am_raw), no_info=not asm),
         "assembly_other": "; ".join(other),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),
@@ -475,8 +479,8 @@ def fig_alluvial(t: pd.DataFrame, out: Path, top_assemblers: int = 15) -> None:
     orders = [
         sorted(d["year"].unique()),
         [c for c in CATEGORIES if c in set(d["seq_category"])],
-        [a for a in d["asm"].value_counts().index if a not in (OTHER, NOT_STATED)]
-        + [a for a in (OTHER, NOT_STATED) if a in set(d["asm"])],
+        [a for a in d["asm"].value_counts().index if a not in (OTHER, NOT_STATED, NO_INFO)]
+        + [a for a in (OTHER, NOT_STATED, NO_INFO) if a in set(d["asm"])],
     ]
     n = len(d)
     gap = n * 0.004
