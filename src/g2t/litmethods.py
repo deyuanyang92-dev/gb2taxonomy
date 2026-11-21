@@ -98,6 +98,14 @@ def search_accession(acc: str) -> list[dict[str, str]]:
     return out
 
 
+def search_pmid(pmid: str) -> list[dict[str, str]]:
+    """The article a record's own REFERENCE ... PUBMED field points to (Europe PMC, resultType lite)."""
+    q = urllib.parse.quote(f"EXT_ID:{pmid} AND SRC:MED")
+    data = json.loads(_get(f"{EPMC}/search?query={q}&format=json&pageSize=5&resultType=lite"))
+    return [{k: str(r.get(k, "")) for k in ("pmid", "pmcid", "doi", "title", "authorString", "journalTitle",
+                                            "pubYear")} for r in data.get("resultList", {}).get("result", [])]
+
+
 def fetch_xml(pmcid: str) -> str:
     return _get(f"{EPMC}/{pmcid}/fullTextXML").decode("utf8", "replace")
 
@@ -298,11 +306,21 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
             rows.append({**base, "lit_note": f"search failed: {e}"})
             continue
         time.sleep(delay)
+        own: set[str] = set()  # papers the record itself cites in its REFERENCE block
+        for pm in [x for x in r.get("pubmed_ids", "").split("; ") if x]:
+            try:
+                for h in cache.get("p:" + pm, lambda pm=pm: search_pmid(pm), ttl=SEARCH_TTL):
+                    own.add(h["pmid"])
+                    if all(h["pmid"] != x["pmid"] for x in hits):
+                        hits = hits + [h]
+            except Exception as e:
+                base["lit_note_pmid"] = f"PubMed id lookup failed: {e}"
         if not hits:
             rows.append({**base, "lit_note": "no article mentions it"})
             continue
         for h in hits:
             row = {**base, **{f"lit_{k}": v for k, v in h.items()},
+                   "lit_via": "record REFERENCE PUBMED" if h["pmid"] in own else "accession in article text",
                    "lit_links": "; ".join(x for x in (
                        f"https://doi.org/{h['doi']}" if h["doi"] else "",
                        f"https://pubmed.ncbi.nlm.nih.gov/{h['pmid']}/" if h["pmid"] else "",
@@ -314,8 +332,10 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                     xml = cache.get("x:" + h["pmcid"], lambda p=h["pmcid"]: fetch_xml(p))
                     meth, whole, found = article_sections(xml)
                     role, ev = accession_role(role_text(xml), acc)
+                    if role == "cited" and not ev and h["pmid"] in own:
+                        role, ev = "record_reference", "paper is the record's own REFERENCE (PUBMED field)"
                     row["lit_role"], row["lit_accession_sentence"] = role, ev
-                    if role == "reports":
+                    if role in ("reports", "record_reference"):
                         row.update(parse_methods(meth, mito_paper=bool(re.search("mito", h["title"], re.I))))
                         row["method_source"] = row.get("method_source") or "literature Methods (Europe PMC)"
                         row["lit_note"] = ("parsed from Methods section" if found else

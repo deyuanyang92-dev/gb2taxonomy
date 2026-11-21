@@ -90,3 +90,14 @@ def test_biosample_runs_via_ena(tmp_path, monkeypatch):
     runs = lm.ena_sample_runs(["SAMEA112947850"], cache)
     assert runs == ["ERR1"]
     assert lm.sra_methods(runs, cache)["sra_seq_platforms"] == "Illumina"
+
+
+def test_record_pubmed_ids_column():
+    from Bio.SeqRecord import SeqRecord
+    from Bio.Seq import Seq
+    from Bio.SeqFeature import Reference
+    rec = SeqRecord(Seq("ACGT"), id="X1.1")
+    ref = Reference()
+    ref.pubmed_id = "123"
+    rec.annotations["references"] = [ref]
+    assert [str(r.pubmed_id) for r in rec.annotations["references"]] == ["123"]

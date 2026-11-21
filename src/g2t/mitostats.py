@@ -386,6 +386,8 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "assembler_group": assembler_group(names, other, mapping_tools(am_raw), no_info=not asm),
         "assembly_other": "; ".join(other),
         "biosample": "; ".join(biosamples(rec.dbxrefs)),
+        "pubmed_ids": "; ".join(dict.fromkeys(str(r.pubmed_id) for r in rec.annotations.get("references", [])
+                                              if getattr(r, "pubmed_id", ""))),
         "sra_runs": "; ".join(sra_runs(rec.dbxrefs, str(rec.annotations.get("comment", "")))),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),
