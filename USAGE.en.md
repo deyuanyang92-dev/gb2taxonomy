@@ -529,3 +529,19 @@ g2t has not been published in a paper yet. Please cite the software and the vers
 ## License
 
 MIT License
+
+### BLAST LCA and dataset-vs-itself BLAST (`--blast-db`)
+
+`g2t-screen --blast-db <BLAST db>` (implies BLAST; needs `blastn`) writes, per marker under `organized_genes/blastcheck/`, `<gene>.hits.tsv` (raw BLAST), `<gene>.hits.lca.tsv` (the same rows with the LCA appended) and the summary `blastcheck.csv`. New columns:
+
+| Column | Meaning |
+|---|---|
+| `blast_lca_rank` / `blast_lca_taxon` | Lowest rank shared by all hits within 2% of the best bitscore (self hit dropped); empty / `mixed` when they already differ at phylum |
+| `blast_lca_n` / `blast_lca_best_pident` | Hits used / best identity among them |
+| `ds_best_pident` / `ds_best_organism` | Most similar other record of the same marker in the downloaded set (self dropped) |
+| `ds_family` / `ds_genus` / `ds_n` | Family / genus shared by the top dataset hits (`mixed` if they differ), number of hits |
+| `ds_family_conflict` | Nearest dataset record is >=85% identical and belongs to one family other than the declared one |
+
+When the external database has no close relative of a lineage (e.g. *Polyophthalmus* COI hitting a barnacle or squid at 77-80%), external BLAST can only say "no reference"; the dataset BLAST lets the records vouch for each other.
+
+Two new CHECK reasons in `verdict.csv`: LCA at phylum or `mixed` with a best hit >=85%; the nearest dataset record sits in another family. An LCA from a best hit <85% is treated as noise and not flagged.

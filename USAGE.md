@@ -513,3 +513,19 @@ GitHub 页面右侧的 "Cite this repository" 读取 [CITATION.cff](CITATION.cff
 ## 许可证
 
 MIT License
+
+### BLAST 与数据集内比对（`--blast-db`）
+
+`g2t-screen --blast-db <BLAST库>`（隐含运行 BLAST，需要 `blastn`）会在 `organized_genes/blastcheck/` 下为每个基因写 `<gene>.hits.tsv`（BLAST 原始结果）和 `<gene>.hits.lca.tsv`（原行后追加 LCA），汇总在 `blastcheck.csv`。新增列：
+
+| 列 | 含义 |
+|---|---|
+| `blast_lca_rank` / `blast_lca_taxon` | 去掉自身命中后，bitscore 在最高分 2% 以内的所有命中共有的最低阶元；门这一级就不一致时为空 / `mixed` |
+| `blast_lca_n` / `blast_lca_best_pident` | 参与 LCA 的命中数 / 其中最高相似度 |
+| `ds_best_pident` / `ds_best_organism` | 数据集内（同基因、本次下载的其他记录，去掉自身）最相似的记录 |
+| `ds_family` / `ds_genus` / `ds_n` | 数据集内最高分命中共有的科 / 属（不一致为 `mixed`）、命中数 |
+| `ds_family_conflict` | 数据集内最近记录 ≥85% 且只属于一个与声明不同的科 |
+
+外部库没有某类群的近缘序列时（例如 *Polyophthalmus* COI 只命中 77–80% 的藤壶、乌贼），外部 BLAST 只能说“无参考”；数据集内比对用同一批记录互为参考。
+
+`verdict.csv` 的 CHECK 因此增加两条：LCA 为门或 `mixed` 且最佳命中 ≥85%；数据集内最近记录属于另一个科。最佳命中 <85% 的 LCA 视为噪声，不标记。
