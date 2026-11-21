@@ -97,6 +97,19 @@ def _flag_why(v: str, reasons: list[str], rec: dict | None, taxon: str, ran: tup
         if r.get("gate") in BLAST_GATE_CHECK and not r.get("conflict_rank"):
             why.append(BLAST_GATE_CHECK[r["gate"]] + "（可能是新物种、非目标序列或微生物，需人工看）")
             break
+    for r in bl:
+        if _true(r.get("ds_family_conflict")):
+            why.append(f"数据集内最近的序列（{r.get('ds_best_organism')}，{float(r.get('ds_best_pident')):.0f}%）"
+                       f"属于 {r.get('ds_family')}，与声明的科不同，需人工看")
+            break
+    for r in bl:
+        lt, lr = str(r.get("blast_lca_taxon") or ""), str(r.get("blast_lca_rank") or "")
+        bp = r.get("blast_lca_best_pident")
+        if bp is None or pd.isna(bp) or float(bp) < 85.0:
+            continue  # a ~78% hit to unrelated phyla is noise (no close reference), not evidence
+        if lt == "mixed" or lr == "phylum":
+            why.append(f"BLAST 近缘命中的 LCA 只到{'门以上（mixed）' if lt == 'mixed' else '门 ' + lt}（blast_lca），需人工看")
+            break
     if why:
         return "CHECK", " | ".join(why)
     if v in ("clean", "coarse_agree"):

@@ -332,6 +332,102 @@ def check_all(hits: pd.DataFrame, declared: dict[str, dict[str, str]], genes: di
     return out
 
 
+# ------------------------------------------------------------------ plain LCA of the BLAST hits
+
+LCA_BAND = 0.02  # hits within 2% of the best bitscore
+DS_MIN_PIDENT = 85.0  # a record of the set only vouches for / against a family when this close
+
+
+def hits_lca(hits: pd.DataFrame, tax: Taxonomy, band: float = LCA_BAND) -> pd.DataFrame:
+    """One row per query: the lowest rank shared by every hit within ``band`` of the best bitscore.
+
+    Simple and independent of the declared name: self hits are dropped, nothing else is filtered.
+    Columns: accession, blast_lca_rank, blast_lca_taxon, blast_lca_n (hits used), blast_lca_best_pident.
+    ``blast_lca_rank`` is empty and the taxon ``mixed`` when the hits already differ at phylum."""
+    rows = []
+    for q, g in hits.groupby("qseqid", sort=False):
+        g = g[g["sseqid"].map(acc_key) != acc_key(q)]
+        if g.empty:
+            continue
+        top = g[g["bitscore"] >= (1 - band) * g["bitscore"].max()]
+        lins = []
+        for t in top["staxids"]:
+            tid = str(t).split(";")[0]
+            lin = tax.lineage(int(tid)) if tid.isdigit() else {}
+            if lin:
+                lins.append(lin)
+        rank, name = "", ""
+        if lins:
+            name = "mixed"
+            for rk in RANKS:  # a rank a hit lacks (no 'order' in annelids) is skipped, not a disagreement
+                vals = {lin[rk] for lin in lins if rk in lin}
+                if len(vals) > 1:
+                    break
+                if vals:
+                    rank, name = rk, vals.pop()
+        rows.append({"accession": q, "blast_lca_rank": rank, "blast_lca_taxon": name, "blast_lca_n": len(lins),
+                     "blast_lca_best_pident": float(top["pident"].max())})
+    return pd.DataFrame(rows, columns=["accession", "blast_lca_rank", "blast_lca_taxon", "blast_lca_n",
+                                       "blast_lca_best_pident"])
+
+
+def append_lca(hits_file: str | Path, hits: pd.DataFrame, tax: Taxonomy) -> pd.DataFrame:
+    """Write ``<hits>.lca.tsv`` = the BLAST rows with the query's LCA appended; return the per-query table."""
+    lca = hits_lca(hits, tax)
+    hf = Path(hits_file)
+    hits.merge(lca, left_on="qseqid", right_on="accession", how="left").drop(columns="accession").to_csv(
+        hf.with_suffix(".lca.tsv"), sep="\t", index=False)
+    return lca
+
+
+# ------------------------------------------------------------------ the dataset as its own reference
+
+DS_COLS = ["accession", "ds_best_pident", "ds_best_organism", "ds_family", "ds_genus", "ds_n", "ds_family_conflict"]
+
+
+def dataset_blast(fa: str | Path, rows: dict, blastn: str = "blastn", threads: int = 16,
+                  band: float = LCA_BAND) -> pd.DataFrame:
+    """BLAST the downloaded sequences of one marker against themselves (self hit dropped).
+
+    The external database often has no close relative of a rare lineage (a ~78% hit to a barnacle says nothing);
+    the other records of the same taxon do. Per query: best identity among the other records, and the family /
+    genus those top hits (within ``band`` of the best bitscore) share (``mixed`` when they differ, '' when no
+    record of the set aligns). ``rows``: accession (no version) -> table row with Family / Genus / Organism."""
+    import os
+    import shutil
+
+    fa = Path(fa)
+    mk = str(Path(blastn).with_name("makeblastdb")) if Path(blastn).parent != Path(".") else "makeblastdb"
+    if not Path(mk).exists():
+        mk = shutil.which("makeblastdb") or "makeblastdb"
+    db = fa.with_suffix(".dsdb")
+    subprocess.run([mk, "-in", str(fa), "-dbtype", "nucl", "-out", str(db)], check=True, capture_output=True)
+    out = fa.with_suffix(".ds.tsv")
+    cols = "qseqid sseqid pident length qcovs bitscore"
+    subprocess.run([blastn, "-task", "megablast", "-db", str(db), "-query", str(fa), "-num_threads", str(threads),
+                    "-max_target_seqs", "100", "-outfmt", f"6 {cols}", "-out", str(out)],
+                   check=True, env={**os.environ})
+    res = []
+    if out.stat().st_size:
+        h = pd.read_csv(out, sep="\t", header=None, names=cols.split(), dtype={"qseqid": str, "sseqid": str})
+        h = h[(h["qseqid"].map(acc_key) != h["sseqid"].map(acc_key)) & (h["qcovs"] >= MIN_QCOV)]
+        for q, g in h.groupby("qseqid", sort=False):
+            top = g[g["bitscore"] >= (1 - band) * g["bitscore"].max()]
+            fams = {str(rows.get(acc_key(a), {}).get("Family", "")) for a in top["sseqid"]} - {""}
+            gens = {str(rows.get(acc_key(a), {}).get("Genus", "")) for a in top["sseqid"]} - {""}
+            best = top.loc[top["pident"].idxmax()]
+            res.append({"accession": q, "ds_best_pident": float(best["pident"]),
+                        "ds_best_organism": str(rows.get(acc_key(best["sseqid"]), {}).get("Organism", "")),
+                        "ds_family": (next(iter(fams)) if len(fams) == 1 else "mixed" if fams else ""),
+                        "ds_genus": (next(iter(gens)) if len(gens) == 1 else "mixed" if gens else ""), "ds_n": len(top),
+                        "ds_family_conflict": bool(
+                            float(best["pident"]) >= DS_MIN_PIDENT and len(fams) == 1
+                            and str(rows.get(acc_key(q), {}).get("Family", "")) not in ("", *fams))})
+    for f in fa.parent.glob(fa.stem + ".dsdb*"):
+        f.unlink()
+    return pd.DataFrame(res, columns=DS_COLS)
+
+
 # ------------------------------------------------------------------ running BLAST
 
 
@@ -365,6 +461,8 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
     rows = {r["ACCESSION"]: r for _, r in a.iterrows()}
     sets = phylo.marker_sets(list(inputs), d, True, "")
     out: list[dict] = []
+    lca_tab: list[pd.DataFrame] = []
+    ds_tab: list[pd.DataFrame] = []
     for g, entries in sets.items():
         if genes and g not in genes or not entries:
             continue
@@ -373,11 +471,13 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
             for acc, (seq, _tip) in entries.items():
                 fh.write(f">{acc}\n{seq}\n")
         run_blast(fa, db, hf, threads=threads, blastn=blastn)
+        ds_tab.append(dataset_blast(fa, rows, blastn=blastn, threads=threads).assign(gene=g))
         if hf.stat().st_size == 0:
             out += [{"accession": acc, "gene": g, "organism": rows.get(acc_key(acc), {}).get("Organism", ""),
                      "gate": "no_hit", "note": "no BLAST hit"} for acc in entries]
             continue
         hits = read_hits(hf)
+        lca_tab.append(append_lca(hf, hits, tax).assign(gene=g))
         declared, org, syn = {}, {}, {}
         for q in hits["qseqid"].unique():
             r = rows.get(acc_key(q))
@@ -409,4 +509,9 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                         "reverse": x.reverse, "note": x.note, "confirmed_rank": x.confirmed_rank,
                         "declared_rank": x.declared_rank, "resolved": x.resolved, "weak": x.weak,
                         "synonym": syn.get(x.accession, "")})
-    return pd.DataFrame(out)
+    df = pd.DataFrame(out)
+    if lca_tab and not df.empty:
+        df = df.merge(pd.concat(lca_tab), on=["accession", "gene"], how="left")
+    if ds_tab and not df.empty:
+        df = df.merge(pd.concat(ds_tab), on=["accession", "gene"], how="left")
+    return df

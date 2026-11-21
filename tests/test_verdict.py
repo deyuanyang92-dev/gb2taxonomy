@@ -126,3 +126,27 @@ def test_ncbi_unverified_and_blast_no_hit_are_check():
     v = combine(kmer=kmer, blast=blast, inventory=inv, taxon="Nereididae", ran=("blast",)).set_index("accession")
     assert v.loc["C1", "flag"] == "CHECK" and "ncbi_unverified" in v.loc["C1", "why"]
     assert v.loc["C2", "flag"] == "CHECK" and "无命中" in v.loc["C2", "why"]
+
+
+def test_blast_lca_phylum_or_mixed_is_check():
+    from g2t import verdict
+
+    for rk, tx in (("phylum", "Mollusca"), ("", "mixed")):
+        bl = pd.DataFrame([{"accession": "A1.1", "gene": "coi", "organism": "X y", "gate": "actionable",
+                            "blast_lca_rank": rk, "blast_lca_taxon": tx, "blast_lca_best_pident": 92.0}])
+        out = verdict.combine(blast=bl)
+        assert out.iloc[0]["flag"] == "CHECK" and "LCA" in out.iloc[0]["why"]
+
+
+def test_blast_lca_low_identity_not_check():
+    bl = pd.DataFrame([{"accession": "A1.1", "gene": "coi", "organism": "X y", "gate": "actionable",
+                        "blast_lca_rank": "", "blast_lca_taxon": "mixed", "blast_lca_best_pident": 78.0}])
+    assert "LCA" not in combine(blast=bl).iloc[0]["why"]
+
+
+def test_dataset_family_conflict_is_check():
+    bl = pd.DataFrame([{"accession": "A1.1", "gene": "coi", "organism": "X y", "gate": "actionable",
+                        "ds_family_conflict": True, "ds_family": "Foo", "ds_best_organism": "G a",
+                        "ds_best_pident": 97.0}])
+    r = combine(blast=bl).iloc[0]
+    assert r["flag"] == "CHECK" and "数据集内" in r["why"]

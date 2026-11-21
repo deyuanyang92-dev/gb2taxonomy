@@ -218,3 +218,53 @@ def test_family_only_units_do_not_give_a_species_consensus():
 def test_single_foreign_hit_with_declared_taxon_absent_is_weak():
     r = run([("AB000001.1", 98.0, 3)], gene="coi")
     assert r.conflict_rank and r.weak and "declared" in r.note
+
+
+def test_hits_lca_plain_band():
+    import pandas as pd
+
+    from g2t import blastcheck as bc
+
+    class T:
+        lin = {1: {"phylum": "Annelida", "family": "A", "genus": "G1", "species": "G1 x"},
+               2: {"phylum": "Annelida", "family": "A", "genus": "G2", "species": "G2 y"},
+               3: {"phylum": "Mollusca"}}
+
+        def lineage(self, t):
+            return self.lin[t]
+
+    rows = [("q1", "AB1.1", 99, 1000, "1"), ("q1", "AB2.1", 98, 990, "2"), ("q1", "AB3.1", 80, 500, "3"),
+            ("q1", "q1.1", 100, 1100, "3")]  # self hit dropped; 500 is outside the 2% band
+    h = pd.DataFrame(rows, columns=["qseqid", "sseqid", "pident", "bitscore", "staxids"])
+    r = bc.hits_lca(h, T()).iloc[0]
+    assert (r.blast_lca_rank, r.blast_lca_taxon, r.blast_lca_n) == ("family", "A", 2)
+
+
+def test_dataset_blast_flags_family_conflict(tmp_path):
+    import random
+    import shutil
+
+    import pytest
+
+    from g2t import blastcheck as bc
+
+    if not shutil.which("blastn") or not shutil.which("makeblastdb"):
+        pytest.skip("blast+ not installed")
+    random.seed(1)
+    base = "".join(random.choice("ACGT") for _ in range(400))
+
+    def mut(s, n):
+        s = list(s)
+        for i in random.sample(range(len(s)), n):
+            s[i] = random.choice([c for c in "ACGT" if c != s[i]])
+        return "".join(s)
+
+    seqs = {"A1.1": mut(base, 5), "A2.1": mut(base, 5), "A3.1": mut(base, 5)}
+    fa = tmp_path / "coi.fa"
+    fa.write_text("".join(f">{k}\n{v}\n" for k, v in seqs.items()))
+    rows = {"A1": {"Family": "Foo", "Genus": "G", "Organism": "G a"},
+            "A2": {"Family": "Foo", "Genus": "G", "Organism": "G b"},
+            "A3": {"Family": "Bar", "Genus": "H", "Organism": "H c"}}
+    d = bc.dataset_blast(fa, rows, threads=1).set_index("accession")
+    assert bool(d.loc["A3.1", "ds_family_conflict"]) and d.loc["A3.1", "ds_family"] == "Foo"
+    assert not d.loc["A1.1", "ds_family_conflict"]
