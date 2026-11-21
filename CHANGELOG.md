@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 新命令 `g2t-litmethods`：对 mitostats 表里测序平台未知 / 组装方法未写明的记录，用登录号在 Europe PMC 全文检索找原文，列出文献（标题、DOI、PMCID），开放获取的全文去掉参考文献后用 mito_methods.yaml 的正则提取平台和组装软件，写到 `lit_*` 列（建议值，需人工确认）。不抓取 Google。示例 OP104125 → Illumina NovaSeq + GetOrganelle/NOVOPlasty。
+
 - **mitostats：新标签 "No assembly info in record"：** 没有 `##Assembly-Data##` 块、COMMENT 里也找不到组装软件的记录，`assembler_group` 不再与"有块但软件无法识别"的 "Not stated" 混在一起。EBP 线粒体 6309 条中 1803 条属此类（COMMENT 为空或只有 "X mitochondrial genome."），"Not stated" 为 0。规则补入 ptGAUL、mitoVGP、myloasm。HTML 报告的桑基图与筛选同步。
 
 - **mitostats：无 Assembly-Data 块时从 COMMENT 取线粒体组装软件：** 此前只读 `##Assembly-Data##` 的 Assembly Method，OZ495698.1（ATLASea，COMMENT 写 "Mitochondrial genome was assembled using OATK"）被判 "Not stated"。现在只扫描 COMMENT 中提到 mito / organelle 的句子（同一 COMMENT 里核基因组的 Hifiasm、purge_dups、YaHS 不计），新列 `assembler_basis` 标明依据。真实数据（EBP 线粒体 6309 条）：4394 条由 "Not stated" 得到组装软件（MitoHiFi 3807、Oatk 438 等）；OZ495698.1 → Oatk。

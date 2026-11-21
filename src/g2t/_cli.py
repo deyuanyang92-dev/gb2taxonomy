@@ -264,6 +264,14 @@ def main_mitostats(argv=None):
     return main(argv)
 
 
+def main_litmethods(argv=None):
+    """g2t-litmethods — Fill missing sequencing/assembly methods from the paper that cites the accession."""
+    _version_flag(argv, "g2t-litmethods")
+    from g2t.litmethods import main
+
+    return main(argv)
+
+
 def main_cite(argv=None):
     """g2t-cite — Find the published paper (Crossref) of records still marked Unpublished."""
     _version_flag(argv, "g2t-cite")
