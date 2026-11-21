@@ -229,3 +229,6 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 - PX620130、HM746718 在参考库里只有 1 个 80% 命中或只有未分类命中，BLAST 层看不出来，只有基因树能发现。各层互补，所以判定需要多层合并。
 - rRNA HMM 本体检查、目标等级自动推断：暂不做（没有真值），记录在 `PLAN_decontam.md`。
 
+
+## read_hits 新格式（13 列）重复列名（2026-11-21，已修）
+原因：`COLS` 已含 qseqid，`read_hits` 又在 names 前加了一次 → `ValueError: Duplicate names are not allowed`。T3 重测时发现；修复 + `test_read_hits_old_and_new_format`。

@@ -117,3 +117,12 @@ def test_distant_hits_do_not_make_a_phylum_conflict():
         assert r.conflict_rank == "" and "distant_hit_only" in r.note
     finally:
         del LIN[7], LIN[8]
+
+
+def test_read_hits_old_and_new_format(tmp_path):
+    old = tmp_path / "old.tsv"
+    old.write_text("q1\tgb|A1.1|\t99.0\t100\t100\t100\t100\t0.0\t200\t1\tfoo\n")
+    new = tmp_path / "new.tsv"
+    new.write_text("q1\tgb|A1.1|\t99.0\t100\t100\t100\t100\t0.0\t200\t1\tfoo\t5\t104\n")
+    assert list(bc.read_hits(old)["qseqid"]) == ["q1"] and "sstart" in bc.read_hits(old)
+    assert int(bc.read_hits(new)["send"][0]) == 104

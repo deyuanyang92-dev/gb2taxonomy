@@ -13,7 +13,8 @@ k-mer → 基因树 → BLAST 共识 → 翻译检查，合并为 `organized_gen
 - 干净序列 200 条：BLAST 冲突 0 条。翻译层误报 3 条（1 条 COI，2 条 150 bp 片段）。
 - numt（插入终止子 / 移码）检出 16/20。
 - 发现并修复：单一近缘外科参照被漏（现 ≥97% 且比声明属高 ≥10 点即可报）；clean 未核对谱系（新增 agrees）；反向互补无标记（记录 sstrand）；ete3 库过旧致 no_hit（提示 ncbiupdate）。
-- 修复后的基准重测、Enchytraeidae 全量重跑：待做。
+- 修复后重测（同一数据）：外科混入 BLAST 冲突 17→29/30（suspect 29，clean 12→0，1 条因 taxid 缺失 unchecked）；标签互换 9→15/15；反向互补 0→20/20 标 `blast:reverse_complement`；numt 仍 16/20（4 条单碱基插入漏检）；干净序列 BLAST 冲突仍 0/200。代价：clean 需正面证据，COI 9/100、28S 21/50 变为 unchecked。同时修了 `read_hits` 读新格式文件时列名重复的 bug。
+- Enchytraeidae 全量重跑：待做。
 
 ## 暂不做
 rRNA HMM 本体检查（没有真值）；目标等级自动推断；study_group_id 批次合并（现为同前缀 500 号内）。

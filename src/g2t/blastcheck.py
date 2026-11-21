@@ -106,9 +106,9 @@ class Taxonomy:
 
 def read_hits(path: str | Path) -> pd.DataFrame:
     with open(path) as fh:
-        ncol = len(fh.readline().rstrip("\n").split("\t")) if Path(path).stat().st_size else len(COLS) + 1
-    names = COLS[:ncol - 1] if ncol < len(COLS) + 1 else COLS  # older files have no sstart / send
-    df = pd.read_csv(path, sep="\t", header=None, names=["qseqid", *names], dtype={"staxids": str, "sseqid": str},
+        ncol = len(fh.readline().rstrip("\n").split("\t")) if Path(path).stat().st_size else len(COLS)
+    names = COLS[:ncol]  # COLS starts with qseqid; older files have no sstart / send
+    df = pd.read_csv(path, sep="\t", header=None, names=names, dtype={"staxids": str, "sseqid": str},
                      keep_default_na=False)
     if "sstart" not in df:
         df["sstart"], df["send"] = 0, 1
