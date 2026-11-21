@@ -251,4 +251,5 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 
 - **#8 树“resolved”假确认：** `resolved_tips` 只看有无受支持邻居，不看是否与声明一致，混科或分类问题位置也算 `ok`，进而让 `specimen_check` 断言同一标本另一序列有误。修：邻居须全在本科且至少一个同属，否则 `not judged`。
 - **#13 重跑混入旧树：** `_verdict` 读任何已存在的 `phylo_flags.csv`。修：树输出带序列指纹（`phylo_stamp.json`），不一致或无戳则警告并弃用；旧目录需重跑 `--tree`（或补戳）。
+- **树标记两次运行不一致（同输入、同代码）：** 实测沙蚕科 18 条树标记中 6 条（支持度 0.90–0.91，贴着阈值）在重跑间出现/消失。两个原因：(1) `representatives()` 用 set，序列顺序随 PYTHONHASHSEED 变；(2) MAFFT `--auto` 多线程迭代精修本身不可复现（同输入同线程数两次比对也不同）。修：`representatives` 保持输入顺序；MAFFT 加 `--threadit 0`（不同线程数、不同 hash seed 下比对与树逐字节一致）。教训：贴阈值（≤0.91）的树标记即使可复现也只是边缘证据。
 - 未改：树与 BLAST 来源类群是否一致的比较仍留白。

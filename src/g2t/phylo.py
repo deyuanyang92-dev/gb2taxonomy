@@ -154,8 +154,9 @@ def build_tree(seqs: dict[str, str], tools: Tools, work: Path, threads: int = 0,
         subprocess.run([tools.aligner, "-t", str(threads), str(fa), str(aln)], check=True, capture_output=True)
     else:
         with open(aln, "w") as fh:
-            subprocess.run([tools.aligner, "--auto", "--thread", str(threads), "--quiet", str(fa)], stdout=fh,
-                           check=True)
+            # --threadit 0: MAFFT's multithreaded iterative refinement is otherwise not reproducible
+            subprocess.run([tools.aligner, "--auto", "--thread", str(threads), "--threadit", "0", "--quiet", str(fa)],
+                           stdout=fh, check=True)
     a = _read_fasta(aln)
     m = np.array([list(a[t]) for t in names])
     keep = (m == "-").mean(axis=0) < max_gap

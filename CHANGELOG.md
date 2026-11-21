@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- **树筛查可复现：** 背景/研究序列顺序不再随 hash seed 变化（`representatives` 保持输入顺序），MAFFT 加 `--threadit 0`，同输入得同一棵树（此前贴阈值的标记会在重跑间翻转）。
+
 - **树证据只在与名称一致时算“确认”；旧树不再混入：** `resolved_tips` 现要求受支持的邻居全在本科、且至少一个同属（混科邻居、分类问题、单属序列不再给其他标记当“正确”证据）；`phylo_screen` 写 `phylo_stamp.json`（序列指纹），`g2t-screen` 的 verdict 只在指纹一致时采用 `phylo_flags.csv`，否则警告并不用树，并打印用了哪几层证据。
 
 - **verdict 判定修正：** 按 (登录号, 基因) 一行，不再跨基因合并；k-mer 与树算同一证据族，需 BLAST 另一族一致才升级，一远一近只报 `suspect`；新增 `coarse_agree`（只在更粗等级一致）与列 `confirmed_rank`，`clean` 须确认到声明的最细等级；BLAST 的最佳相似度只取投票命中。`combine(strict=False)` 保留旧规则。详见 `BUGS.md`。
