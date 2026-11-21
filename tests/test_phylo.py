@@ -200,3 +200,14 @@ def test_resolve_support_defaults_by_tool():
     assert ph.resolve_support(None, "iqtree") == 0.95
     assert ph.resolve_support(95, "fasttree") == 0.95
     assert ph.resolve_support(0.8, "iqtree") == 0.8
+
+
+def test_one_swapped_specimen_on_two_markers_is_not_synonymy():
+    def row(gene, acc, org, where):
+        return {"gene": gene, "accession": acc, "organism": org, "flag": "inside_other_genus",
+                "note": f"sits in {where} (support 1.0)", "support": 1.0}
+
+    rows = [row("coi", "A1.1", "Alpha x", "Beta"), row("16s", "A1.1", "Alpha x", "Beta"),
+            row("coi", "B1.1", "Beta y", "Alpha"), row("16s", "B1.1", "Beta y", "Alpha")]
+    keep, _ = ph.intermixed_genera(rows, [])
+    assert len(keep) == 4  # two records, one each way: swapped samples, flags stay

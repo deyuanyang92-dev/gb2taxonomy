@@ -419,11 +419,13 @@ def intermixed_genera(rows: list[dict], notes: list[dict]) -> tuple[list[dict], 
     def where_of(r: dict) -> list[str]:
         return r["note"].split(" (")[0].removeprefix("sits in ").split("/")
 
-    count: dict[tuple[str, str], int] = {}
+    # distinct records, not rows: one swapped specimen flagged on COI and 16S must not look like two records
+    seen: dict[tuple[str, str], set[str]] = {}
     for r in rows:
         if r["flag"] == "inside_other_genus":
             for w in where_of(r):
-                count[(gen(r), w)] = count.get((gen(r), w), 0) + 1
+                seen.setdefault((gen(r), w), set()).add(r["accession"].split(".")[0])
+    count = {k: len(v) for k, v in seen.items()}
     keep = []
     for r in rows:
         where = where_of(r)
