@@ -210,7 +210,7 @@ __G2T_PLOTLY__
   function filtered() {
     return R.filter(r => r.year != null && r.year >= S.y0 && r.year <= S.y1 && S.cats.has(r.seq_category)
       && (!S.taxon || r[S.rank] === S.taxon)
-      && (!S.asm || (S.asm === '__none' ? !r.assemblers : (r.assemblers || '').split('; ').includes(S.asm)))
+      && (!S.asm || (S.asm === '__none' ? ['Not stated', 'No assembly info in record'].includes(r.assembler_group) : (r.assemblers || '').split('; ').includes(S.asm)))
       && (!S.pub || (S.pub === 'unpublished' ? r.pub_status !== 'published' : r.pub_status === 'published')));
   }
 
