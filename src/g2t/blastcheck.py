@@ -33,7 +33,7 @@ import pandas as pd
 
 logger = logging.getLogger("g2t.blastcheck")
 
-OUTFMT = "6 qseqid sseqid pident length qlen slen qcovs evalue bitscore staxids sscinames"
+OUTFMT = "6 qseqid sseqid pident length qlen slen qcovs evalue bitscore staxids sscinames sstart send"
 COLS = OUTFMT.split()[1:]
 RANKS = ["phylum", "class", "order", "family", "genus", "species"]
 TOP = 0.95  # votes: bitscore >= TOP * best
@@ -41,6 +41,8 @@ MIN_QCOV = 50.0
 AGREE = 0.80  # share of units that must agree for a rank
 MARGIN = 2.0  # foreign best identity must exceed the declared taxon's by this many points
 DISTANT = 85.0  # phylum / class conflicts need a best hit at least this close
+SINGLE_PIDENT = 97.0  # one foreign unit is enough if it is this close and far better than the declared taxon
+SINGLE_MARGIN = 10.0
 BATCH_SPAN = 500  # accessions of one prefix this close are one submission batch
 
 # best-hit identity needed to judge a rank, per marker class
@@ -103,8 +105,13 @@ class Taxonomy:
 
 
 def read_hits(path: str | Path) -> pd.DataFrame:
-    df = pd.read_csv(path, sep="\t", header=None, names=COLS, dtype={"staxids": str, "sseqid": str},
+    with open(path) as fh:
+        ncol = len(fh.readline().rstrip("\n").split("\t")) if Path(path).stat().st_size else len(COLS) + 1
+    names = COLS[:ncol - 1] if ncol < len(COLS) + 1 else COLS  # older files have no sstart / send
+    df = pd.read_csv(path, sep="\t", header=None, names=["qseqid", *names], dtype={"staxids": str, "sseqid": str},
                      keep_default_na=False)
+    if "sstart" not in df:
+        df["sstart"], df["send"] = 0, 1
     return df
 
 
@@ -141,6 +148,8 @@ class Result:
     own_best: float = 0.0  # best identity to a hit of the declared genus
     other_best: float = 0.0
     same_batch_hit: bool = False
+    agrees: bool = False  # consensus matches the declared lineage (positive evidence)
+    reverse: bool = False  # best hit is on the minus strand: the record is probably reverse-complemented
     note: str = ""
     units: list = field(default_factory=list, repr=False)
 
@@ -159,6 +168,8 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
     limits, lowest = limits_for(gene)
     best = h["bitscore"].max()
     res.best_pident = float(h["pident"].max())
+    top = h.loc[h["bitscore"].idxmax()]
+    res.reverse = bool("sstart" in top and top["sstart"] > top["send"])
     if res.best_pident < lowest:
         res.gate = "no_close_reference"
         return res
@@ -186,6 +197,7 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         u["same_batch"] = u["same_batch"] or sb
     res.n_units = len(units)
     if not units:
+        res.note = "taxids_unknown: hit taxids missing from the local taxonomy (update ete3: ete3 ncbiupdate)"
         return res
     res.units = list(units.values())
     res.gate = "actionable"
@@ -219,6 +231,8 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         res.same_batch_hit = any(u["same_batch"] for u in foreign)
         ok_margin = res.other_best - res.own_best >= MARGIN
         ok_units = len(foreign) >= 2 or res.same_batch_hit
+        single = (not ok_units and res.other_best >= SINGLE_PIDENT and res.other_best - res.own_best >= SINGLE_MARGIN)
+        ok_units = ok_units or single
         if res.conflict_rank in ("phylum", "class") and res.best_pident < DISTANT:
             res.note = f"distant_hit_only: best hit below {DISTANT:.0f}%, a new lineage cannot be told from a stranger"
             res.conflict_rank = ""
@@ -228,6 +242,12 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         elif res.own_best == 0 and res.conflict_rank in ("genus", "family"):
             # the declared taxon is absent from the top hits: still a conflict, but a weaker one
             res.note = "declared taxon absent from top hits"
+        elif single and len(foreign) < 2 and not res.same_batch_hit:
+            res.note = "single_reference: one foreign hit, very close"
+    elif consensus:
+        # positive evidence: consensus reaches family or finer and agrees with the declared lineage
+        both = [rk for rk in consensus if declared.get(rk)]
+        res.agrees = any(RANKS.index(rk) >= RANKS.index("family") for rk in both) and not res.note
     return res
 
 
@@ -298,5 +318,6 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
             out.append({"accession": x.accession, "gene": g, "organism": org.get(x.accession, ""), "gate": x.gate,
                         "lca_rank": x.lca_rank, "lca_taxon": x.lca_taxon, "best_pident": x.best_pident,
                         "n_units": x.n_units, "conflict_rank": x.conflict_rank, "own_best": x.own_best,
-                        "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "note": x.note})
+                        "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "agrees": x.agrees,
+                        "reverse": x.reverse, "note": x.note})
     return pd.DataFrame(out)

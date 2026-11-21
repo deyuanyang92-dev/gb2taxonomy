@@ -24,7 +24,8 @@ def test_single_layer_suspect_and_numt_and_clean():
     assert v.verdict.tolist() == ["suspect"]
     v = combine(trans=_df(accession="B.1", gene="coi", flag="numt_suspect"))
     assert v.verdict.tolist() == ["numt_suspect"]
-    v = combine(blast=_df(accession="C.1", gene="coi", conflict_rank="", gate="actionable", lca_rank="genus"))
+    v = combine(blast=_df(accession="C.1", gene="coi", conflict_rank="", gate="actionable", lca_rank="genus",
+                          agrees=True))
     assert v.verdict.tolist() == ["clean"]
     v = combine(blast=_df(accession="D.1", gene="coi", conflict_rank="", gate="no_close_reference", lca_rank=""))
     assert v.verdict.tolist() == ["unchecked"]

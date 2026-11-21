@@ -219,3 +219,13 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 ## classify：超长记录通过全局长度过滤后报 "cannot reindex on an axis with duplicate labels"（2026-10-09 发现，未修）
 - 复现：两条 61,000 bp 记录（一条 `organelle=mitochondrion`、definition "genome assembly, organelle: mitochondrion"，一条 "chromosome 3, partial"），`MatchConfig(global_length_range="1:1000000")` → `Classify failed: cannot reindex on an axis with duplicate labels`。默认 150:50000 时两条都被过滤，不触发。
 - 影响：>50 kb 的线粒体基因组（环节动物最大约 47.5 kb，植物常 >100 kb）只能留在 filtered_records.csv，放宽 `--length_range2_all` 会使 classify 失败。
+
+## blastcheck：LCA 在缺少某个等级时提前结束（2026-11-21 发现，已修）
+- 现象：NCBI 环节动物谱系没有 order 等级，"Polychaeta sp." 没有 family；共识循环在第一个无票等级就 `break`，导致 genus / family 级冲突被漏掉（OQ417162）。
+- 修复：缺少该等级的命中弃权，继续判下一等级；测试 `test_missing_order_rank`、`test_unclassified_hit_abstains`。
+- 相关：低相似度（< 85%）的门 / 纲冲突（Polyophthalmus COI 对软体动物 78%）只能说明没有近缘参考，不当冲突报（`DISTANT`）。
+
+## 尚未解决：BLAST 查不到的污染（2026-11-21）
+- PX620130、HM746718 在参考库里只有 1 个 80% 命中或只有未分类命中，BLAST 层看不出来，只有基因树能发现。各层互补，所以判定需要多层合并。
+- rRNA HMM 本体检查、目标等级自动推断：暂不做（没有真值），记录在 `PLAN_decontam.md`。
+

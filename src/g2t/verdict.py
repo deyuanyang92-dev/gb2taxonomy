@@ -74,12 +74,16 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
                     far += 1
                 else:
                     near += 1
+        for r in b.get(a, []):
+            if r.get("reverse") in (True, "True"):
+                reasons.append("blast:reverse_complement")
         numt = any(r.get("flag") == "numt_suspect" for r in n.get(a, []))
         if numt:
             layers.append("translation")
             reasons.append("translation:numt_suspect")
         uniq = list(dict.fromkeys(layers))
-        positive = any(r.get("gate") == "actionable" and not r.get("conflict_rank") and r.get("lca_rank")
+        positive = any(r.get("gate") == "actionable" and not r.get("conflict_rank")
+                       and r.get("agrees") in (True, "True")
                        for r in b.get(a, []))
         independent = [x for x in uniq if x != "translation"]
         if far and len(independent) >= 2:

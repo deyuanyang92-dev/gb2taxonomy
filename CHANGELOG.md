@@ -2,6 +2,12 @@
 
 ## 未发布
 
+- **污染 / 鉴定错误检查的 BLAST 层与统一判定（`g2t-screen --blast --blast-db DB`）。**
+  - **BLAST 共识（`blastcheck.py`）：** 去掉序列自身的命中；同一物种、同一提交批次的命中合并为一个独立单元；取 bitscore 在最佳 95% 以内、覆盖 ≥ 50% 的命中，各等级 ≥ 80% 单元一致才采纳；最佳命中的相似度限制可判到哪个等级（COI 78% 判不了属），不够近只报 `no_close_reference`；冲突需要外来类群比声明的属 / 科高 2 个百分点以上，且有 ≥ 2 个独立单元（或来自同一批次）。
+  - **翻译检查（`translate_check.py`）：** 蛋白编码标记（COI、cob 等）按无脊椎线粒体密码（表 5）六框翻译，所有读框都有内部终止密码子 → `numt_suspect`。
+  - **统一判定 `verdict.csv`（`verdict.py`）：** 合并 k-mer、基因树、BLAST、翻译四层；≥ 2 层独立指向科 / 门以外 → `likely_contaminant`，指向其他属 → `likely_misidentified`，单层 → `suspect`，有 BLAST 正面证据且无标记 → `clean`，否则 `unchecked`。
+  - **海蛹科 / 蚓科实测：** 见 `docs/evaluation/decontam.md`。
+
 - **`g2t-screen --tree`：用基因树检查污染和鉴定错误。** 做法参考 OrthoFinder 3：先宽收，再由系统发育决定归属；FAMSA 比对、修剪、FastTree 建树，可选 IQ-TREE。
   - **背景类群：** 自动从 NCBI 分类中选取近缘科（例如海蛹科 → Scolecida 的 6 个科），并增量下载。
   - **判断方式：** 用无根树中高支持率的分割判断位置，不受外群选择影响。
