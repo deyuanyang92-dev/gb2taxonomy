@@ -327,3 +327,11 @@
 
 ### 未改动（有意保留）
 - **18S / 28S / ITS 仍按记录的 DEFINITION 整条归类**（原逻辑）。已知限制：跨区段记录归入 its1-its2，例如 AY210840、AH010828（5.8S+ITS2+约 3.66 kb 28S）以及 18S+ITS1 的记录（1.4–1.8 kb，主体为 18S）。拆分方案（先按特征表坐标切，切不开再用 ITSx）已评估，暂不实施。见 BUGS.md。
+
+## Unreleased (feat/decontam-p1)
+- `verdict.csv` now has `flag` (CHECK / OK / NA) and `why` as the first columns, and one row for every marker record
+  (before: only records with evidence). CHECK = a person should look, not confirmed contamination. New CHECK sources:
+  declared lineage without Metazoa, declared family differing from `--taxon`, `ncbi_unverified`, BLAST `no_hit` /
+  `no_close_reference`, reverse complement.
+- `g2t-screen` always writes verdict.csv, `--blast-db` implies BLAST, checks the DB and blastn first, and prints
+  CHECK/OK/NA counts plus the first 10 CHECK records.

@@ -27,7 +27,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-COLS = ["accession", "gene", "organism", "verdict", "layers", "reasons", "confirmed_rank"]
+COLS = ["flag", "why", "accession", "gene", "organism", "verdict", "layers", "reasons", "confirmed_rank"]
+CHECK_VERDICTS = ("likely_contaminant", "likely_misidentified", "suspect", "numt_suspect")
+BLAST_GATE_CHECK = {"no_hit": "BLAST 无命中", "no_close_reference": "BLAST 无足够相近的参考序列"}
 
 FAR_RANKS = ("phylum", "class", "order", "family")
 FAMILY_OF = {"kmer": "intrinsic", "tree": "intrinsic", "blast": "reference"}
@@ -74,11 +76,51 @@ def _flag(ev: _Ev, layer: str, reason: str, far: bool) -> None:
     (ev.far_f if far else ev.near_f).add(FAMILY_OF[layer] if ev.strict else layer)
 
 
+def _flag_why(v: str, reasons: list[str], rec: dict | None, taxon: str, ran: tuple[str, ...],
+              unverified: list[dict], bl: list[dict]) -> tuple[str, str]:
+    """CHECK / OK / NA and the reason. CHECK means 'a person should look', not 'this is contaminated'."""
+    why: list[str] = []
+    if v in CHECK_VERDICTS:
+        why.append(f"{v}: " + ("; ".join(reasons) if reasons else "多层证据"))
+    if "blast:reverse_complement" in reasons and v not in CHECK_VERDICTS:
+        why.append("方向反了（反向互补提交），序列本身需翻转")
+    if rec:
+        tx = str(rec.get("taxonomy", "") or "")
+        if tx and "Metazoa" not in tx:
+            why.append("声明的物种不是后生动物（" + "; ".join(tx.split("; ")[:2]) + "）")
+        fam = str(rec.get("family", "") or "")
+        if taxon and fam and fam != taxon:
+            why.append(f"声明的科 {fam} 不是研究类群 {taxon}")
+    if unverified:
+        why.append("NCBI 分类未经核实（ncbi_unverified），不等于确认污染")
+    for r in bl:
+        if r.get("gate") in BLAST_GATE_CHECK and not r.get("conflict_rank"):
+            why.append(BLAST_GATE_CHECK[r["gate"]] + "（可能是新物种、非目标序列或微生物，需人工看）")
+            break
+    if why:
+        return "CHECK", " | ".join(why)
+    if v in ("clean", "coarse_agree"):
+        return "OK", "BLAST 与声明的名称一致" + ("" if v == "clean" else "（仅粗分类级）")
+    if "blast" not in ran:
+        return "NA", "未运行 BLAST，没有参考库证据；微生物检查未做"
+    return "NA", "BLAST 无明确证据（unchecked）"
+
+
 def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, str] | None = None,
-            strict: bool = True) -> pd.DataFrame:
+            strict: bool = True, inventory: pd.DataFrame | None = None, taxon: str = "",
+            ran: tuple[str, ...] = ()) -> pd.DataFrame:
+    """One row per record. ``inventory`` (accession, gene, organism, family, taxonomy: every record of the run)
+    makes records without any evidence appear too; ``taxon`` is the studied family; ``ran`` names the layers that
+    were run (``blast``, ``tree``), so an empty verdict can say why it is empty. Adds ``flag`` (CHECK / OK / NA)
+    and ``why``, the one-line reason to look at the record."""
     k, t, b, n = (_by_acc_gene(x) for x in (kmer, tree, blast, trans))
-    organisms = organisms or {}
-    keys = set(k) | set(t) | set(b) | set(n)
+    organisms = dict(organisms or {})
+    inv: dict[tuple[str, str], dict] = {}
+    if inventory is not None and len(inventory):
+        for r in inventory.fillna("").to_dict("records"):
+            inv[(_key(r["accession"]), str(r.get("gene", "") or ""))] = r
+            organisms.setdefault(_key(r["accession"]), r.get("organism", ""))
+    keys = set(k) | set(t) | set(b) | set(n) | set(inv)
     genes_of: dict[str, set[str]] = {}
     for a, g in keys:
         if g:
@@ -166,6 +208,9 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
                            + "/".join(sorted(d["reference"])))
         if not strict and len(fams) >= 2:  # old rule: any two layers, far and near pooled
             v = "likely_contaminant" if far_f else "likely_misidentified"
-        out.append(dict(accession=a, gene=g, organism=org, verdict=v, layers=";".join(uniq),
+        flag, why = _flag_why(v, reasons, inv.get((a, g)) or next(
+            (x for (aa, _), x in inv.items() if aa == a and not g), None), taxon, ran,
+            [r for r in rows_for(k, a, g) if r["flag"] == "ncbi_unverified"], bl)
+        out.append(dict(flag=flag, why=why, accession=a, gene=g, organism=org, verdict=v, layers=";".join(uniq),
                         reasons="; ".join(reasons), confirmed_rank=confirmed))
     return pd.DataFrame(out, columns=COLS)

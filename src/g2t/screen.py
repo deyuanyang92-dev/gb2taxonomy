@@ -46,6 +46,7 @@ import contextlib
 import json
 import logging
 import re
+import shutil
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -396,8 +397,7 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(notes)} taxon notes; {d}/phylo_flags.csv, phylo_taxon_notes.csv, <gene>.tre")
         if len(flags):
             print(flags[["gene", "accession", "organism", "flag", "note", "evidence"]].to_string(index=False))
-    if a.blast or a.tree:
-        _verdict(a, t, a.blast)
+    _verdict(a, t, a.blast or bool(a.blast_db))
     return 0
 
 
@@ -423,6 +423,10 @@ def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
     if do_blast:
         if not a.blast_db:
             raise SystemExit("--blast needs --blast-db")
+        if not Path(a.blast_db + ".nin").exists() and not Path(a.blast_db + ".00.nin").exists():
+            raise SystemExit(f"BLAST database not found: {a.blast_db} (.nin missing)")
+        if shutil.which(a.blastn) is None:
+            raise SystemExit(f"{a.blastn} not found on PATH")
         blast = blastcheck.run_blastcheck(a.input, a.g2t, a.blast_db, threads=a.threads, blastn=a.blastn)
         blast.to_csv(d / "blastcheck.csv", index=False)
     rows = []
@@ -433,12 +437,31 @@ def _verdict(a, kmer: pd.DataFrame, do_blast: bool) -> None:
                 rows.append({"accession": acc, "gene": g, "flag": r.flag, "note": r.note})
     trans = pd.DataFrame(rows, columns=["accession", "gene", "flag", "note"])
     trans.to_csv(d / "translation_flags.csv", index=False)
-    v = verdict.combine(kmer=kmer, tree=tree, blast=blast, trans=trans)
+    tab = phylo._table(a.g2t)
+    det = {str(r["ACCESSION"]): r for _, r in tab.iterrows()}
+    inv = [{"accession": acc, "gene": g, "organism": _tip.organism,
+            "family": str(det.get(acc.split(".")[0], {}).get("Family", "")),
+            "taxonomy": str(det.get(acc.split(".")[0], {}).get("Taxonomy", ""))}
+           for g, entries in phylo.marker_sets(list(a.input), a.g2t, True, "").items()
+           for acc, (_s, _tip) in entries.items()]
+    taxon = getattr(a, "taxon", None) or phylo.study_family(a.g2t)
+    ran = tuple(n for n, x in (("blast", blast), ("tree", tree)) if x is not None)
+    v = verdict.combine(kmer=kmer, tree=tree, blast=blast, trans=trans, inventory=pd.DataFrame(inv),
+                        taxon=taxon, ran=ran)
     v.to_csv(d / "verdict.csv", index=False)
     layers = [n for n, x in (("kmer", kmer), ("tree", tree), ("blast", blast), ("translation", trans))
               if x is not None]
     print(f"\nverdict layers used: {', '.join(layers)}")
     print(f"verdict: {v.verdict.value_counts().to_dict()}; {d}/verdict.csv")
+    c = v["flag"].value_counts().to_dict()
+    print(f"\nCHECK {c.get('CHECK', 0)} | OK {c.get('OK', 0)} | NA {c.get('NA', 0)}  (CHECK = 请人工查看, 不等于确认污染)")
+    if "blast" not in ran:
+        print("提示: 未运行 BLAST (--blast-db), 微生物 / 非目标序列只能由声明的分类间接判断")
+    else:
+        print("提示: BLAST 库若不含非动物序列, 微生物只能由「无命中 / 无相近参考」间接判断")
+    top = v[v["flag"] == "CHECK"].head(10)
+    if len(top):
+        print(top[["accession", "gene", "organism", "why"]].to_string(index=False, max_colwidth=90))
 
 
 if __name__ == "__main__":

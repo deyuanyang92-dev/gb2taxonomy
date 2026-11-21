@@ -98,3 +98,31 @@ def test_reverse_complement_is_suspect_not_clean():
                           resolved=True, confirmed_rank="species", reverse=True))
     assert v.verdict.tolist() == ["suspect"]
     assert "reverse_complement" in v.reasons[0]
+
+
+def _inv(rows):
+    return pd.DataFrame(rows, columns=["accession", "gene", "organism", "family", "taxonomy"])
+
+
+def test_every_record_gets_a_row_without_evidence():
+    inv = _inv([("A1.1", "COI", "Nereis sp.", "Nereididae", "Eukaryota; Metazoa; Annelida")])
+    v = combine(inventory=inv, taxon="Nereididae")
+    assert len(v) == 1 and v.iloc[0]["flag"] == "NA" and "BLAST" in v.iloc[0]["why"]
+
+
+def test_non_metazoa_and_other_family_are_check():
+    inv = _inv([("B1.1", "COI", "Aeromonas sp.", "", "Bacteria; Proteobacteria"),
+                ("B2.1", "COI", "Syllis sp.", "Syllidae", "Eukaryota; Metazoa; Annelida")])
+    v = combine(inventory=inv, taxon="Nereididae").set_index("accession")
+    assert v.loc["B1", "flag"] == "CHECK" and "不是后生动物" in v.loc["B1", "why"]
+    assert v.loc["B2", "flag"] == "CHECK" and "研究类群" in v.loc["B2", "why"]
+
+
+def test_ncbi_unverified_and_blast_no_hit_are_check():
+    inv = _inv([("C1.1", "COI", "X y", "Nereididae", "Eukaryota; Metazoa"),
+                ("C2.1", "COI", "X z", "Nereididae", "Eukaryota; Metazoa")])
+    kmer = pd.DataFrame([dict(accession="C1", gene="COI", flag="ncbi_unverified", organism="X y")])
+    blast = pd.DataFrame([dict(accession="C2", gene="COI", gate="no_hit", conflict_rank="")])
+    v = combine(kmer=kmer, blast=blast, inventory=inv, taxon="Nereididae", ran=("blast",)).set_index("accession")
+    assert v.loc["C1", "flag"] == "CHECK" and "ncbi_unverified" in v.loc["C1", "why"]
+    assert v.loc["C2", "flag"] == "CHECK" and "无命中" in v.loc["C2", "why"]
