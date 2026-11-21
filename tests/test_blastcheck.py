@@ -126,3 +126,26 @@ def test_read_hits_old_and_new_format(tmp_path):
     new.write_text("q1\tgb|A1.1|\t99.0\t100\t100\t100\t100\t0.0\t200\t1\tfoo\t5\t104\n")
     assert list(bc.read_hits(old)["qseqid"]) == ["q1"] and "sstart" in bc.read_hits(old)
     assert int(bc.read_hits(new)["send"][0]) == 104
+
+
+def test_species_conflict_within_genus_needs_close_hits_of_another_species():
+    # declared Ophelia neglecta; two independent units of O. limacina at 99%, none of the declared species
+    r = run([("AB000001.1", 99.0, 1), ("AC009000.1", 98.9, 1), ("AD000001.1", 92.0, 2)])
+    assert r.conflict_rank == "species" and r.lca_taxon == "Ophelia limacina"
+    assert r.note.startswith("species_conflict")
+
+
+def test_declared_species_as_good_as_the_foreign_one_is_no_species_conflict():
+    lin6 = {**LIN[1], "species": "Ophelia neglecta"}
+    tax = FakeTax()
+    tax.lineage = lambda t: lin6 if t == 6 else LIN.get(t, {})
+    r = bc.check_query("HM746718.1", hits([("AB000001.1", 99.0, 1), ("AC009000.1", 98.9, 1),
+                                           ("AD000001.1", 99.0, 6)]), DECL, "coi", tax)
+    assert r.conflict_rank == ""
+
+
+def test_species_of_ignores_open_names():
+    assert bc.species_of("Perinereis linea") == "Perinereis linea"
+    for n in ("Perinereis sp.", "Nereis aff. zonata MALT-2022", "Nereididae environmental sample",
+              "Nereis cf. zonata", "Nereididae"):
+        assert bc.species_of(n) == ""

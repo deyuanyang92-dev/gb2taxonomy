@@ -146,12 +146,24 @@ class Result:
     gate: str = "no_hit"  # actionable | no_close_reference | no_hit
     conflict_rank: str = ""  # highest rank where the consensus differs from the declared lineage
     own_best: float = 0.0  # best identity to a hit of the declared genus
+    own_species_best: float = 0.0  # best identity to a hit of the declared species
     other_best: float = 0.0
     same_batch_hit: bool = False
     agrees: bool = False  # consensus matches the declared lineage (positive evidence)
     reverse: bool = False  # best hit is on the minus strand: the record is probably reverse-complemented
     note: str = ""
     units: list = field(default_factory=list, repr=False)
+
+
+OPEN_EPITHETS = {"sp", "cf", "aff", "nr", "gen", "environmental", "uncultured"}
+
+
+def species_of(organism: str) -> str:
+    """'Genus species' of an organism name; '' for 'Genus sp.', 'cf.', 'aff.', 'environmental sample' etc."""
+    w = str(organism).split()
+    if len(w) < 2 or not w[0][:1].isupper() or w[1] in OPEN_EPITHETS or not re.fullmatch(r"[a-z][a-z-]+", w[1]):
+        return ""
+    return f"{w[0]} {w[1]}"
 
 
 def limits_for(gene: str) -> tuple[dict[str, float], float]:
@@ -177,6 +189,7 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
     units: dict[tuple, dict] = {}
     own_genus = declared.get("genus", "")
     own_family = declared.get("family", "")
+    own_species = declared.get("species", "")
     for r in h.itertuples():
         tid = str(r.staxids).split(";")[0]
         if not tid.isdigit():
@@ -189,6 +202,8 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
             res.own_best = max(res.own_best, float(r.pident))
         if own_family and lin.get("family") == own_family:
             res.own_best = max(res.own_best, float(r.pident)) if not own_genus else res.own_best
+        if own_species and lin.get("species") == own_species:
+            res.own_species_best = max(res.own_species_best, float(r.pident))
         if r.bitscore < TOP * best:
             continue
         key = (tid, batch_of(r.sseqid))
@@ -208,7 +223,10 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
     for rk in RANKS[: finest_ok + 1]:
         votes: dict[str, int] = defaultdict(int)
         for u in units.values():
-            if u["lin"].get(rk):  # a hit without this rank (no 'order' in annelids, 'Polychaeta sp.') abstains
+            name = u["lin"].get(rk)
+            if rk == "species" and name and not species_of(name):
+                name = ""  # 'Nereis aff. zonata', 'Nereididae sp. X': an open name is no species
+            if name:  # a hit without this rank (no 'order' in annelids, 'Polychaeta sp.') abstains
                 votes[u["lin"][rk]] += 1
         if not votes:
             continue
@@ -229,9 +247,12 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         foreign = [u for u in units.values() if u["lin"].get(res.conflict_rank) == consensus[res.conflict_rank]]
         res.other_best = max(u["pident"] for u in foreign)
         res.same_batch_hit = any(u["same_batch"] for u in foreign)
-        ok_margin = res.other_best - res.own_best >= MARGIN
+        # species-level conflict (same genus, other species): compare with the declared *species* only,
+        # not the whole genus, which contains the foreign species itself
+        own_cmp = res.own_species_best if res.conflict_rank == "species" else res.own_best
+        ok_margin = res.other_best - own_cmp >= MARGIN
         ok_units = len(foreign) >= 2 or res.same_batch_hit
-        single = (not ok_units and res.other_best >= SINGLE_PIDENT and res.other_best - res.own_best >= SINGLE_MARGIN)
+        single = (not ok_units and res.other_best >= SINGLE_PIDENT and res.other_best - own_cmp >= SINGLE_MARGIN)
         ok_units = ok_units or single
         if res.conflict_rank in ("phylum", "class") and res.best_pident < DISTANT:
             res.note = f"distant_hit_only: best hit below {DISTANT:.0f}%, a new lineage cannot be told from a stranger"
@@ -242,6 +263,8 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         elif res.own_best == 0 and res.conflict_rank in ("genus", "family"):
             # the declared taxon is absent from the top hits: still a conflict, but a weaker one
             res.note = "declared taxon absent from top hits"
+        elif res.conflict_rank == "species":
+            res.note = f"species_conflict: best hit {consensus['species']} at {res.other_best:.1f}%"
         elif single and len(foreign) < 2 and not res.same_batch_hit:
             res.note = "single_reference: one foreign hit, very close"
     elif consensus:
@@ -314,6 +337,9 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
             lin = tax.by_name(r["Family"]) or tax.by_name(r["Genus"])
             declared[q] = {**lin, **({"family": r["Family"]} if r["Family"] else {}),
                            **({"genus": r["Genus"]} if r["Genus"] else {})}
+            sp = species_of(r["Organism"])
+            if sp:
+                declared[q]["species"] = sp
         for x in check_all(hits, declared, {q: g for q in declared}, tax):
             out.append({"accession": x.accession, "gene": g, "organism": org.get(x.accession, ""), "gate": x.gate,
                         "lca_rank": x.lca_rank, "lca_taxon": x.lca_taxon, "best_pident": x.best_pident,

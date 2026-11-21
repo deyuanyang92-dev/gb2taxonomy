@@ -18,3 +18,9 @@ k-mer → 基因树 → BLAST 共识 → 翻译检查，合并为 `organized_gen
 
 ## 暂不做
 rRNA HMM 本体检查（没有真值）；目标等级自动推断；study_group_id 批次合并（现为同前缀 500 号内）。
+
+## Species-level BLAST conflict (2026-11-21, Nereididae)
+
+Reference: Yang et al. 2024 (ZSE 100(4):1297, Perinereis), which checks the top BLAST hits at >97 % identity species by species. blastcheck now does the same: the declared binomial is compared with the consensus species (identity limit 97 % for fast markers); the declared *species'* best hit is the comparison, not the whole genus. Open names (sp., cf., aff., environmental sample) abstain. Result `note = species_conflict: ...`, verdict treats it as a near (one-layer) signal.
+
+Nereididae (6450 marker rows, metazoa_marker): 58 species conflicts. Paper's known errors: *P. aibuhitensis* -> *P. linea* caught (KC833485/6, LC788351, 99.8-100 %); N. acuminata OQ729916 caught at genus level (Perinereis); N. glandicincta KY094478 caught by k-mer + tree; *P. fayedensis* OQ729919 (= P. damietta) NOT caught (best hit 92 %, no P. damietta reference in the DB). Open: synonyms may give false species conflicts (taxonomist to judge).
