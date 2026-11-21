@@ -63,6 +63,7 @@ class _Ev:
         self.far_f: set[str] = set()
         self.near_f: set[str] = set()
         self.dest: dict[str, set[str]] = {}  # evidence family -> genera the record is said to belong to
+        self.reverse = False  # submitted in the reverse-complement orientation (BLAST minus-strand hit)
         self.weak = False  # a BLAST conflict resting on one reference with the declared taxon absent
 
 
@@ -124,6 +125,7 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
                     ev.dest.setdefault("reference", set()).add(_genus_of(r["lca_taxon"]))
             if _true(r.get("reverse")):
                 reasons.append("blast:reverse_complement")
+                ev.reverse = True
         numt = any(r.get("flag") == "numt_suspect" for r in rows_for(n, a, g))
         if numt:
             reasons.append("translation:numt_suspect")
@@ -152,6 +154,8 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
             v = "coarse_agree"
         else:
             v = "unchecked"
+        if ev.reverse and v in ("clean", "coarse_agree", "unchecked"):
+            v = "suspect"  # wrong orientation is a record error even when the name checks out
         d = ev.dest
         if strict and v == "likely_misidentified" and d.get("intrinsic") and d.get("reference") \
                 and not d["intrinsic"] & d["reference"]:

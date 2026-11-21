@@ -91,3 +91,10 @@ def test_weak_blast_conflict_alone_is_suspect_and_never_escalates():
 def test_no_hit_row_is_unchecked_not_missing():
     v = combine(blast=_df(accession="A.1", gene="coi", gate="no_hit", note="no BLAST hit"))
     assert v.verdict.tolist() == ["unchecked"]
+
+
+def test_reverse_complement_is_suspect_not_clean():
+    v = combine(blast=_df(accession="A.1", gene="coi", organism="x", gate="actionable", agrees=True,
+                          resolved=True, confirmed_rank="species", reverse=True))
+    assert v.verdict.tolist() == ["suspect"]
+    assert "reverse_complement" in v.reasons[0]
