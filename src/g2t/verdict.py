@@ -45,6 +45,12 @@ def _by_acc_gene(df: pd.DataFrame | None) -> dict[tuple[str, str], list[dict]]:
     return out
 
 
+def _genus_of(name: str) -> str:
+    """'Perinereis linea' -> 'Perinereis'; a bare genus stays; open names / empty give ''."""
+    w = str(name or "").strip().split()
+    return w[0] if w and w[0][:1].isupper() else ""
+
+
 def _true(x) -> bool:
     return x in (True, "True", "true", 1)
 
@@ -56,6 +62,8 @@ class _Ev:
         self.strict, self.layers, self.reasons = strict, [], []
         self.far_f: set[str] = set()
         self.near_f: set[str] = set()
+        self.dest: dict[str, set[str]] = {}  # evidence family -> genera the record is said to belong to
+        self.weak = False  # a BLAST conflict resting on one reference with the declared taxon absent
 
 
 def _flag(ev: _Ev, layer: str, reason: str, far: bool) -> None:
@@ -92,18 +100,28 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
             org = org or r.get("organism", "")
             if r["flag"] in ("near_other_genus", "remote", "same_species_far"):
                 _flag(ev, "kmer", r["flag"], r["flag"] == "remote")
+                if r["flag"] != "remote" and r.get("nearest_genus"):
+                    ev.dest.setdefault("intrinsic", set()).add(_genus_of(r["nearest_genus"]))
         for r in rows_for(t, a, g):
             org = org or r.get("organism", "")
             if r["flag"] in ("outside_family", "inside_other_family"):
                 _flag(ev, "tree", r["flag"], True)
             elif r["flag"].startswith("inside_other_genus"):
                 _flag(ev, "tree", r["flag"], False)
+                gs = {_genus_of(x) for x in str(r.get("neighbours", "")).split(";")} - {""}
+                if gs:
+                    ev.dest.setdefault("intrinsic", set()).update(gs)
         bl = rows_for(b, a, g)
         for r in bl:
             org = org or r.get("organism", "")
             cr = r.get("conflict_rank", "")
-            if cr:
+            if cr and _true(r.get("weak")):
+                ev.weak = True
+                reasons.append(f"blast:{cr} (weak: one reference, declared taxon absent from hits)")
+            elif cr:
                 _flag(ev, "blast", cr, cr in FAR_RANKS)
+                if cr in ("genus", "species") and _genus_of(r.get("lca_taxon", "")):
+                    ev.dest.setdefault("reference", set()).add(_genus_of(r["lca_taxon"]))
             if _true(r.get("reverse")):
                 reasons.append("blast:reverse_complement")
         numt = any(r.get("flag") == "numt_suspect" for r in rows_for(n, a, g))
@@ -124,7 +142,7 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
             else:
                 v = "suspect"
                 reasons.append("layers_disagree: one says another family, the other another genus / species")
-        elif fams:
+        elif fams or ev.weak:
             v = "suspect"
         elif numt:
             v = "numt_suspect"
@@ -134,6 +152,13 @@ def combine(kmer=None, tree=None, blast=None, trans=None, organisms: dict[str, s
             v = "coarse_agree"
         else:
             v = "unchecked"
+        d = ev.dest
+        if strict and v == "likely_misidentified" and d.get("intrinsic") and d.get("reference") \
+                and not d["intrinsic"] & d["reference"]:
+            # two families agree that the name is wrong but not on where the record belongs
+            v = "suspect"
+            reasons.append("destinations_disagree: " + "/".join(sorted(d["intrinsic"])) + " vs "
+                           + "/".join(sorted(d["reference"])))
         if not strict and len(fams) >= 2:  # old rule: any two layers, far and near pooled
             v = "likely_contaminant" if far_f else "likely_misidentified"
         out.append(dict(accession=a, gene=g, organism=org, verdict=v, layers=";".join(uniq),

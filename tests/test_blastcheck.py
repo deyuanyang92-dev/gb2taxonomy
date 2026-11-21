@@ -198,3 +198,23 @@ def test_accepted_name_resolves_synonym_and_merged_taxid(tmp_path):
     assert tax.accepted("Nereis dual") is None  # synonym of two taxa: ambiguous
     assert tax.accepted("Nope nope") is None
     assert tax.lineage(99).get("species") == "Hediste diversicolor"  # merged taxid
+
+
+def test_family_only_units_do_not_give_a_species_consensus():
+    # one species-labelled unit among nine family-only ones: genus / species stay unresolved (family kept)
+    lin = dict(LIN)
+    for t in range(10, 19):
+        lin[t] = {"family": "Opheliidae", "order": "Opheliida", "class": "Polychaeta", "phylum": "Annelida"}
+
+    class T(FakeTax):
+        def lineage(self, taxid):
+            return lin.get(taxid, {})
+
+    rows = [("AB000001.1", 95.0, 1)] + [(f"AC0000{i:02d}.1", 94.9, 10 + i) for i in range(9)]
+    r = bc.check_query("Q.1", hits(rows, "Q.1"), DECL, "coi", T())
+    assert r.lca_rank == "family" and r.lca_taxon == "Opheliidae"
+
+
+def test_single_foreign_hit_with_declared_taxon_absent_is_weak():
+    r = run([("AB000001.1", 98.0, 3)], gene="coi")
+    assert r.conflict_rank and r.weak and "declared" in r.note

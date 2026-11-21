@@ -67,3 +67,27 @@ def test_family_agreement_is_not_clean():
     v = combine(blast=_df(accession="E.1", gene="16s", conflict_rank="", gate="actionable", agrees=True,
                           resolved=True, confirmed_rank="species"))
     assert v.verdict.tolist() == ["clean"]
+
+
+def test_destinations_must_agree_for_likely_misidentified():
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="near_other_genus", nearest_genus="Beta"),
+                blast=_df(accession="A.1", gene="coi", conflict_rank="genus", gate="actionable", lca_rank="genus",
+                          lca_taxon="Gamma"))
+    assert v.verdict.tolist() == ["suspect"] and "destinations_disagree" in v.reasons[0]
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="near_other_genus", nearest_genus="Beta"),
+                blast=_df(accession="A.1", gene="coi", conflict_rank="species", gate="actionable", lca_rank="species",
+                          lca_taxon="Beta alba"))
+    assert v.verdict.tolist() == ["likely_misidentified"]
+
+
+def test_weak_blast_conflict_alone_is_suspect_and_never_escalates():
+    v = combine(blast=_df(accession="A.1", gene="coi", conflict_rank="genus", gate="actionable", weak=True))
+    assert v.verdict.tolist() == ["suspect"]
+    v = combine(kmer=_df(accession="A.1", gene="coi", organism="x", flag="near_other_genus", nearest_genus="Beta"),
+                blast=_df(accession="A.1", gene="coi", conflict_rank="genus", gate="actionable", weak=True))
+    assert v.verdict.tolist() == ["suspect"]
+
+
+def test_no_hit_row_is_unchecked_not_missing():
+    v = combine(blast=_df(accession="A.1", gene="coi", gate="no_hit", note="no BLAST hit"))
+    assert v.verdict.tolist() == ["unchecked"]

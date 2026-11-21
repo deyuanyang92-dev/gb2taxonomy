@@ -172,6 +172,8 @@ class Result:
     agrees: bool = False  # consensus matches the declared lineage (positive evidence)
     confirmed_rank: str = ""  # finest rank at which the consensus equals the declared lineage
     declared_rank: str = ""  # finest of species / genus / family the record declares
+    species_thin: bool = False  # the species consensus is one named hit among many open names
+    weak: bool = False  # conflict rests on one reference and the declared taxon is absent from the hits
     resolved: bool = False  # confirmed_rank reaches the declared rank: the name itself is confirmed
     reverse: bool = False  # best hit is on the minus strand: the record is probably reverse-complemented
     note: str = ""
@@ -257,7 +259,13 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         if not votes:
             continue
         top, n = max(votes.items(), key=lambda kv: kv[1])
-        if n / sum(votes.values()) >= AGREE:
+        # units that carry no genus / species (family-only labels) are unresolved, not absent: they stay in
+        # the denominator, so one labelled unit among nine family-only ones cannot give a species consensus
+        denom = sum(1 for u in units.values() if u["lin"].get("family")) if rk == "genus" else sum(votes.values())
+        if rk == "species":  # one named species among open-named / unnamed hits can flag but not confirm a name
+            genus_units = sum(1 for u in units.values() if u["lin"].get("genus"))
+            res.species_thin = n < 2 and n / max(genus_units, 1) < 0.5
+        if n / max(denom, 1) >= AGREE:
             consensus[rk] = top
             res.lca_rank, res.lca_taxon = rk, top
         elif rk in ("genus", "species"):
@@ -286,6 +294,11 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         elif not (ok_margin and ok_units):
             res.note = "discordant but not independent / not clearly better than declared taxon"
             res.conflict_rank = ""
+        elif single and own_cmp == 0:
+            # one foreign reference, and the declared taxon has no reference among the hits at all: unknown,
+            # not evidence against the declared name
+            res.weak = True
+            res.note = "single_reference_declared_absent: one close foreign hit, no reference for the declared taxon"
         elif res.own_best == 0 and res.conflict_rank in ("genus", "family"):
             # the declared taxon is absent from the top hits: still a conflict, but a weaker one
             res.note = "declared taxon absent from top hits"
@@ -297,6 +310,9 @@ def check_query(q: str, hits: pd.DataFrame, declared: dict[str, str], gene: str,
         # positive evidence: consensus reaches family or finer and agrees with the declared lineage
         both = [rk for rk in consensus if declared.get(rk)]
         res.agrees = any(RANKS.index(rk) >= RANKS.index("family") for rk in both) and not res.note
+        if res.species_thin:
+            consensus.pop("species", None)
+            both = [rk for rk in both if rk != "species"]
         agreeing = [rk for rk in both if consensus[rk] == declared[rk]]
         res.confirmed_rank = agreeing[-1] if agreeing else ""
         # a rank this marker can never resolve (conserved rRNA / histone at species level) is not demanded
@@ -358,6 +374,8 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                 fh.write(f">{acc}\n{seq}\n")
         run_blast(fa, db, hf, threads=threads, blastn=blastn)
         if hf.stat().st_size == 0:
+            out += [{"accession": acc, "gene": g, "organism": rows.get(acc_key(acc), {}).get("Organism", ""),
+                     "gate": "no_hit", "note": "no BLAST hit"} for acc in entries]
             continue
         hits = read_hits(hf)
         declared, org, syn = {}, {}, {}
@@ -378,12 +396,17 @@ def run_blastcheck(inputs, g2t_dir, db, threads: int = 16, blastn: str = "blastn
                     declared[q] = {**declared[q], **tax.lineage(acc_sp[0])}
                     sp = acc_sp[1]
                 declared[q]["species"] = sp
+        seen = set(hits["qseqid"].unique())
+        for acc in entries:  # a query without any hit is 'unchecked', not absent from the table
+            if acc not in seen:
+                out.append({"accession": acc, "gene": g, "organism": rows.get(acc_key(acc), {}).get("Organism", ""),
+                            "gate": "no_hit", "note": "no BLAST hit"})
         for x in check_all(hits, declared, {q: g for q in declared}, tax):
             out.append({"accession": x.accession, "gene": g, "organism": org.get(x.accession, ""), "gate": x.gate,
                         "lca_rank": x.lca_rank, "lca_taxon": x.lca_taxon, "best_pident": x.best_pident,
                         "n_units": x.n_units, "conflict_rank": x.conflict_rank, "own_best": x.own_best,
                         "other_best": x.other_best, "same_batch_hit": x.same_batch_hit, "agrees": x.agrees,
                         "reverse": x.reverse, "note": x.note, "confirmed_rank": x.confirmed_rank,
-                        "declared_rank": x.declared_rank, "resolved": x.resolved,
+                        "declared_rank": x.declared_rank, "resolved": x.resolved, "weak": x.weak,
                         "synonym": syn.get(x.accession, "")})
     return pd.DataFrame(out)
