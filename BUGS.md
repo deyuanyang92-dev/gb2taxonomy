@@ -288,3 +288,10 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 - **原因：** DToL/EBP 的 ENA 组装记录是核基因组（hap1/hap2），`assembly_software` 字段为空；线粒体基因组只作为序列提交，没有对应的软件字段。
 - **Europe PMC `databaseLinks`：** 对 OP104125 的论文（PMID 36713295）返回空，不能用来建立论文↔登录号，继续用全文检索 + 报告/引用判断。
 - **结论：** 平台可由 ENA read_run 仪器字段确定（`sra_*` 列）；组装软件只有 COMMENT（如 OATK）或原文 Methods 的正则（`lit_assemblers`，建议值）。约 1800 条未发表的 EBP 记录没有论文，组装软件保持“未写明”。
+
+## 待核对：SRA 只查 ENA，可能漏掉 NCBI 独有的 run（g2t-sra / g2t-litmethods）
+- **现状：** run 信息只来自 ENA portal API（`read_run`），没有查 NCBI SRA。EBP 6309 条中：记录自带 run 4216，经 BioSample 在 ENA 找到 948，ENA 里没有 run 1145。
+- **选 ENA 的原因（推断，当时未留记录）：** ENA 与 NCBI 同属 INSDC，通常同步；ENA 一次请求可用 OR 批量查 50 个 run，能直接按 BioSample 查，返回 TSV；NCBI 需 esearch + efetch 解析 XML，无 key 时 3 次/秒。
+- **未验证：** 那 1145 条里有多少在 NCBI SRA 有（ENA 未镜像）。
+- **核对做法：** 从 `sra_runs.csv` 中 `note="no run found in ENA"` 的登录号固定种子抽 30 条，用 NCBI esearch（db=sra，BioSample 号）查，统计补回数。补回很少 → 只用 ENA，在文档注明；较多 → 加 NCBI 后备，只查 ENA 没找到的，沿用 litmethods.Cache。
+- **状态：** 未做（2026-11-22 登记）。
