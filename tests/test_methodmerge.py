@@ -23,3 +23,13 @@ def test_priority_record_then_sra_then_paper():
     assert r.loc["A", "assembler"] == "GetOrganelle" and r.loc["A", "assembler_source"] == "GenBank record"
     assert r.loc["B", "platform"] == "PacBio" and r.loc["B", "assembler"] == ""
     assert r.loc["C", "assembler"] == "MitoZ" and "PMID 2" in r.loc["C", "assembler_source"]
+
+
+def test_genome_columns_are_context_only():
+    stats = pd.DataFrame({"accession": ["A1"], "organism": ["x"], "seq_platforms": [""], "seq_category": ["Unknown"],
+                          "assemblers": [""], "assembler_group": [""]})
+    gen = pd.DataFrame({"accession": ["A1", "A1"], "genome_assembly": ["GCA_1", "GCA_2"],
+                        "genome_method": ["Hifiasm", "Hifiasm"], "genome_seq_tech": ["PacBio", "PacBio"]})
+    r = merge(stats, genome=gen).iloc[0]
+    assert r.genome_assembly == "GCA_1; GCA_2" and r.genome_method == "Hifiasm" and r.genome_seq_tech == "PacBio"
+    assert r.assembler == ""

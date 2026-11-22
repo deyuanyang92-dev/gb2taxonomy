@@ -323,3 +323,11 @@ def main_organize(argv=None):
     from g2t.organize import main
 
     return main(argv)
+
+
+def main_genome(argv=None):
+    """g2t-genome — nuclear genome assembly method of the same BioSample (context only)."""
+    _version_flag(argv, "g2t-genome")
+    from g2t.genomeasm import main
+
+    return main(argv)

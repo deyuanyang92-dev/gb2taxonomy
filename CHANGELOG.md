@@ -2,6 +2,12 @@
 
 ## 未发布
 
+- 新命令 `g2t-methods`：把 GenBank 记录、SRA run（`g2t-sra`）、论文（`g2t-litmethods`）三处的测序平台与组装软件合并成 `methods_final.csv`，每个值带来源（GenBank 记录 > SRA > 论文；只是被引用的论文不采信）。EBP 线粒体 6309 条：平台已知 5102，组装软件已知 4514（记录 4506 + 论文 8）。`--genome` 另加 `genome_assembly / genome_method / genome_seq_tech` 三列，仅作背景，不写入 `assembler`。
+
+- 新命令 `g2t-genome`：登录号 → BioSample → ENA 上同一标本的核基因组组装（GCA）→ NCBI datasets 的 assembly_method / sequencing_tech（如 Hifiasm, Purge_dups, Yahs + PacBio, Arima）。线粒体没写组装软件的 DToL/ERGA 记录借此补背景信息，不冒充线粒体组装软件。结果带缓存，重跑只查新增。
+
+- 缓存提速：`g2t-litmethods` / `g2t-sra` 缓存改为每批写一次（原为逐键整文件重写，二次方慢）；查询过的登录号直接读缓存。
+
 - 新命令 `g2t-sra`：mitostats 表里每个登录号 → 其原始 SRA/ENA run 清单（记录自带 `sra_runs`，没有则用 BioSample 去 ENA 查该标本的 reads），一行一个 run：platform / model / library_strategy / source / layout / read 数 / 碱基数 / study / sample，并标 `genomic`（WGS/WGA/WXS）与 `run_link`（record / biosample）。输出 `sra_runs.csv`。
 
 - 新命令 `g2t-litmethods`：对 mitostats 表里测序平台未知 / 组装方法未写明的记录，用登录号在 Europe PMC 全文检索找原文，列出文献（标题、DOI、PMCID），开放获取的全文去掉参考文献后用 mito_methods.yaml 的正则提取平台和组装软件，写到 `lit_*` 列（建议值，需人工确认）。不抓取 Google。示例 OP104125 → Illumina + NOVOPlasty、GetOrganelle（论文 PMC9879194，lit_role=reports）。

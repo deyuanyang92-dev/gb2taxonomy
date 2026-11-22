@@ -60,6 +60,7 @@ g2t-cite = "g2t._cli:main_cite"
 g2t-litmethods = "g2t._cli:main_litmethods"
 g2t-sra = "g2t._cli:main_sra"
 g2t-methods = "g2t._cli:main_methods"
+g2t-genome = "g2t._cli:main_genome"
 g2t-verify = "g2t._cli:main_verify"
 g2t-screen = "g2t._cli:main_screen"
 

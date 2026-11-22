@@ -16,13 +16,14 @@ from g2t import mitostats as ms
 _NONE = {"", "Unknown", "No assembly info in record", ms.NOT_STATED}
 
 
-def merge(stats: pd.DataFrame, sra: pd.DataFrame | None = None, lit: pd.DataFrame | None = None) -> pd.DataFrame:
+def merge(stats: pd.DataFrame, sra: pd.DataFrame | None = None, lit: pd.DataFrame | None = None,
+          genome: pd.DataFrame | None = None) -> pd.DataFrame:
     s = stats.fillna("")
     out = s[["accession", "organism"]].copy()
     out["platform"] = s["seq_platforms"]
     out["seq_category"] = s["seq_category"].where(s["seq_category"] != "Unknown", "")
     out["platform_source"] = s["seq_platforms"].map(lambda x: "GenBank record" if x else "")
-    out["assembler"] = s["assemblers"] if "assemblers" in s else ""
+    out["assembler"] = s.get("assemblers", "")
     out["assembler_source"] = out["assembler"].map(lambda x: "GenBank record" if x else "")
     out["assembly_group"] = s["assembler_group"]
     idx = {a: i for i, a in zip(out.index, out.accession)}
@@ -53,6 +54,18 @@ def merge(stats: pd.DataFrame, sra: pd.DataFrame | None = None, lit: pd.DataFram
             put(r["accession"], "platform", r.get("lit_seq_platforms", ""), src)
             put(r["accession"], "assembler", r.get("lit_assemblers", ""), src)
     out["platform_source"] = out["platform_source"].where(out["platform"] != "", "")
+    # nuclear genome assembly of the same BioSample: context only, never written into `assembler`
+    out["genome_assembly"] = out["genome_method"] = out["genome_seq_tech"] = ""
+    if genome is not None and len(genome):
+        G = genome.fillna("")
+        G = G[G["genome_assembly"] != ""]
+        for acc, grp in G.groupby("accession"):
+            i = idx.get(acc)
+            if i is None:
+                continue
+            out.at[i, "genome_assembly"] = "; ".join(grp["genome_assembly"])
+            out.at[i, "genome_method"] = "; ".join(dict.fromkeys(m for m in grp["genome_method"] if m))
+            out.at[i, "genome_seq_tech"] = "; ".join(dict.fromkeys(m for m in grp["genome_seq_tech"] if m))
     return out
 
 
@@ -61,13 +74,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("mitostats")
     ap.add_argument("--sra", help="sra_runs.csv from g2t-sra")
     ap.add_argument("--lit", help="litmethods.csv from g2t-litmethods")
+    ap.add_argument("--genome", help="genome_assemblies.csv from g2t-genome (context columns genome_*)")
     ap.add_argument("-o", "--out", default="methods_final.csv")
     a = ap.parse_args(argv)
     rd = lambda p: pd.read_csv(p, dtype=str) if p else None  # noqa: E731
-    res = merge(rd(a.mitostats), rd(a.sra), rd(a.lit))
+    res = merge(rd(a.mitostats), rd(a.sra), rd(a.lit), rd(a.genome))
     res.to_csv(a.out, index=False)
     n = len(res)
-    print(f"{n} records: platform known {(res.platform != '').sum()}, assembler known {(~res.assembler.isin(_NONE)).sum()} -> {a.out}")
+    n_plat = (res.platform != "").sum()
+    n_asm = (~res.assembler.isin(_NONE)).sum()
+    print(f"{n} records: platform known {n_plat}, assembler known {n_asm} -> {a.out}")
     print(res.assembler_source.value_counts().to_string())
     return 0
 
