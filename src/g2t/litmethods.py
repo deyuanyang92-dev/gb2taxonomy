@@ -74,10 +74,16 @@ class Cache:
         if key not in self.d or (ttl is not None and time.time() - ts.get(key, 0) > ttl):
             self.d[key] = fn()
             ts[key] = time.time()
-            tmp = self.path.with_name(self.path.name + ".tmp")
-            tmp.write_text(json.dumps(self.d, ensure_ascii=False))
-            os.replace(tmp, self.path)
+            if not self.defer:
+                self.save()
         return self.d[key]
+
+    defer = False  # True: caller batches writes and calls save() itself
+
+    def save(self) -> None:
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp.write_text(json.dumps(self.d, ensure_ascii=False))
+        os.replace(tmp, self.path)
 
 
 def search_accession(acc: str) -> list[dict[str, str]]:
@@ -304,7 +310,10 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
         todo = todo.head(limit)
     cache = Cache(Path(cache_path or Path(out).with_suffix(".cache.json")))
     rows = []
-    for _, r in todo.iterrows():
+    cache.defer = True
+    for n, (_, r) in enumerate(todo.iterrows(), 1):
+        if n % 25 == 0:
+            cache.save()
         acc = str(r["accession"])
         base = {"accession": acc, "organism": r.get("organism", "")}
         if (r.get("sra_runs") or r.get("biosample")) and r.get("seq_category", "") in ("", "Unknown", "NGS") \
@@ -373,6 +382,7 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
             kept += 1
         if not kept:
             rows.append({**base, "lit_note": "no article mentions it"})
+    cache.save()
     res = pd.DataFrame(rows)
     res.to_csv(out, index=False)
     return res

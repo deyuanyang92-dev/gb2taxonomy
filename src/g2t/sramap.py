@@ -53,7 +53,10 @@ def build(table: str | pd.DataFrame, cache: Cache, limit: int = 0) -> pd.DataFra
     if limit:
         t = t.head(limit)
     rows: list[dict[str, str]] = []
-    for _, r in t.iterrows():
+    cache.defer = True
+    for n, (_, r) in enumerate(t.iterrows(), 1):
+        if n % 100 == 0:
+            cache.save()
         base = {"accession": r["accession"], "organism": r.get("organism", ""),
                 "biosample_in_record": r.get("biosample", "")}
         runs = [x for x in r.get("sra_runs", "").split("; ") if x]
@@ -71,6 +74,8 @@ def build(table: str | pd.DataFrame, cache: Cache, limit: int = 0) -> pd.DataFra
             rows.append({**base, "run_link": link, **d,
                          "note": "" if d.get("strategy") else "run not returned by ENA",
                          "genomic": "yes" if d.get("strategy", "").lower() in GENOMIC else "no"})
+    cache.save()
+    cache.defer = False
     return pd.DataFrame(rows)
 
 
