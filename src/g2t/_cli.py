@@ -280,6 +280,14 @@ def main_sra(argv=None):
     return main(argv)
 
 
+def main_methods(argv=None):
+    """g2t-methods — Merge GenBank record, SRA runs and paper methods into one platform / assembler table."""
+    _version_flag(argv, "g2t-methods")
+    from g2t.methodmerge import main
+
+    return main(argv)
+
+
 def main_cite(argv=None):
     """g2t-cite — Find the published paper (Crossref) of records still marked Unpublished."""
     _version_flag(argv, "g2t-cite")
