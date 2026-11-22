@@ -272,6 +272,14 @@ def main_litmethods(argv=None):
     return main(argv)
 
 
+def main_sra(argv=None):
+    """g2t-sra — Raw SRA/ENA runs behind each mitogenome accession (platform, strategy, read volume)."""
+    _version_flag(argv, "g2t-sra")
+    from g2t.sramap import main
+
+    return main(argv)
+
+
 def main_cite(argv=None):
     """g2t-cite — Find the published paper (Crossref) of records still marked Unpublished."""
     _version_flag(argv, "g2t-cite")

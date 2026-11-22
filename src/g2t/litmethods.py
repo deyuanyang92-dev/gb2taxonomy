@@ -10,6 +10,7 @@ Results are *suggestions* (``lit_*`` columns), never written over the GenBank-de
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -163,20 +164,37 @@ def accession_re(acc: str) -> re.Pattern:
 
 _SENT = re.compile(r"(?<=[.;])\s+(?=[A-Z(])")
 _DEPOSIT = re.compile(r"submitted|deposit|accession (?:no|number)|registered|available (?:in|at|from|under)|GenBank under|"
-                      r"under (?:the )?accession|has been (?:uploaded|released)|were? (?:uploaded|released)", re.I)
+                      r"under (?:the )?accession|has been (?:uploaded|released)|were? (?:uploaded|released)|"
+                      r"assigned (?:GenBank )?accession|GenBank accession|released assembly|"
+                      r"mitochondrial genome\s*\([^)]{0,30}\)\s*was assembled", re.I)
 _REUSE = re.compile(r"download|retriev|obtain\w* from|taken from|sequences? (?:of|from) (?:other|related)|"
                     r"outgroup|used in (?:the )?(?:phylogen|analys)|reference sequence", re.I)
 
 
-def accession_role(body: str, acc: str) -> tuple[str, str]:
-    """("reports" | "cited", evidence sentence): does the article say it *deposited* the sequence, or only mention it?"""
+def title_names_organism(title: str, organism: str) -> bool:
+    """The article is about the record's own species: genus and epithet both in the title (a subgenus in
+    brackets, as in "Holothuria (Platyperona) sanctori", does not matter)."""
+    t = re.sub(r"<[^>]+>", "", html.unescape(html.unescape(title or ""))).lower()
+    w = (organism or "").lower().split()
+    return len(w) >= 2 and all(re.search(r"\b" + re.escape(x) + r"\b", t) for x in w[:2])
+
+
+def accession_role(body: str, acc: str, title: str = "", organism: str = "") -> tuple[str, str]:
+    """("reports" | "cited" | "absent", evidence): does the article say it *deposited* the sequence, or only mention
+    it? "absent": the accession is not in the text at all (a search false positive). A paper whose title names the
+    record's own species and that mentions the accession is the record's own paper (ERGA-BGE genome papers say
+    "was assembled using FOAM", not "deposited")."""
     rx = accession_re(acc)
+    if not rx.search(body):
+        return "absent", ""
     # a character window, not a sentence: "accession no. OP104125" would be cut at "no."
     wins = [body[max(0, m.start() - 220): m.end() + 60] for m in rx.finditer(body)]
     for w in wins:
         if _DEPOSIT.search(w) and not _REUSE.search(w):
             return "reports", w
-    return "cited", (wins[0] if wins else "")
+    if title_names_organism(title, organism):
+        return "reports", wins[0] + "  [title names the record's species]"
+    return "cited", wins[0]
 
 
 _SEQ_CTX = re.compile(r"sequenc|librar|reads?\b|platform|paired[- ]end|flow ?cell|nanopore|hifi|run\b", re.I)
@@ -321,6 +339,7 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
         if not hits:
             rows.append({**base, "lit_note": "no article mentions it"})
             continue
+        kept = 0
         for h in hits:
             row = {**base, **{f"lit_{k}": v for k, v in h.items()},
                    "lit_via": "record REFERENCE PUBMED" if h["pmid"] in own else "accession in article text",
@@ -334,8 +353,10 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                 try:
                     xml = cache.get("x:" + h["pmcid"], lambda p=h["pmcid"]: fetch_xml(p))
                     meth, whole, found = article_sections(xml)
-                    role, ev = accession_role(role_text(xml), acc)
-                    if role == "cited" and not ev and h["pmid"] in own:
+                    role, ev = accession_role(role_text(xml), acc, h["title"], str(r.get("organism", "")))
+                    if role == "absent" and h["pmid"] not in own:
+                        continue  # accession not in the article: search false positive, drop the paper
+                    if role == "absent" and h["pmid"] in own:
                         role, ev = "record_reference", "paper is the record's own REFERENCE (PUBMED field)"
                     row["lit_role"], row["lit_accession_sentence"] = role, ev
                     if role in ("reports", "record_reference"):
@@ -349,6 +370,9 @@ def run(table: str, out: str, cache_path: str | None = None, limit: int = 0, del
                     row["lit_note"] = f"full text failed: {e}"
                 time.sleep(delay)
             rows.append(row)
+            kept += 1
+        if not kept:
+            rows.append({**base, "lit_note": "no article mentions it"})
     res = pd.DataFrame(rows)
     res.to_csv(out, index=False)
     return res

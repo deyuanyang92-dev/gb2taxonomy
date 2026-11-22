@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 新命令 `g2t-sra`：mitostats 表里每个登录号 → 其原始 SRA/ENA run 清单（记录自带 `sra_runs`，没有则用 BioSample 去 ENA 查该标本的 reads），一行一个 run：platform / model / library_strategy / source / layout / read 数 / 碱基数 / study / sample，并标 `genomic`（WGS/WGA/WXS）与 `run_link`（record / biosample）。输出 `sra_runs.csv`。
+
 - 新命令 `g2t-litmethods`：对 mitostats 表里测序平台未知 / 组装方法未写明的记录，用登录号在 Europe PMC 全文检索找原文，列出文献（标题、DOI、PMCID），开放获取的全文去掉参考文献后用 mito_methods.yaml 的正则提取平台和组装软件，写到 `lit_*` 列（建议值，需人工确认）。不抓取 Google。示例 OP104125 → Illumina + NOVOPlasty、GetOrganelle（论文 PMC9879194，lit_role=reports）。
   另外：mitostats 表新增 `sra_runs` 列（DBLINK / COMMENT 里的 SRR/ERR/DRR）；平台只写成泛称 NGS 或未知、但记录带 run 号时，`g2t-litmethods` 向 ENA read_run 查 instrument_platform / instrument_model（结构化字段，不靠文字匹配；Hi-C / RNA-seq 的 run 在有 WGS run 时忽略），写 `sra_*` 列，并用 `method_source` 列标明来源（`ENA read_run instrument fields` 优先于 `literature Methods (Europe PMC)`）。线粒体组装软件无结构化来源（ENA 组装记录只有核基因组且 `assembly_software` 为空），仍只能来自 COMMENT 或原文 Methods。
 

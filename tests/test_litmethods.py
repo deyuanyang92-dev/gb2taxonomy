@@ -108,3 +108,31 @@ def test_assembled_and_annotated_sentence():
     assert lm.parse_methods(t)["lit_assemblers"] == "MitoZ"
     t2 = "The mitogenome was annotated with MITOS after assembly."
     assert not lm.parse_methods(t2).get("lit_assemblers")
+
+
+# real wordings seen in the 2026-11 spot check of "cited" papers (ERGA-BGE genome papers)
+_FOAM = ("Finally, the mitochondrial genome ( OZ239036.1 ) was assembled as a single circular contig of 16,836 bp "
+         "using the FOAM pipeline v0.5 and included in the released assembly (GCA_965183895.1).")
+_CAPTION = "The Hi-C contact map shows the 23 autosomes and the mitochondrial genome (GenBank accession: OZ199603.1 )."
+_TREE = "Holothuria forskali ( NC_013884.1 ), Holothuria sanctori ( OZ199603.1 ), Bohadschia argus ( NC_061402.1 )"
+
+
+def test_own_genome_paper_is_reports():
+    assert lm.accession_role(_FOAM, "OZ239036.1")[0] == "reports"
+    assert lm.accession_role(_CAPTION, "OZ199603.1")[0] == "reports"
+
+
+def test_species_list_stays_cited():
+    assert lm.accession_role(_TREE, "OZ199603.1")[0] == "cited"
+
+
+def test_title_names_record_species():
+    t = "ERGA-BGE reference genome of &lt;i&gt;Holothuria (Platyperona) sanctori&lt;/i&gt;"
+    assert lm.title_names_organism(t, "Holothuria sanctori")
+    assert not lm.title_names_organism("Complete mitochondrial genome of Holothuria atra", "Holothuria sanctori")
+    assert lm.accession_role(_TREE, "OZ199603.1", t, "Holothuria sanctori")[0] == "reports"
+    assert lm.accession_role(_TREE, "OZ199603.1", "Holothuria atra mitogenome", "Holothuria sanctori")[0] == "cited"
+
+
+def test_accession_absent_from_text():
+    assert lm.accession_role("A paper about nutrition.", "OZ410380.1")[0] == "absent"
