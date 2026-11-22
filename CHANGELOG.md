@@ -4,7 +4,7 @@
 
 - 新命令 `g2t-methods`：把 GenBank 记录、SRA run（`g2t-sra`）、论文（`g2t-litmethods`）三处的测序平台与组装软件合并成 `methods_final.csv`，每个值带来源（GenBank 记录 > SRA > 论文；只是被引用的论文不采信）。EBP 线粒体 6309 条：平台已知 5102，组装软件已知 4514（记录 4506 + 论文 8）。`--genome` 另加 `genome_assembly / genome_method / genome_seq_tech` 三列，仅作背景，不写入 `assembler`。
 
-- 新命令 `g2t-genome`：登录号 → BioSample → ENA 上同一标本的核基因组组装（GCA）→ NCBI datasets 的 assembly_method / sequencing_tech（如 Hifiasm, Purge_dups, Yahs + PacBio, Arima）。线粒体没写组装软件的 DToL/ERGA 记录借此补背景信息，不冒充线粒体组装软件。结果带缓存，重跑只查新增。
+- 新命令 `g2t-genome`：登录号 → BioSample → ENA 上同一标本的核基因组组装（GCA）→ NCBI datasets 的 assembly_method / sequencing_tech（如 Hifiasm, Purge_dups, Yahs + PacBio, Arima）。线粒体没写组装软件的 DToL/ERGA 记录借此补背景信息，不冒充线粒体组装软件。结果带缓存，重跑只查新增。查询按 25 个 BioSample / 20 个 GCA 分批并 6 线程并行（`--workers`），EBP 6309 条全量约 10 分钟、缓存命中重跑 1 秒（原为逐个串行，47 分钟只完成 8%）；NCBI 写的 "various"（提交者未给方法）视为无信息。全量结果：6309 条都有同一 BioSample 的核基因组，4919 条带方法；线粒体组装软件未知的 1795 条中 486 条得到 genome_method（MEGAHIT 203、Hifiasm+Purge_dups+Yahs 55 等）。
 
 - 缓存提速：`g2t-litmethods` / `g2t-sra` 缓存改为每批写一次（原为逐键整文件重写，二次方慢）；查询过的登录号直接读缓存。
 
