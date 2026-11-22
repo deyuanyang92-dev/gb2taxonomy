@@ -264,6 +264,30 @@ def main_mitostats(argv=None):
     return main(argv)
 
 
+def main_litmethods(argv=None):
+    """g2t-litmethods — Fill missing sequencing/assembly methods from the paper that cites the accession."""
+    _version_flag(argv, "g2t-litmethods")
+    from g2t.litmethods import main
+
+    return main(argv)
+
+
+def main_sra(argv=None):
+    """g2t-sra — Raw SRA/ENA runs behind each mitogenome accession (platform, strategy, read volume)."""
+    _version_flag(argv, "g2t-sra")
+    from g2t.sramap import main
+
+    return main(argv)
+
+
+def main_methods(argv=None):
+    """g2t-methods — Merge GenBank record, SRA runs and paper methods into one platform / assembler table."""
+    _version_flag(argv, "g2t-methods")
+    from g2t.methodmerge import main
+
+    return main(argv)
+
+
 def main_cite(argv=None):
     """g2t-cite — Find the published paper (Crossref) of records still marked Unpublished."""
     _version_flag(argv, "g2t-cite")
@@ -297,5 +321,13 @@ def main_organize(argv=None):
     check_dependencies()
     _configure_logging()
     from g2t.organize import main
+
+    return main(argv)
+
+
+def main_genome(argv=None):
+    """g2t-genome — nuclear genome assembly method of the same BioSample (context only)."""
+    _version_flag(argv, "g2t-genome")
+    from g2t.genomeasm import main
 
     return main(argv)

@@ -4,6 +4,19 @@
 
 ---
 
+## 组装方法只认 Assembly-Data 块 (2026-11-22)
+
+**现象**: OZ495698.1 (Halla parthenopeia, ATLASea) 没有 `##Assembly-Data##` 块, COMMENT 自由文本写明
+"Mitochondrial genome was assembled using OATK", 但 `assembler_group` 为 "Not stated"。测序平台早已有自由文本回退, 组装软件没有。
+
+**修复**: `mitostats.assemblers_from_comment()`: Assembly Method 没识别出软件时, 只扫描 COMMENT 中提到
+mito / organelle 的句子 (同一 COMMENT 里核基因组的 Hifiasm / purge_dups / YaHS 不算)。新列 `assembler_basis`
+标明依据 (Assembly-Data comment / free-text COMMENT names the mitogenome assembler)。
+
+**仍未覆盖**: 组装软件写在论文正文而非 GenBank 记录里的情况。
+
+---
+
 ## 未匹配序列分析 (2026-05-12)
 
 **功能**: g2t 现在会自动生成未匹配序列报告，帮助用户了解哪些序列未被分类。
@@ -269,3 +282,16 @@ ete3 3.1.3 的 `get_rank()` / `get_taxid_translator()` 在 SQL 中用双引号�
 - **证据（不是污染）：** 这些序列翻译无终止密码子（无脊椎线粒体密码表）；建树嵌在同属 *Polyophthalmus* 序列中，根到尖端距离约 1.0（全树中位 0.89）；同一支的 PZ235364 命中 *Polychaeta* sp. 79.6%。
 - **改进：** 新增数据集内 BLAST（每个基因的序列自己建库、去掉自身命中），`ds_*` 列。Opheliidae 上这几条在数据集里都有 99–100% 的同属记录，`ds_family_conflict` 为 0。
 - **仍未解决：** 一个类群所有记录都不在外部库、数据集里也只有它自己（单条序列的属）时，两层都无证据，只能靠建树和人工；PP652283 所在大支支持值只有 0.46。
+
+## 组装软件无结构化来源（g2t-litmethods）
+- **现象：** 想从 ENA / NCBI Assembly 记录读线粒体组装软件，读不到。
+- **原因：** DToL/EBP 的 ENA 组装记录是核基因组（hap1/hap2），`assembly_software` 字段为空；线粒体基因组只作为序列提交，没有对应的软件字段。
+- **Europe PMC `databaseLinks`：** 对 OP104125 的论文（PMID 36713295）返回空，不能用来建立论文↔登录号，继续用全文检索 + 报告/引用判断。
+- **结论：** 平台可由 ENA read_run 仪器字段确定（`sra_*` 列）；组装软件只有 COMMENT（如 OATK）或原文 Methods 的正则（`lit_assemblers`，建议值）。约 1800 条未发表的 EBP 记录没有论文，组装软件保持“未写明”。
+
+## 待核对：SRA 只查 ENA，可能漏掉 NCBI 独有的 run（g2t-sra / g2t-litmethods）
+- **现状：** run 信息只来自 ENA portal API（`read_run`），没有查 NCBI SRA。EBP 6309 条中：记录自带 run 4216，经 BioSample 在 ENA 找到 948，ENA 里没有 run 1145。
+- **选 ENA 的原因（推断，当时未留记录）：** ENA 与 NCBI 同属 INSDC，通常同步；ENA 一次请求可用 OR 批量查 50 个 run，能直接按 BioSample 查，返回 TSV；NCBI 需 esearch + efetch 解析 XML，无 key 时 3 次/秒。
+- **未验证：** 那 1145 条里有多少在 NCBI SRA 有（ENA 未镜像）。
+- **核对做法：** 从 `sra_runs.csv` 中 `note="no run found in ENA"` 的登录号固定种子抽 30 条，用 NCBI esearch（db=sra，BioSample 号）查，统计补回数。补回很少 → 只用 ENA，在文档注明；较多 → 加 NCBI 后备，只查 ENA 没找到的，沿用 litmethods.Cache。
+- **状态：** 未做（2026-11-22 登记）。

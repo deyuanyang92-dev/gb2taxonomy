@@ -2,6 +2,21 @@
 
 ## 未发布
 
+- 新命令 `g2t-methods`：把 GenBank 记录、SRA run（`g2t-sra`）、论文（`g2t-litmethods`）三处的测序平台与组装软件合并成 `methods_final.csv`，每个值带来源（GenBank 记录 > SRA > 论文；只是被引用的论文不采信）。EBP 线粒体 6309 条：平台已知 5102，组装软件已知 4514（记录 4506 + 论文 8）。`--genome` 另加 `genome_assembly / genome_method / genome_seq_tech` 三列，仅作背景，不写入 `assembler`。
+
+- 新命令 `g2t-genome`：登录号 → BioSample → ENA 上同一标本的核基因组组装（GCA）→ NCBI datasets 的 assembly_method / sequencing_tech（如 Hifiasm, Purge_dups, Yahs + PacBio, Arima）。线粒体没写组装软件的 DToL/ERGA 记录借此补背景信息，不冒充线粒体组装软件。结果带缓存，重跑只查新增。查询按 25 个 BioSample / 20 个 GCA 分批并 6 线程并行（`--workers`），EBP 6309 条全量约 10 分钟、缓存命中重跑 1 秒（原为逐个串行，47 分钟只完成 8%）；NCBI 写的 "various"（提交者未给方法）视为无信息。全量结果：6309 条都有同一 BioSample 的核基因组，4919 条带方法；线粒体组装软件未知的 1795 条中 486 条得到 genome_method（MEGAHIT 203、Hifiasm+Purge_dups+Yahs 55 等）。
+
+- 缓存提速：`g2t-litmethods` / `g2t-sra` 缓存改为每批写一次（原为逐键整文件重写，二次方慢）；查询过的登录号直接读缓存。
+
+- 新命令 `g2t-sra`：mitostats 表里每个登录号 → 其原始 SRA/ENA run 清单（记录自带 `sra_runs`，没有则用 BioSample 去 ENA 查该标本的 reads），一行一个 run：platform / model / library_strategy / source / layout / read 数 / 碱基数 / study / sample，并标 `genomic`（WGS/WGA/WXS）与 `run_link`（record / biosample）。输出 `sra_runs.csv`。
+
+- 新命令 `g2t-litmethods`：对 mitostats 表里测序平台未知 / 组装方法未写明的记录，用登录号在 Europe PMC 全文检索找原文，列出文献（标题、DOI、PMCID），开放获取的全文去掉参考文献后用 mito_methods.yaml 的正则提取平台和组装软件，写到 `lit_*` 列（建议值，需人工确认）。不抓取 Google。示例 OP104125 → Illumina + NOVOPlasty、GetOrganelle（论文 PMC9879194，lit_role=reports）。
+  另外：mitostats 表新增 `sra_runs` 列（DBLINK / COMMENT 里的 SRR/ERR/DRR）；平台只写成泛称 NGS 或未知、但记录带 run 号时，`g2t-litmethods` 向 ENA read_run 查 instrument_platform / instrument_model（结构化字段，不靠文字匹配；Hi-C / RNA-seq 的 run 在有 WGS run 时忽略），写 `sra_*` 列，并用 `method_source` 列标明来源（`ENA read_run instrument fields` 优先于 `literature Methods (Europe PMC)`）。线粒体组装软件无结构化来源（ENA 组装记录只有核基因组且 `assembly_software` 为空），仍只能来自 COMMENT 或原文 Methods。
+
+- **mitostats：新标签 "No assembly info in record"：** 没有 `##Assembly-Data##` 块、COMMENT 里也找不到组装软件的记录，`assembler_group` 不再与"有块但软件无法识别"的 "Not stated" 混在一起。EBP 线粒体 6309 条中 1803 条属此类（COMMENT 为空或只有 "X mitochondrial genome."），"Not stated" 为 0。规则补入 ptGAUL、mitoVGP、myloasm。HTML 报告的桑基图与筛选同步。
+
+- **mitostats：无 Assembly-Data 块时从 COMMENT 取线粒体组装软件：** 此前只读 `##Assembly-Data##` 的 Assembly Method，OZ495698.1（ATLASea，COMMENT 写 "Mitochondrial genome was assembled using OATK"）被判 "Not stated"。现在只扫描 COMMENT 中提到 mito / organelle 的句子（同一 COMMENT 里核基因组的 Hifiasm、purge_dups、YaHS 不计），新列 `assembler_basis` 标明依据。真实数据（EBP 线粒体 6309 条）：4394 条由 "Not stated" 得到组装软件（MitoHiFi 3807、Oatk 438 等）；OZ495698.1 → Oatk。
+
 - **两族一致但远近不同（layers_disagree）升 `likely_misidentified`：** 一族说“另一科”、另一族说“另一属/种”，名称错是确定的，只是不知多远。海蛹科注入基准（297 条、每类 30）：基线 0 条、注入 23 条（跨科 7、标签互换 11、批次 5）出现该情形，无一假阳性，故由 `suspect` 升为 `likely_misidentified`（去向不一致检查仍先于它）。
 
 - **Codex 评审（deep）采纳项：** ① `verdict`：两个证据族都说“名称错”但去向属不同（k-mer/树的最近属 vs BLAST 共识属）时不再升 `likely_misidentified`，改 `suspect` 并写 `destinations_disagree`。② BLAST 共识：属级投票的分母含只有科名的命中（1 个有属名 + 9 个仅科名不再给出属共识）；种级仅 1 个有名命中而其余为开放名（`sp. X`）时只能报冲突、不能确认名称（`species_thin`，`clean` → `coarse_agree`）。③ 声明类群在命中中完全缺席、只靠 1 条外来近缘参考的冲突标 `weak`，只记 `suspect`、不参与升级（缺参考 ≠ 反对声明名）。④ 无 BLAST 命中的序列写入 `blastcheck.csv`（`gate=no_hit`），verdict 为 `unchecked` 而不是从表里消失。海蛹科离线重算：clean 4819→4735（84 条降为 coarse_agree），likely_misidentified 15→9（6 条降为 suspect），其余不变；论文已知错误 KC833485/6、LC788351 仍为 suspect。

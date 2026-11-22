@@ -179,7 +179,7 @@ def test_table_from_header_records(tmp_path):
     assert r["assemblers"] == "MitoZ; NOVOPlasty" and r["journal"] == "Mitochondrial DNA B Resour"
     assert r["year"] == 2020
     r2 = t.iloc[1]
-    assert r2["assembler_group"] == "Not stated"  # no Assembly-Data block, but a free-text comment
+    assert r2["assembler_group"] == "No assembly info in record"  # no block, comment names no assembler
     assert (r2["seq_category"], r2["seq_basis"]) == ("Sanger", "free-text COMMENT names the platform")
 
 
@@ -317,3 +317,26 @@ def test_sequencing_inferred_without_assembly_data(cat, date, titles, out):
 )
 def test_sequencing_from_comment_and_dblink(comment, dblinks, out):
     assert ms.infer_sequencing("Unknown", "2024-01-01", [], comment, dblinks)[0] == out
+
+
+ATLASEA = (
+    "The assembly of Halla parthenopeia is based on 37X PacBio data. The assembly process\n"
+    "included: initial PacBio assembly generation with Hifiasm, removal of haplotypic\n"
+    "duplications using purge_dups, and scaffolding with YaHS. Mitochondrial\n"
+    "genome was assembled using OATK. Finally, the primary assembly was improved using Pretext."
+)
+
+
+def test_assembler_from_free_text_comment_mito_sentence_only():
+    # the nuclear-genome assembler (Hifiasm) must not be credited, the mitogenome one (OATK) must
+    assert ms.assemblers_from_comment(ATLASEA) == ["Oatk"]
+    assert ms.assemblers_from_comment("Assembled with Hifiasm. Scaffolded with YaHS.") == []
+    assert ms.assemblers_from_comment("") == []
+
+
+def test_group_no_info_vs_not_stated():
+    # an Assembly-Data block without a recognisable program stays "Not stated"; no block at all is "no info"
+    assert ms.assembler_group([], [], False) == "Not stated"
+    assert ms.assembler_group([], [], False, no_info=True) == "No assembly info in record"
+    assert ms.assembler_group([], ["x tool"], False, no_info=True) == "Other"
+    assert ms.assembler_group(["Oatk"], [], False, no_info=True) == "Oatk"

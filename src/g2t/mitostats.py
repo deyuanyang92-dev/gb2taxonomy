@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 CATEGORIES = ["Sanger", "NGS", "Long-read", "Unknown"]
 RANKS = ["phylum", "class", "order", "family", "genus"]
 NOT_STATED = "Not stated"
+NO_INFO = "No assembly info in record"  # no Assembly-Data block and no assembler in the COMMENT
 MULTI = "Multi-assembly"
 OTHER = "Other"
 MAPPING = "Reference mapping"
@@ -151,22 +152,65 @@ def assemblers(raw: str) -> tuple[list[str], list[str]]:
     return names, other
 
 
+_MITO_WORD = re.compile(r"mito|organelle|\bmt\s*dna\b|\bmtgenome\b", re.I)
+_SENTENCE = re.compile(r"(?<=[.;])\s+(?=[A-Z])")
+
+
+def assemblers_from_comment(comment: str) -> list[str]:
+    """Assemblers a free-text COMMENT names for the *mitogenome* (records without an Assembly-Data block).
+
+    Only sentences that mention the mitochondrion / organelle count: Darwin Tree of Life and ATLASea
+    comments describe the nuclear assembly too ("initial assembly with Hifiasm ...") and then state
+    "Mitochondrial genome was assembled using OATK." Sentences are split on ". " / "; ", with line
+    wraps joined first.
+    """
+    rules = _rules()
+    names: list[str] = []
+    for sent in _SENTENCE.split(re.sub(r"\s+", " ", comment or "")):
+        if _MITO_WORD.search(sent):
+            for n, rx in rules["assemblers"]:
+                if rx.search(sent) and n not in names:
+                    names.append(n)
+    return names
+
+
+_RUN = re.compile(r"\b[SED]RR\d{6,}\b")
+
+
+def sra_runs(dbxrefs: Iterable[str], comment: str = "") -> list[str]:
+    """Run accessions behind a record: DBLINK "Sequence Read Archive:ERR1, ERR2,\\n ERR3" (wrapped lines arrive as
+    separate dbxrefs) and runs quoted in the COMMENT. Used by g2t-litmethods to ask ENA for the instrument."""
+    found = _RUN.findall(" ".join(str(x) for x in dbxrefs) + " " + (comment or ""))
+    return list(dict.fromkeys(found))
+
+
+_BIOSAMPLE = re.compile(r"\bSAM[NED]A?\d+\b")
+
+
+def biosamples(dbxrefs: Iterable[str]) -> list[str]:
+    """BioSample accessions from DBLINK ("BioSample:SAMEA123"); g2t-litmethods asks ENA for that specimen's reads."""
+    return list(dict.fromkeys(_BIOSAMPLE.findall(" ".join(str(x) for x in dbxrefs))))
+
+
 def mapping_tools(raw: str) -> bool:
     """Does the Assembly Method name a reference-mapping / consensus-calling tool (BWA, MIA, GATK ...)?"""
     rx = _rules()["mapping"]
     return bool(rx and rx.search(str(raw or "")))
 
 
-def assembler_group(names: list[str], other: list[str], mapped: bool = False) -> str:
+def assembler_group(names: list[str], other: list[str], mapped: bool = False, no_info: bool = False) -> str:
     """One label per record: the program, "Multi-assembly", "Reference mapping" (only mapping /
-    consensus tools named), "Other" or "Not stated"."""
+    consensus tools named), "Other", "Not stated" (an Assembly-Data block without a recognisable program) or
+    "No assembly info in record" (no Assembly-Data block, nothing in the COMMENT: ``no_info``)."""
     if len(names) > 1:
         return MULTI
     if names:
         return names[0]
     if mapped:
         return MAPPING
-    return OTHER if other else NOT_STATED
+    if other:
+        return OTHER
+    return NO_INFO if no_info else NOT_STATED
 
 
 # ------------------------------------------------------------------ references
@@ -318,6 +362,11 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
                                        str(rec.annotations.get("comment", "")), rec.dbxrefs)
     am_raw = asm.get("Assembly Method", "")
     names, other = assemblers(am_raw)
+    asm_basis = "Assembly-Data comment" if names else ""
+    if not names:
+        names = assemblers_from_comment(str(rec.annotations.get("comment", "")))
+        if names:
+            asm_basis = "free-text COMMENT names the mitogenome assembler"
     length = summary.get("length") or (len(rec.seq) if len(rec.seq) > 1 else None)
     return {
         "accession": rec.id,
@@ -330,10 +379,16 @@ def _record_row(rec: Any, summary: dict[str, str]) -> dict[str, Any]:
         "seq_platforms": "; ".join(sequencing_platforms(st_raw)),
         "seq_category": category,
         "seq_basis": basis,
+        "method_source": "GenBank record (COMMENT / DBLINK)" if basis else "",
         "assembly_method_raw": am_raw,
         "assemblers": "; ".join(names),
-        "assembler_group": assembler_group(names, other, mapping_tools(am_raw)),
+        "assembler_basis": asm_basis,
+        "assembler_group": assembler_group(names, other, mapping_tools(am_raw), no_info=not asm),
         "assembly_other": "; ".join(other),
+        "biosample": "; ".join(biosamples(rec.dbxrefs)),
+        "pubmed_ids": "; ".join(dict.fromkeys(str(r.pubmed_id) for r in rec.annotations.get("references", [])
+                                              if getattr(r, "pubmed_id", ""))),
+        "sra_runs": "; ".join(sra_runs(rec.dbxrefs, str(rec.annotations.get("comment", "")))),
         "genome_coverage": asm.get("Genome Coverage", ""),
         "has_assembly_data": bool(asm),
         **pub,
@@ -447,8 +502,8 @@ def fig_alluvial(t: pd.DataFrame, out: Path, top_assemblers: int = 15) -> None:
     orders = [
         sorted(d["year"].unique()),
         [c for c in CATEGORIES if c in set(d["seq_category"])],
-        [a for a in d["asm"].value_counts().index if a not in (OTHER, NOT_STATED)]
-        + [a for a in (OTHER, NOT_STATED) if a in set(d["asm"])],
+        [a for a in d["asm"].value_counts().index if a not in (OTHER, NOT_STATED, NO_INFO)]
+        + [a for a in (OTHER, NOT_STATED, NO_INFO) if a in set(d["asm"])],
     ]
     n = len(d)
     gap = n * 0.004
